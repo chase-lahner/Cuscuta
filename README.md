@@ -70,6 +70,7 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 * Dungeon procedural generation works as intended: 25%
 * Multiplayer connection works as intended: 25%
 * Automatic playercount-dependent and carnage-bar-dependent game balancing: 15%
-* Working stealth/detection system: 15%
-* Fluid movement mechanics: 10%
-* Final boss battle: 10%
+* Working stealth/detection system: 5%
+* Additional playable character: 5%
+* Fluid movement mechanics: 12.5%
+* Final boss battle: 12.5%
