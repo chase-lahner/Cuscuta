@@ -38,23 +38,26 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 
 * Playable Demo
 	+ Basic dungeon generation - fluctuating room size & metrics, completely random
-	+ at least 1 enemy type
+	+ at least 1 enemy type with basic movement (basic, non-player oriented)
 * Rudimentary Multiplayer
-	+ Basic two-player connection
-	+ Basic synchronization between movement
+	+ Basic two-player connection - Not lag free, just able to have 2 players in same game
 * Rudimentary Animation/Artwork
-* Basic Line-of-Sight Detection
+* Basic Line-of-Sight Detection for 1 enemy type
 
 ## Final Goals
 
 *  Complete Game
-	+ Dungeon generation based on players' carnage bars and location
-	+ Tight interplay between generation & multiplayer
-	+ At least 4 enemy types
+	+ Dungeon generation based on players' carnage bars and location - Should be random, but influenced by carnage bars and player count
+	+ Tight interplay between generation & multiplayer - 2 players mean more difficult rooms, some rooms require teamwork to complete
+	+ At least 4 enemy types 
+	+ At least 3-4 distinct items player can utilize (At least 2 weapons, 1 buff)
 *  Fluid Multiplayer
-	+ Movement and monsters must be synchronized
+	+ Movement and monsters must be synchronized 
 	+ No large room lag
+	+ Movement must be relatively lag-free
 *  Ending, Boss Battle
+	*  Boss has at least 2 unique abilities
+	*  End reward
 
 ## Stretch Goals
 
@@ -68,9 +71,14 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 ## Grade Breakdown (WIP)
 
 * Dungeon procedural generation works as intended: 25%
+	* Variable generation based on carnage bar: 10%
+	* Completely Random generation -- rooms from start to final boss: 10%
+	* Variable generation/difficulty based on 1-2 players: 5%
 * Multiplayer connection works as intended: 25%
+	* Basic functionality: 2 players with full functionality in same lobby: 12.5%
+	* Lack of major lag/latency in basic game functions: 12.5%
 * Automatic playercount-dependent and carnage-bar-dependent game balancing: 15%
 * Working stealth/detection system: 5%
 * Additional playable character: 5%
-* Fluid movement mechanics: 12.5%
-* Final boss battle: 12.5%
+* Fluid movement mechanics (Walk, Sprint, Roll) -> can be used in succession: 12.5%
+* Final boss battle -> At least 2 unique enemy abilities: 12.5%
