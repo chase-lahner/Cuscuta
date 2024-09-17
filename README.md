@@ -29,28 +29,48 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 
     
 ### Procedural Generation
-
-+ Dynamic - Based off the carnage bar, the type of room, enemies, obstacles, etc. will change
++ Room size: Room size is variable and will increase/decrease depending on the carnage bar
++ Enemies: Enemy count and type is variable based on the carnage bar
++ Obstacles: Obstacles & stealth objects will spawn differently depending on the carnage bar
 + Replayable - Each playthrough is entirely procedurally generated, making it feel like a new run each time
 + Variable - Automatic balancing between 1-2 players, 2 player runs will have more enemies/difficulty
+	##### Method
+	1. Create (numRooms) rooms with different shapes
+	2. Push the rooms apart until they are not touching
+	3. Determine "main" rooms (boss rooms, starting room)
+	4. Delauney triangulate the main rooms
+	5. Create a MST from the graph to create edges and loops
+	6. Add hallways
 
 ## Midterm Goals
-
 * Playable Demo
-	+ Basic dungeon generation - fluctuating room size & metrics, completely random
 	+ at least 1 enemy type with basic movement (basic, non-player oriented)
+	+ 2D movement - Up, down, left, right
+	+ Crouch/sneak mechanic, dash mechanic implemented
+* Generation
+	+ Basic dungeon generation - fluctuating room size & metrics, completely random dungeon generation
+	+ Entire dungeon generation at runtime
 * Rudimentary Multiplayer
 	+ Basic two-player connection - Not lag free, just able to have 2 players in same game
 * Rudimentary Animation/Artwork
+   	* Starter sword art
+	* Character art & animations
+   	* 2 enemy sprites & animations   	
 * Basic Line-of-Sight Detection for 1 enemy type
+  	+ move enemy to player's last known location (LKL)
 
 ## Final Goals
-
 *  Complete Game
 	+ Dungeon generation based on players' carnage bars and location - Should be random, but influenced by carnage bars and player count
 	+ Tight interplay between generation & multiplayer - 2 players mean more difficult rooms, some rooms require teamwork to complete
 	+ At least 4 enemy types 
 	+ At least 3-4 distinct items player can utilize (At least 2 weapons, 1 buff)
+	  	+ Starter sword, gun, bow, knife, potions/powerup, etc
+* Finalized Generation
+	+ Each room is generated realtime based on the carnage bar
+	+ Rooms generated as you step into them, not all at the beginning of the game
+	+ Enemy count & type fluctuates as they spawn real-time
+	+ Dungeon "fights against" you
 *  Fluid Multiplayer
 	+ Movement and monsters must be synchronized 
 	+ No large room lag
