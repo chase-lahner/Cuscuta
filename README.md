@@ -98,7 +98,8 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 	* Basic functionality: 2 players with full functionality in same lobby: 12.5%
 	* Lack of major lag/latency in basic game functions: 12.5%
 * Automatic playercount-dependent and carnage-bar-dependent game balancing: 15%
+* Fluid movement mechanics (Walk, Sprint, Roll) -> can be used in succession: 7.5%
+* Final boss battle -> At least 2 unique enemy abilities: 7.5%
+* Minimum Viable Product (all goals reached) 10%
 * Working stealth/detection system: 5%
 * Additional playable character: 5%
-* Fluid movement mechanics (Walk, Sprint, Roll) -> can be used in succession: 12.5%
-* Final boss battle -> At least 2 unique enemy abilities: 12.5%
