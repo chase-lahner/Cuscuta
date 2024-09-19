@@ -110,24 +110,24 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 * Additional playable character: 5%
 
 ## CHANGES (DELETE WHEN ALL DONE)
-P2P networking or dedicated server? - DONE, P2P
-Midterm goals
-	A bit more specifics on enemy type (e.g., does it attack? movement only? what should it be able to do?) - DONE
-	Static placeholder dungeon map OK for midterm
-Final goals / stretch goals
-	Specifics on how the room generation is based on carnage bars - DONE
-	How should the difficulty scale with 2 players? - DONE
-	How should the enemy types differ? What should each be able to do?
-	Cut to 1 item, moved other items to stretch goal - DONE
-	Cut boss battle or move to stretch goal - DONE
-	Move ability to escape detection to final goal - DONE
-	Stretch goals should be pick 2 of:
-		Enemy distraction and pathing towards player's last known location
-		Boss battle
-		3 more item types
-	Cut Multiple characters - DONE
- Grading
- 	Cut Multiple characters
-	Again, clarify carnage effect on ProcGen and 2 player scaling
-	Remove playercount-dependent and carnage-bar-dependent game balancing goal, already included in ProcGen goal, add points for detection/escape, and increase points for basic movement
-	Cut boss battle, add points for enemy AI working (very basic ai as that's not an adv topic)
++ P2P networking or dedicated server? - DONE, P2P
++ Midterm goals
+	+ A bit more specifics on enemy type (e.g., does it attack? movement only? what should it be able to do?) - DONE
+	+ Static placeholder dungeon map OK for midterm
++ Final goals / stretch goals
+	+ Specifics on how the room generation is based on carnage bars - DONE
+	+ How should the difficulty scale with 2 players? - DONE
+	+ How should the enemy types differ? What should each be able to do?
+	+ Cut to 1 item, moved other items to stretch goal - DONE
+	+ Cut boss battle or move to stretch goal - DONE
+	+ Move ability to escape detection to final goal - DONE
+	+ Stretch goals should be pick 2 of:
+		+ Enemy distraction and pathing towards player's last known location
+		+ Boss battle
+		+ 3 more item types
+	+ Cut Multiple characters - DONE
++ Grading
+ 	+ Cut Multiple characters
+	+ Again, clarify carnage effect on ProcGen and 2 player scaling
+	+ Remove playercount-dependent and carnage-bar-dependent game balancing goal, already included in ProcGen goal, add points for detection/escape, and increase points for basic movement
+	+ Cut boss battle, add points for enemy AI working (very basic ai as that's not an adv topic)
