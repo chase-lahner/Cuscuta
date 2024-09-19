@@ -21,9 +21,10 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 
 ### Networked Multiplayer
 
+ + Multiplayer will function using a P2P connection between the two players
  + Each player has a unique carnage bar allowing for more build combinations
- + Procedural rooms are generated based off an average of both players' carnage bars, weighted heavier towards carnage.
- + Teammates must balance between stealth and destruction to maintain a balance in the dangerous dungeon.
+ + Procedural rooms are generated based off an average of both players' carnage bars, weighted heavier towards carnage
+ + Teammates must balance between stealth and destruction to maintain a balance in the dangerous dungeon
  + Dungeons will be harder in co-op mode and therefore require strategy and planning
 
 
@@ -44,7 +45,7 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 
 ## Midterm Goals
 * Playable Demo
-	+ at least 1 enemy type with basic movement (basic, non-player oriented)
+	+ at least 1 enemy type with basic movement (basic, non-player oriented) and causes damage when colliding with a player
 	+ 2D movement - Up, down, left, right
 	+ Crouch/sneak mechanic, dash mechanic implemented
 * Generation
@@ -62,10 +63,14 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 ## Final Goals
 *  Complete Game
 	+ Dungeon generation based on players' carnage bars and location - Should be random, but influenced by carnage bars and player count
-	+ Tight interplay between generation & multiplayer - 2 players mean more difficult rooms, some rooms require teamwork to complete
-	+ At least 4 enemy types 
-	+ At least 3-4 distinct items player can utilize (At least 2 weapons, 1 buff)
-	  	+ Starter sword, gun, bow, knife, potions/powerup, etc
+		+ Too high carnage will generate rooms with difficult opponents to fight, but easy to sneak around
+		+ Too low carnage will generate rooms with easier enemies to fight, but too many to sneak around
+	+ Tight interplay between generation & multiplayer - 2 players mean more difficult rooms
+ 		+ More enemies will be spawned in with 2 players
+		+ Some rooms require teamwork to complete
+	+ At least 4 enemy types
+ 	+ One distinct item players can utilize
+   	+ Ability to escape detection from enemies
 * Finalized Generation
 	+ Each room is generated realtime based on the carnage bar
 	+ Rooms generated as you step into them, not all at the beginning of the game
@@ -75,18 +80,18 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 	+ Movement and monsters must be synchronized 
 	+ No large room lag
 	+ Movement must be relatively lag-free
-*  Ending, Boss Battle
-	*  Boss has at least 2 unique abilities
-	*  End reward
+*  Ending
+	+  End reward
 
 ## Stretch Goals
 
 * Advanced Stealth/Detection System
-	+ Ability to escape detection
 	+ Ability to distract enemy
 	+ Enemies pathfind to player's last known location
-* Multiple Characters
-	+ Two characters with at least one distinct ability each
+* At least 3-4 distinct items player can utilize (At least 2 weapons, 1 buff)
+	+ Starter sword, gun, bow, knife, potions/powerup, etc
+* Boss Battle
+	*  Boss has at least 2 unique abilities, special reward for winning
 
 ## Grade Breakdown (WIP)
 
@@ -103,3 +108,26 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 * Minimum Viable Product (all goals reached) 10%
 * Working stealth/detection system: 5%
 * Additional playable character: 5%
+
+## CHANGES (DELETE WHEN ALL DONE)
+P2P networking or dedicated server? - DONE, P2P
+Midterm goals
+	A bit more specifics on enemy type (e.g., does it attack? movement only? what should it be able to do?) - DONE
+	Static placeholder dungeon map OK for midterm
+Final goals / stretch goals
+	Specifics on how the room generation is based on carnage bars - DONE
+	How should the difficulty scale with 2 players? - DONE
+	How should the enemy types differ? What should each be able to do?
+	Cut to 1 item, moved other items to stretch goal - DONE
+	Cut boss battle or move to stretch goal - DONE
+	Move ability to escape detection to final goal - DONE
+	Stretch goals should be pick 2 of:
+		Enemy distraction and pathing towards player's last known location
+		Boss battle
+		3 more item types
+	Cut Multiple characters - DONE
+ Grading
+ 	Cut Multiple characters
+	Again, clarify carnage effect on ProcGen and 2 player scaling
+	Remove playercount-dependent and carnage-bar-dependent game balancing goal, already included in ProcGen goal, add points for detection/escape, and increase points for basic movement
+	Cut boss battle, add points for enemy AI working (very basic ai as that's not an adv topic)
