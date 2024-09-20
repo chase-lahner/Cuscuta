@@ -101,18 +101,22 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 ## Grade Breakdown (WIP)
 
 * Dungeon procedural generation works as intended: 25%
-	* Variable generation based on carnage bar: 10%
-	* Completely Random generation -- rooms from start to final boss: 10%
-	* Variable generation/difficulty based on 1-2 players: 5%
-* Multiplayer connection works as intended: 25%
+		* When carnage > stealth, enemies strong in stealth will spawn at an increased rate
+		* When stealth > carnage, enemies strong in carnage will spawn at an increased rate 
+		* when carnage > stealth, dungeons will generate with more opportunities to utilize stealth over carnage (ex. stronger enemies that can be avoided with stealth)
+		* When stealth > carnage, dungeons wilsl generate with more opporunties to utilize carnage over stealth (ex. weaker enemies that you can't avoid being detected by)
+		* Completely Random generation -- rooms from start to final boss
+* Multiplayer P2P connection works as intended: 25%
 	* Basic functionality: 2 players with full functionality in same lobby: 12.5%
 	* Lack of major lag/latency in basic game functions: 12.5%
-* Automatic playercount-dependent and carnage-bar-dependent game balancing: 15%
-* Fluid movement mechanics (Walk, Sprint, Roll) -> can be used in succession: 7.5%
+* Fluid movement mechanics (Walk, Sprint, Roll) -> can be used in succession: 17.5%
 * Enemy A.I functionality -> Last Known Location, Player tracking, combat abilities: 7.5%
 * Minimum Viable Product (all goals reached) 10%
-* Working stealth/detection system: 5%
-* Additional playable character: 5%
+* Working detection/escape 15%
+	* Enemies have line of sight detection
+	* Enemies lose interest after a set amount of time of player not being in line of sight
+
+
 
 ## CHANGES (DELETE WHEN ALL DONE)
 + P2P networking or dedicated server? - DONE, P2P
@@ -132,7 +136,7 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 		+ 3 more item types
 	+ Cut Multiple characters - DONE
 + Grading
- 	+ Cut Multiple characters
-	+ Again, clarify carnage effect on ProcGen and 2 player scaling
+ 	+ Cut Multiple characters - DONE
+	+ Again, clarify carnage effect on ProcGen and 2 player scaling - DONE
 	+ Remove playercount-dependent and carnage-bar-dependent game balancing goal, already included in ProcGen goal, add points for detection/escape, and increase points for basic movement
 	+ Cut boss battle, add points for enemy AI working (very basic ai as that's not an adv topic) - DONE
