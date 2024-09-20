@@ -69,6 +69,13 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
  		+ More enemies will be spawned in with 2 players
 		+ Some rooms require teamwork to complete
 	+ At least 4 enemy types
+		+ 2 For each category: strong in stealth vs strong in carnage
+		+ Stealth:
+			+ 1 Enemy that is weak, but can detect player from a longer radius
+			+ 1 Enemy that has the longest detection radius, but shorter attention span
+		+ Carnage:
+			+ 1 Enemy that is weak, but is mobile and does high damage
+			+ 1 Enemy with a high health bar and does high damage, but is very slow
  	+ One distinct item players can utilize
    	+ Ability to escape detection from enemies
 * Finalized Generation
@@ -90,8 +97,6 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 	+ Enemies pathfind to player's last known location
 * At least 3-4 distinct items player can utilize (At least 2 weapons, 1 buff)
 	+ Starter sword, gun, bow, knife, potions/powerup, etc
-* Boss Battle
-	*  Boss has at least 2 unique abilities, special reward for winning
 
 ## Grade Breakdown (WIP)
 
@@ -104,7 +109,7 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 	* Lack of major lag/latency in basic game functions: 12.5%
 * Automatic playercount-dependent and carnage-bar-dependent game balancing: 15%
 * Fluid movement mechanics (Walk, Sprint, Roll) -> can be used in succession: 7.5%
-* Final boss battle -> At least 2 unique enemy abilities: 7.5%
+* Enemy A.I functionality -> Last Known Location, Player tracking, combat abilities: 7.5%
 * Minimum Viable Product (all goals reached) 10%
 * Working stealth/detection system: 5%
 * Additional playable character: 5%
@@ -117,11 +122,11 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 + Final goals / stretch goals
 	+ Specifics on how the room generation is based on carnage bars - DONE
 	+ How should the difficulty scale with 2 players? - DONE
-	+ How should the enemy types differ? What should each be able to do?
+	+ How should the enemy types differ? What should each be able to do? - DONE
 	+ Cut to 1 item, moved other items to stretch goal - DONE
 	+ Cut boss battle or move to stretch goal - DONE
 	+ Move ability to escape detection to final goal - DONE
-	+ Stretch goals should be pick 2 of:
+	+ Stretch goals should be pick 2 of: - DONE
 		+ Enemy distraction and pathing towards player's last known location
 		+ Boss battle
 		+ 3 more item types
@@ -130,4 +135,4 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
  	+ Cut Multiple characters
 	+ Again, clarify carnage effect on ProcGen and 2 player scaling
 	+ Remove playercount-dependent and carnage-bar-dependent game balancing goal, already included in ProcGen goal, add points for detection/escape, and increase points for basic movement
-	+ Cut boss battle, add points for enemy AI working (very basic ai as that's not an adv topic)
+	+ Cut boss battle, add points for enemy AI working (very basic ai as that's not an adv topic) - DONE
