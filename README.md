@@ -48,6 +48,7 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 	+ at least 1 enemy type with basic movement (basic, non-player oriented) and causes damage when colliding with a player
 	+ 2D movement - Up, down, left, right
 	+ Crouch/sneak mechanic, dash mechanic implemented
+ 	+ Carnage bar implemented - reacts to player gameplay and changes state depending on stealth or carnage 
 * Generation
 	+ Basic dungeon generation - fluctuating room size & metrics, completely random dungeon generation
 	+ Entire dungeon generation at runtime
@@ -56,6 +57,7 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 * Rudimentary Animation/Artwork
    	* Starter sword art
 	* Character art & animations
+	* Carnage Bar art & animations
    	* 2 enemy sprites & animations   	
 * Basic Line-of-Sight Detection for 1 enemy type
   	+ move enemy to player's last known location (LKL)
