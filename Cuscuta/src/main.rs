@@ -2,7 +2,7 @@ use bevy::{prelude::*, window::PresentMode};
 // dependencies
 
 #[derive(Component, Deref, DerefMut)]
-struct PopupTime(Timer);
+struct PopupTimer(Timer);
 // Timers
 
 // Little hello_world credit scene.
@@ -20,7 +20,7 @@ fn main() {
             ..default()
         }))
         .add_systems(Startup,setup)
-        .add_system(Update, show_popup)
+        .add_systems(Update, show_popup)
         .run();
 }
 
@@ -31,28 +31,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
         ..default()
     });
     commands
-        .spawn(SprintBundle {// second image
+        .spawn(SpriteBundle {// second image
             texture: asset_server.load(""),
             transform: Transform::from_xyz(0.,0.,-1.),
             ..default()
         })
         .insert(PopupTime(Timer::from_seconds(3.,TimerMode::Once)));
     commands
-        .spawn(SprintBundle {// third image
+        .spawn(SpriteBundle {// third image
             texture: asset_server.load(""),
             transform: Transform::from_xyz(0.,0.,-2.),
             ..default()
         })
         .insert(PopupTime(Timer::from_seconds(6.,TimerMode::Once)));
     commands
-        .spawn(SprintBundle {// fourth image
+        .spawn(SpriteBundle {// fourth image
             texture: asset_server.load(""),
             transform: Transform::from_xyz(0.,0.,-3.),
             ..default()
         })
         .insert(PopupTime(Timer::from_seconds(9.,TimerMode::Once)));
     commands
-        .spawn(SprintBundle { // fifth Image
+        .spawn(SpriteBundle { // fifth Image
             texture: asset_server.load(""),
             transform: Transform::from_xyz(0.,0.,-4.),
             ..default()
