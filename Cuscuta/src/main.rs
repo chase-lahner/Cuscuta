@@ -27,37 +27,37 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
     commands.spawn(Camera2dBundle::default());
     commands.spawn(SpriteBundle {// first image to show
-        texture: asset_server.load("")
+        texture: asset_server.load("game_end_credit_screen_rory.png"),
         ..default()
     });
     commands
         .spawn(SpriteBundle {// second image
-            texture: asset_server.load(""),
+            texture: asset_server.load("game_end_credit_screen_chase.png"),
             transform: Transform::from_xyz(0.,0.,-1.),
             ..default()
         })
-        .insert(PopupTime(Timer::from_seconds(3.,TimerMode::Once)));
+        .insert(PopupTimer(Timer::from_seconds(3.,TimerMode::Once)));
     commands
         .spawn(SpriteBundle {// third image
-            texture: asset_server.load(""),
+            texture: asset_server.load("game_end_credits_lukas.png"),
             transform: Transform::from_xyz(0.,0.,-2.),
             ..default()
         })
-        .insert(PopupTime(Timer::from_seconds(6.,TimerMode::Once)));
+        .insert(PopupTimer(Timer::from_seconds(6.,TimerMode::Once)));
     commands
         .spawn(SpriteBundle {// fourth image
             texture: asset_server.load(""),
             transform: Transform::from_xyz(0.,0.,-3.),
             ..default()
         })
-        .insert(PopupTime(Timer::from_seconds(9.,TimerMode::Once)));
+        .insert(PopupTimer(Timer::from_seconds(9.,TimerMode::Once)));
     commands
         .spawn(SpriteBundle { // fifth Image
             texture: asset_server.load(""),
             transform: Transform::from_xyz(0.,0.,-4.),
             ..default()
         })
-        .insert(PopupTime(Timer::from_seconds(12.,TimerMode::Once)));
+        .insert(PopupTimer(Timer::from_seconds(12.,TimerMode::Once)));
     info!("Hello World!");
 }
 
@@ -65,7 +65,7 @@ fn show_popup(time: Res<Time>, mut popup: Query<(&mut PopupTimer, &mut Transform
     for (mut timer, mut transform) in popup.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished(){
-            transform.translation *= -2;// stacked increasingly in -z, this pulls em back!
+            transform.translation *= -2.;// stacked increasingly in -z, this pulls em back!
             info!("Swapped pics!");
         }
 
