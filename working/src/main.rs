@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
         .insert(PopupTimer(Timer::from_seconds(9.,TimerMode::Once)));
     commands
         .spawn(SpriteBundle { // fifth Image
-            texture: asset_server.load(""),
+            texture: asset_server.load("game_end_credit_screen_tyler.png"),
             transform: Transform::from_xyz(0.,0.,-4.),
             ..default()
         })
