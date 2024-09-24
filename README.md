@@ -103,11 +103,11 @@ Cuscuta is a biopunk rougelike dungeon-crawler, with emphasis on stealth mechani
 ## Grade Breakdown
 
 * Dungeon procedural generation works as intended: 25%
-		* When carnage > stealth, enemies strong in stealth will spawn at an increased rate
-		* When stealth > carnage, enemies strong in carnage will spawn at an increased rate 
-		* when carnage > stealth, dungeons will generate with more opportunities to utilize stealth over carnage (ex. stronger enemies that can be avoided with stealth)
-		* When stealth > carnage, dungeons wilsl generate with more opporunties to utilize carnage over stealth (ex. weaker enemies that you can't avoid being detected by)
-		* Completely Random generation -- rooms from start to final boss
+	* When carnage > stealth, enemies strong in stealth will spawn at an increased rate
+	* When stealth > carnage, enemies strong in carnage will spawn at an increased rate 
+	* when carnage > stealth, dungeons will generate with more opportunities to utilize stealth over carnage (ex. stronger enemies that can be avoided with stealth)
+	* When stealth > carnage, dungeons wilsl generate with more opporunties to utilize carnage over stealth (ex. weaker enemies that you can't avoid being detected by)
+	* Completely Random generation -- rooms from start to final boss
 * Multiplayer P2P connection works as intended: 25%
 	* Basic functionality: 2 players with full functionality in same lobby: 12.5%
 	* Lack of major lag/latency in basic game functions: 12.5%
