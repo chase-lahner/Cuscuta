@@ -14,6 +14,8 @@ const TILE_SIZE: u32 = 100;
 
 const LEVEL_LEN: f32 = 5000.;
 
+const LEVEL_HEIGHT: f32 = 2000.;
+
 const ANIM_TIME: f32 = 0.2;
 
 #[derive(Component)]
@@ -81,17 +83,35 @@ fn setup(
     let bg_texture_handle = asset_server.load("game_end_credit_screen_tyler.png");
 
     let mut x_offset = 0.;
+    let mut y_offset = 0.;
     while x_offset < LEVEL_LEN {
+        while y_offset < LEVEL_HEIGHT {
         commands
             .spawn(SpriteBundle {
                 texture: bg_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, 0., 0.),
+                transform: Transform::from_xyz(x_offset, y_offset, 0.),
                 ..default()
             })
             .insert(Background);
-
+            y_offset += WIN_H;
+        }
+        y_offset = 0.;
         x_offset += WIN_W;
     }
+   
+    let mut y_offset = 0.;
+    while y_offset < LEVEL_HEIGHT {
+        commands.spawn(SpriteBundle {
+            texture: bg_texture_handle.clone(),
+            transform: Transform::from_xyz(0.,y_offset,0.),
+            ..default()
+        })
+        .insert(Background);
+        
+        y_offset += WIN_H;
+    }
+
+
 
     let player_sheet_handle = asset_server.load("walking.png");
     let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
@@ -180,7 +200,7 @@ fn move_player(
     };
     let change = pv.velocity * deltat;
 
-    let new_pos = pt.translation + Vec3::new(change.x, 0., 0.);
+    let new_pos: Vec3 = pt.translation + Vec3::new(change.x, 0., 0.);
     if new_pos.x >= -(WIN_W / 2.) + (TILE_SIZE as f32) / 2.
         && new_pos.x <= LEVEL_LEN - (WIN_W / 2. + (TILE_SIZE as f32) / 2.)
     {
@@ -189,7 +209,7 @@ fn move_player(
 
     let new_pos = pt.translation + Vec3::new(0., change.y, 0.);
     if new_pos.y >= -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5)
-        && new_pos.y <= WIN_H / 2. - (TILE_SIZE as f32) / 2.
+        && new_pos.y <= LEVEL_HEIGHT - (WIN_H / 2. - (TILE_SIZE as f32) / 2.)
     {
         pt.translation = new_pos;
     }
@@ -225,4 +245,5 @@ fn move_camera(
     let mut ct = camera.single_mut();
 
     ct.translation.x = pt.translation.x.clamp(0., LEVEL_LEN - WIN_W);
+    ct.translation.y = pt.translation.y.clamp(0.,LEVEL_HEIGHT - WIN_H);
 }
