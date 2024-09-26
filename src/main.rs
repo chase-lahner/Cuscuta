@@ -82,8 +82,8 @@ fn setup(
 
     let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
 
-    let mut x_offset = -WIN_H/2.;
-    let mut y_offset = -WIN_W/2.;
+    let mut x_offset = -WIN_H/2.; //0.
+    let mut y_offset = -WIN_W/2.; //0.
     while x_offset < LEVEL_LEN {
         while y_offset < LEVEL_HEIGHT {
         commands
@@ -93,10 +93,10 @@ fn setup(
                 ..default()
             })
             .insert(Background);
-            y_offset += 32 as f32;
+            y_offset += 32 as f32; //WIN_H
         }
-        y_offset = -WIN_W/2.;
-        x_offset += 32 as f32;
+        y_offset = -WIN_W/2.; //0.
+        x_offset += 32 as f32; //WIN_W
     }
    
     /*let mut y_offset = 0.;
