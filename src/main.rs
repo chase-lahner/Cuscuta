@@ -7,14 +7,14 @@ const TITLE: &str = "Cuscuta Demo";
 const WIN_W: f32 = 1280.;
 const WIN_H: f32 = 720.;
 
-const PLAYER_SPEED: f32 = 500.;
-const ACCEL_RATE: f32 = 5000.;
+const PLAYER_SPEED: f32 = 480.; //500
+const ACCEL_RATE: f32 = 4800.; //5000
 
-const TILE_SIZE: u32 = 100;
+const TILE_SIZE: u32 = 32; //1000
 
-const LEVEL_LEN: f32 = 5000.;
+const LEVEL_LEN: f32 = 4800.; //5000
 
-const LEVEL_HEIGHT: f32 = 2000.;
+const LEVEL_HEIGHT: f32 = 1600.; //2000
 
 const ANIM_TIME: f32 = 0.2;
 
@@ -80,10 +80,10 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let bg_texture_handle = asset_server.load("game_end_credit_screen_tyler.png");
+    let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
 
-    let mut x_offset = 0.;
-    let mut y_offset = 0.;
+    let mut x_offset = -WIN_H/2.;
+    let mut y_offset = -WIN_W/2.;
     while x_offset < LEVEL_LEN {
         while y_offset < LEVEL_HEIGHT {
         commands
@@ -93,13 +93,13 @@ fn setup(
                 ..default()
             })
             .insert(Background);
-            y_offset += WIN_H;
+            y_offset += 32 as f32;
         }
-        y_offset = 0.;
-        x_offset += WIN_W;
+        y_offset = -WIN_W/2.;
+        x_offset += 32 as f32;
     }
    
-    let mut y_offset = 0.;
+    /*let mut y_offset = 0.;
     while y_offset < LEVEL_HEIGHT {
         commands.spawn(SpriteBundle {
             texture: bg_texture_handle.clone(),
@@ -108,8 +108,8 @@ fn setup(
         })
         .insert(Background);
         
-        y_offset += WIN_H;
-    }
+        y_offset += (32 as f32);
+    }*/
 
 
 
@@ -133,7 +133,7 @@ fn setup(
         Player,
     ));
 
-    let brick_sheet_handle = asset_server.load("bricks.png");
+    /* let brick_sheet_handle = asset_server.load("bricks.png");
     let brick_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
     let brick_layout_len = brick_layout.len();
     let brick_layout_handle = texture_atlases.add(brick_layout);
@@ -163,7 +163,7 @@ fn setup(
 
         i += 1;
         t += Vec3::new(TILE_SIZE as f32, 0., 0.);
-    }
+    } */
 }
 fn move_player(
     time: Res<Time>,
@@ -208,8 +208,11 @@ fn move_player(
     }
 
     let new_pos = pt.translation + Vec3::new(0., change.y, 0.);
-    if new_pos.y >= -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5)
-        && new_pos.y <= LEVEL_HEIGHT - (WIN_H / 2. - (TILE_SIZE as f32) / 2.)
+    //if new_pos.y >= -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5)
+    /* FOR ABOVE ^^^ I think it would be better for us to first set the border 
+    as the screen, then use detection where all wall tiles are present - Lukas */
+    if new_pos.y >= -(WIN_H / 2.) + (TILE_SIZE as f32) / 2.
+        && new_pos.y <= LEVEL_HEIGHT - (WIN_H / 2. - (TILE_SIZE as f32) / 2.) - (TILE_SIZE as f32)
     {
         pt.translation = new_pos;
     }
