@@ -33,7 +33,6 @@ struct AnimationTimer(Timer);
 #[derive(Component, Deref, DerefMut)]
 struct AnimationFrameCount(usize);
 
-#[derive(Component)]
 struct Brick;
 
 #[derive(Component)]
@@ -94,11 +93,13 @@ fn setup(
     let mut x_offset = -WIN_H / 2.; //0.
     let mut y_offset = -WIN_W / 2.; //0.
     while x_offset < LEVEL_LEN {
-        commands.spawn(SpriteBundle {
+        commands.spawn((SpriteBundle {
             texture: wall_texture_handle.clone(),
             transform: Transform::from_xyz(x_offset, -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5), 1.),
             ..default()
-        });
+        },
+    Wall,
+    ));
         while y_offset < LEVEL_HEIGHT {
             commands
                 .spawn(SpriteBundle {
