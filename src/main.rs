@@ -173,7 +173,7 @@ fn setup(
         y_offset += (32 as f32);
     }*/
 
-    let player_sheet_handle = asset_server.load("walking.png");
+    let player_sheet_handle = asset_server.load("berry_rat.png");
     let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
     let player_layout_len = player_layout.textures.len();
     let player_layout_handle = texture_atlases.add(player_layout);
