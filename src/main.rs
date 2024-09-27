@@ -9,6 +9,7 @@ const WIN_H: f32 = 720.;
 
 const PLAYER_SPEED: f32 = 480.; //500
 const ACCEL_RATE: f32 = 4800.; //5000
+const SPRINT_MULTIPLIER: f32 = 2.0;
 
 const TILE_SIZE: u32 = 32; //1000
 
@@ -191,8 +192,18 @@ fn move_player(
     let deltat = time.delta_seconds();
     let acc = ACCEL_RATE * deltat;
 
+     // sprint - check if shift is pressed
+     let speed_multiplier = if input.pressed(KeyCode::ShiftLeft) {
+        SPRINT_MULTIPLIER 
+    } else {
+        1.0
+    };
+    
+    // set new max speed
+    let max_speed = PLAYER_SPEED * speed_multiplier;
+
     pv.velocity = if deltav.length() > 0. {
-        (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(PLAYER_SPEED)
+        (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed) // heres where we use the max_speed
     } else if pv.velocity.length() > acc {
         pv.velocity + (pv.velocity.normalize_or_zero() * -acc)
     } else {
