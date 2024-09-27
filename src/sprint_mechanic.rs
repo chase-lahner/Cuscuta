@@ -1,31 +1,26 @@
-mod sprint_mechanic;
-mod title_sequence;
+use bevy::{prelude::*, window::PresentMode};
 
-use bevy::{prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
+#[derive(Component, Deref, DerefMut)]
+struct PopupTimer(Timer);
 
-const TITLE: &str = "Cuscuta Demo";// window title
-const WIN_W: f32 = 1280.;// window width
-const WIN_H: f32 = 720.;// window height
+const TITLE: &str = "Cuscuta Demo";
+const WIN_W: f32 = 1280.;
+const WIN_H: f32 = 720.;
 
-const PLAYER_SPEED: f32 = 480.; //500
-const ACCEL_RATE: f32 = 4800.; //5000
+const PLAYER_SPEED: f32 = 500.;
+const ACCEL_RATE: f32 = 5000.;
 const SPRINT_MULTIPLIER: f32 = 2.0;
 
-const TILE_SIZE: u32 = 32; //1000
+const TILE_SIZE: u32 = 100;
 
-const LEVEL_LEN: f32 = 4800.; //5000
+const LEVEL_LEN: f32 = 5000.;
 
-const LEVEL_HEIGHT: f32 = 1600.; //2000
+const LEVEL_HEIGHT: f32 = 2000.;
 
 const ANIM_TIME: f32 = 0.2;
 
-const NUM_WALL: u32 = 10;
-
 #[derive(Component)]
-struct Player;// wow! it is he!
-
-#[derive(Component, Deref, DerefMut)]
-struct PopupTimer(Timer);// not currently in use
+struct Player;
 
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
@@ -33,14 +28,11 @@ struct AnimationTimer(Timer);
 #[derive(Component, Deref, DerefMut)]
 struct AnimationFrameCount(usize);
 
+#[derive(Component)]
 struct Brick;
 
 #[derive(Component)]
 struct Background;
-
-#[derive(Component)]
-
-struct Wall;
 
 #[derive(Component)]
 struct Velocity {
@@ -61,107 +53,54 @@ impl From<Vec2> for Velocity {
     }
 }
 
+
+
+
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                // need window!
+            primary_window: Some(Window {// need window!
                 title: TITLE.into(),
                 present_mode: PresentMode::Fifo,
                 ..default() // Name and present mode all we need for now
              }),
              ..default()
          }))
-         .add_systems(Startup,setup)// runs once, sets up scene
-         .add_systems(Update, move_player)// every frame, takes in WASD for movement
+         .add_systems(Startup,setup)
+         .add_systems(Update, move_player)
          .add_systems(Update, animate_player.after(move_player))
-         .add_systems(Update, move_camera.after(animate_player))// follow character
+         .add_systems(Update, move_camera.after(animate_player))
          .run();
 }
 
 fn setup(
-    mut commands: Commands,// to spawn in enities
-    asset_server: Res<AssetServer>,// to access images
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,// used in animation
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
+    let bg_texture_handle = asset_server.load("game_end_credit_screen_tyler.png");
 
-    let wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
-
-    let mut x_offset = -WIN_H / 2.; //0.
-    let mut y_offset = -WIN_W / 2.; //0.
+    let mut x_offset = 0.;
+    let mut y_offset = 0.;
     while x_offset < LEVEL_LEN {
-        commands.spawn((SpriteBundle {
-            texture: wall_texture_handle.clone(),
-            transform: Transform::from_xyz(x_offset, -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5), 1.),
-            ..default()
-        },
-    Wall,
-    ));
         while y_offset < LEVEL_HEIGHT {
-            commands
-                .spawn(SpriteBundle {
-                    texture: bg_texture_handle.clone(),
-                    transform: Transform::from_xyz(x_offset, y_offset, 0.),
-                    ..default()
-                })
-                .insert(Background);
-           
-            y_offset += 32 as f32; //WIN_H
+        commands
+            .spawn(SpriteBundle {
+                texture: bg_texture_handle.clone(),
+                transform: Transform::from_xyz(x_offset, y_offset, 0.),
+                ..default()
+            })
+            .insert(Background);
+            y_offset += WIN_H;
         }
-        y_offset = -WIN_W / 2.; //0.
-        x_offset += 32 as f32; //WIN_W
+        y_offset = 0.;
+        x_offset += WIN_W;
     }
-
-    // while x_offset < LEVEL_LEN {
-
-    //     x_offset += 32 as f32;
-    // }
-
-    // let x_bound = WIN_W / 2. - (TILE_SIZE as f32) / 2. ;
-    // let y_bound = WIN_H / 2. - (TILE_SIZE as f32) / 2.;
-    // let mut t = Vec3::new(-x_bound, -y_bound, 4.);
-    // let mut i = 0;
-    // while (i as f32) * (TILE_SIZE as f32) < WIN_W {
-    //     commands.spawn((
-    //         SpriteBundle {
-    //             texture: wall_texture_handle.clone(),
-    //             transform: Transform {
-    //                 translation: t,
-    //                 ..default()
-    //             },
-    //             ..default()
-
-    //         },
-    //         Wall,
-    //     ));
-
-    //     i+=1;
-    //     t+= Vec3::new(TILE_SIZE as f32, 0., 4.);
-    // }
-
-    // for i in 0..NUM_WALL {
-    //     let t = Vec3::new(
-    //         (WIN_W / 2. - (TILE_SIZE as f32) / 2. ) - (34.0 + i as f32),
-    //         (WIN_H / 2. - (TILE_SIZE as f32) / 2.) + (34.0 - i as f32),
-    //         900.
-    //     );
-    //     commands.spawn((
-    //         SpriteBundle {
-    //             texture: wall_texture_handle.clone(),
-    //             transform: Transform {
-    //                 translation: t,
-    //                 ..default()
-    //             },
-    //             ..default()
-    //         },
-    //         Wall,
-    //     ));
-    // }
-
-    /*let mut y_offset = 0.;
+   
+    let mut y_offset = 0.;
     while y_offset < LEVEL_HEIGHT {
         commands.spawn(SpriteBundle {
             texture: bg_texture_handle.clone(),
@@ -169,9 +108,11 @@ fn setup(
             ..default()
         })
         .insert(Background);
+        
+        y_offset += WIN_H;
+    }
 
-        y_offset += (32 as f32);
-    }*/
+
 
     let player_sheet_handle = asset_server.load("walking.png");
     let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
@@ -193,7 +134,7 @@ fn setup(
         Player,
     ));
 
-    /* let brick_sheet_handle = asset_server.load("bricks.png");
+    let brick_sheet_handle = asset_server.load("bricks.png");
     let brick_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
     let brick_layout_len = brick_layout.len();
     let brick_layout_handle = texture_atlases.add(brick_layout);
@@ -223,8 +164,9 @@ fn setup(
 
         i += 1;
         t += Vec3::new(TILE_SIZE as f32, 0., 0.);
-    } */
+    }
 }
+
 fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -241,10 +183,10 @@ fn move_player(
     if input.pressed(KeyCode::KeyD) {
         deltav.x += 1.;
     }
-    if input.pressed(KeyCode::KeyW) {
+    if input.pressed(KeyCode::KeyW){
         deltav.y += 1.;
     }
-    if input.pressed(KeyCode::KeyS) {
+    if input.pressed(KeyCode:: KeyS){
         deltav.y -= 1.;
     }
 
@@ -253,17 +195,17 @@ fn move_player(
 
     // sprint - check if shift is pressed
     let speed_multiplier = if input.pressed(KeyCode::ShiftLeft) {
-        SPRINT_MULTIPLIER
+        SPRINT_MULTIPLIER 
     } else {
         1.0
     };
-
+    
     // set new max speed
     let max_speed = PLAYER_SPEED * speed_multiplier;
 
+
     pv.velocity = if deltav.length() > 0. {
-        (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed)
-    // heres where we use the max_speed
+        (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed) // heres where we use the max_speed
     } else if pv.velocity.length() > acc {
         pv.velocity + (pv.velocity.normalize_or_zero() * -acc)
     } else {
@@ -279,11 +221,8 @@ fn move_player(
     }
 
     let new_pos = pt.translation + Vec3::new(0., change.y, 0.);
-    //if new_pos.y >= -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5)
-    /* FOR ABOVE ^^^ I think it would be better for us to first set the border
-    as the screen, then use detection where all wall tiles are present - Lukas */
-    if new_pos.y >= -(WIN_H / 2.) + (TILE_SIZE as f32) / 2.
-        && new_pos.y <= LEVEL_HEIGHT - (WIN_H / 2. - (TILE_SIZE as f32) / 2.) - (TILE_SIZE as f32)
+    if new_pos.y >= -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5)
+        && new_pos.y <= LEVEL_HEIGHT - (WIN_H / 2. - (TILE_SIZE as f32) / 2.)
     {
         pt.translation = new_pos;
     }
@@ -319,5 +258,5 @@ fn move_camera(
     let mut ct = camera.single_mut();
 
     ct.translation.x = pt.translation.x.clamp(0., LEVEL_LEN - WIN_W);
-    ct.translation.y = pt.translation.y.clamp(0., LEVEL_HEIGHT - WIN_H);
+    ct.translation.y = pt.translation.y.clamp(0.,LEVEL_HEIGHT - WIN_H);
 }
