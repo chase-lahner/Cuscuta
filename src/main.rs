@@ -1,25 +1,25 @@
 use bevy::{prelude::*, window::PresentMode};
 
-#[derive(Component, Deref, DerefMut)]
-struct PopupTimer(Timer);
+const TITLE: &str = "Cuscuta Demo";// window title
+const WIN_W: f32 = 1280.;// window width
+const WIN_H: f32 = 720.;// window height
 
-const TITLE: &str = "Cuscuta Demo";
-const WIN_W: f32 = 1280.;
-const WIN_H: f32 = 720.;
-
-const PLAYER_SPEED: f32 = 500.;
-const ACCEL_RATE: f32 = 5000.;
+const PLAYER_SPEED: f32 = 500.;// standard player speed
+const ACCEL_RATE: f32 = 5000.;// player accelleration rate
 
 const TILE_SIZE: u32 = 100;
 
-const LEVEL_LEN: f32 = 5000.;
+const LEVEL_LEN: f32 = 5000.;// total room width
 
-const LEVEL_HEIGHT: f32 = 2000.;
+const LEVEL_HEIGHT: f32 = 2000.;// total room height
 
-const ANIM_TIME: f32 = 0.2;
+const ANIM_TIME: f32 = 0.2;// time needed to change animation frame
 
 #[derive(Component)]
-struct Player;
+struct Player;// wow! it is he!
+
+#[derive(Component, Deref, DerefMut)]
+struct PopupTimer(Timer);// not currently in use
 
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
@@ -28,7 +28,7 @@ struct AnimationTimer(Timer);
 struct AnimationFrameCount(usize);
 
 #[derive(Component)]
-struct Brick;
+struct Brick;// Brick?..... we must inquire
 
 #[derive(Component)]
 struct Background;
@@ -66,22 +66,26 @@ fn main() {
              }),
              ..default()
          }))
-         .add_systems(Startup,setup)
-         .add_systems(Update, move_player)
+         .add_systems(Startup,setup)// runs once, sets up scene
+         .add_systems(Update, move_player)// every frame, takes in WASD for movement
          .add_systems(Update, animate_player.after(move_player))
-         .add_systems(Update, move_camera.after(animate_player))
+         .add_systems(Update, move_camera.after(animate_player))// follow character
          .run();
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    mut commands: Commands,// to spawn in enities
+    asset_server: Res<AssetServer>,// to access images
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,// used in animation
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());// spwans camera 
 
+
+    /* Creating handle for background image. Must have asset server to access images */
     let bg_texture_handle = asset_server.load("game_end_credit_screen_tyler.png");
+    
 
+    /* Stupid spawning in background over whole level size */
     let mut x_offset = 0.;
     let mut y_offset = 0.;
     while x_offset < LEVEL_LEN {
@@ -97,18 +101,6 @@ fn setup(
         }
         y_offset = 0.;
         x_offset += WIN_W;
-    }
-   
-    let mut y_offset = 0.;
-    while y_offset < LEVEL_HEIGHT {
-        commands.spawn(SpriteBundle {
-            texture: bg_texture_handle.clone(),
-            transform: Transform::from_xyz(0.,y_offset,0.),
-            ..default()
-        })
-        .insert(Background);
-        
-        y_offset += WIN_H;
     }
 
 
