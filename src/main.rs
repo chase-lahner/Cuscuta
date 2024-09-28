@@ -100,7 +100,7 @@ fn setup(
     let mut x_offset = -MAX_X; 
     let mut y_offset = -MAX_Y; 
 
-    while x_offset < MAX_X {
+    while x_offset < MAX_X + (TILE_SIZE as f32){
         commands.spawn((SpriteBundle {
             texture: north_wall_texture_handle.clone(),
             /* Top of level, minus tile size/2 for center spawning yk */
@@ -109,7 +109,7 @@ fn setup(
         },
     Wall,
     ));
-        while y_offset < MAX_Y {
+        while y_offset < MAX_Y + (TILE_SIZE as f32){
             commands
                 .spawn(SpriteBundle {
                     texture: bg_texture_handle.clone(),
@@ -193,7 +193,7 @@ fn move_player(
 
     let new_pos: Vec3 = pt.translation + Vec3::new(change.x, 0., 0.);
     if (new_pos.x >= -MAX_X + (TILE_SIZE as f32) / 2.
-       && new_pos.x <= MAX_Y - (TILE_SIZE as f32) / 2.)
+       && new_pos.x <= MAX_X - (TILE_SIZE as f32) / 2.)
     {
         pt.translation = new_pos;
     }
@@ -222,13 +222,19 @@ fn animate_player(
         With<Player>,
     >,
 ) {
-    let (v, mut texture_atlas, mut timer, frame_count) = player.single_mut();
-    if v.velocity.cmpne(Vec2::ZERO).any() {
+    /* In texture atlas for ratatta:
+     * 0 = left
+     * 1 = right
+     * 2 = up
+     * 3 = down 
+     * ratlas. heh. get it.*/
+    let (v, mut ratlas, mut timer, frame_count) = player.single_mut();
+    if v.velocity.x > 0. {
         timer.tick(time.delta());
 
-        // if timer.just_finished() {
-        texture_atlas.index = (texture_atlas.index + 1) % **frame_count;
-        // }
+        if timer.just_finished() {
+            ratlas.index = (ratlas.index + 1) % **frame_count;
+         }
     }
 }
 
