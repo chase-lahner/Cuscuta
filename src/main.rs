@@ -7,33 +7,38 @@ const TITLE: &str = "Cuscuta Demo";// window title
 const WIN_W: f32 = 1280.;// window width
 const WIN_H: f32 = 720.;// window height
 
-const PLAYER_SPEED: f32 = 480.; //500
-const ACCEL_RATE: f32 = 4800.; //5000
+const PLAYER_SPEED: f32 = 480.; 
+const ACCEL_RATE: f32 = 4800.; 
 const SPRINT_MULTIPLIER: f32 = 2.0;
 
-const TILE_SIZE: u32 = 32; //1000
+const TILE_SIZE: u32 = 32; 
 
-const LEVEL_LEN: f32 = 4800.; //5000
+const LEVEL_W: f32 = 4800.; 
 
-const LEVEL_HEIGHT: f32 = 1600.; //2000
+const LEVEL_H: f32 = 1600.; 
+
+/* (0,0) is center level,          
+ * this gives us easy coordinate usage */
+const MAX_X: f32 = LEVEL_W / 2.;
+const MAX_Y: f32 = LEVEL_H / 2.;
 
 const ANIM_TIME: f32 = 0.2;
 
-const NUM_WALL: u32 = 10;
+//const NUM_WALL: u32 = 10;
 
 #[derive(Component)]
 struct Player;// wow! it is he!
 
-#[derive(Component, Deref, DerefMut)]
-struct PopupTimer(Timer);// not currently in use
+// #[derive(Component, Deref, DerefMut)]
+// struct PopupTimer(Timer);// not currently in use
 
 #[derive(Component, Deref, DerefMut)]
-struct AnimationTimer(Timer);
+struct AnimationTimer(Timer);// for switching through animation frames
 
 #[derive(Component, Deref, DerefMut)]
 struct AnimationFrameCount(usize);
 
-struct Brick;
+//struct Brick;
 
 #[derive(Component)]
 struct Background;
@@ -88,19 +93,23 @@ fn setup(
 
     let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
 
-    let wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
+    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
+    /* We want (0,0) to be center stage, *
+     * this will start us in bottom left *
+     * for spawning in tiles             */
+    let mut x_offset = -MAX_X; 
+    let mut y_offset = -MAX_Y; 
 
-    let mut x_offset = -WIN_H / 2.; //0.
-    let mut y_offset = -WIN_W / 2.; //0.
-    while x_offset < LEVEL_LEN {
+    while x_offset < MAX_X {
         commands.spawn((SpriteBundle {
-            texture: wall_texture_handle.clone(),
-            transform: Transform::from_xyz(x_offset, -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5), 1.),
+            texture: north_wall_texture_handle.clone(),
+            /* Top of level, minus tile size/2 for center spawning yk */
+            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2)as f32), 1.),
             ..default()
         },
     Wall,
     ));
-        while y_offset < LEVEL_HEIGHT {
+        while y_offset < MAX_Y {
             commands
                 .spawn(SpriteBundle {
                     texture: bg_texture_handle.clone(),
@@ -109,69 +118,11 @@ fn setup(
                 })
                 .insert(Background);
            
-            y_offset += 32 as f32; //WIN_H
+            y_offset += 32 as f32; 
         }
-        y_offset = -WIN_W / 2.; //0.
-        x_offset += 32 as f32; //WIN_W
+        y_offset = -MAX_Y; 
+        x_offset += 32 as f32; 
     }
-
-    // while x_offset < LEVEL_LEN {
-
-    //     x_offset += 32 as f32;
-    // }
-
-    // let x_bound = WIN_W / 2. - (TILE_SIZE as f32) / 2. ;
-    // let y_bound = WIN_H / 2. - (TILE_SIZE as f32) / 2.;
-    // let mut t = Vec3::new(-x_bound, -y_bound, 4.);
-    // let mut i = 0;
-    // while (i as f32) * (TILE_SIZE as f32) < WIN_W {
-    //     commands.spawn((
-    //         SpriteBundle {
-    //             texture: wall_texture_handle.clone(),
-    //             transform: Transform {
-    //                 translation: t,
-    //                 ..default()
-    //             },
-    //             ..default()
-
-    //         },
-    //         Wall,
-    //     ));
-
-    //     i+=1;
-    //     t+= Vec3::new(TILE_SIZE as f32, 0., 4.);
-    // }
-
-    // for i in 0..NUM_WALL {
-    //     let t = Vec3::new(
-    //         (WIN_W / 2. - (TILE_SIZE as f32) / 2. ) - (34.0 + i as f32),
-    //         (WIN_H / 2. - (TILE_SIZE as f32) / 2.) + (34.0 - i as f32),
-    //         900.
-    //     );
-    //     commands.spawn((
-    //         SpriteBundle {
-    //             texture: wall_texture_handle.clone(),
-    //             transform: Transform {
-    //                 translation: t,
-    //                 ..default()
-    //             },
-    //             ..default()
-    //         },
-    //         Wall,
-    //     ));
-    // }
-
-    /*let mut y_offset = 0.;
-    while y_offset < LEVEL_HEIGHT {
-        commands.spawn(SpriteBundle {
-            texture: bg_texture_handle.clone(),
-            transform: Transform::from_xyz(0.,y_offset,0.),
-            ..default()
-        })
-        .insert(Background);
-
-        y_offset += (32 as f32);
-    }*/
 
     let player_sheet_handle = asset_server.load("berry_rat.png");
     let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
@@ -180,7 +131,7 @@ fn setup(
     commands.spawn((
         SpriteBundle {
             texture: player_sheet_handle,
-            transform: Transform::from_xyz(0., -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5), 900.),
+            transform: Transform::from_xyz(0., 0., 900.),
             ..default()
         },
         TextureAtlas {
@@ -193,37 +144,6 @@ fn setup(
         Player,
     ));
 
-    /* let brick_sheet_handle = asset_server.load("bricks.png");
-    let brick_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
-    let brick_layout_len = brick_layout.len();
-    let brick_layout_handle = texture_atlases.add(brick_layout);
-
-    let mut i = 0;
-    let mut t = Vec3::new(
-        -WIN_W / 2. + (TILE_SIZE as f32) / 2.,
-        -WIN_H / 2. + (TILE_SIZE as f32) / 2.,
-        0.,
-    );
-    while i * TILE_SIZE < (LEVEL_LEN as u32) {
-        commands.spawn((
-            SpriteBundle {
-                texture: brick_sheet_handle.clone(),
-                transform: Transform {
-                    translation: t,
-                    ..default()
-                },
-                ..default()
-            },
-            TextureAtlas {
-                layout: brick_layout_handle.clone(),
-                index: (i as usize) % brick_layout_len,
-            },
-            Brick,
-        ));
-
-        i += 1;
-        t += Vec3::new(TILE_SIZE as f32, 0., 0.);
-    } */
 }
 fn move_player(
     time: Res<Time>,
@@ -272,8 +192,8 @@ fn move_player(
     let change = pv.velocity * deltat;
 
     let new_pos: Vec3 = pt.translation + Vec3::new(change.x, 0., 0.);
-    if new_pos.x >= -(WIN_W / 2.) + (TILE_SIZE as f32) / 2.
-        && new_pos.x <= LEVEL_LEN - (WIN_W / 2. + (TILE_SIZE as f32) / 2.)
+    if (new_pos.x >= -MAX_X + (TILE_SIZE as f32) / 2.
+       && new_pos.x <= MAX_Y - (TILE_SIZE as f32) / 2.)
     {
         pt.translation = new_pos;
     }
@@ -282,8 +202,9 @@ fn move_player(
     //if new_pos.y >= -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5)
     /* FOR ABOVE ^^^ I think it would be better for us to first set the border
     as the screen, then use detection where all wall tiles are present - Lukas */
-    if new_pos.y >= -(WIN_H / 2.) + (TILE_SIZE as f32) / 2.
-        && new_pos.y <= LEVEL_HEIGHT - (WIN_H / 2. - (TILE_SIZE as f32) / 2.) - (TILE_SIZE as f32)
+    /* Werd - ROry */
+    if new_pos.y >= -MAX_Y + (TILE_SIZE as f32) / 2.
+        && new_pos.y <= MAX_Y - (TILE_SIZE as f32) / 2.
     {
         pt.translation = new_pos;
     }
@@ -318,6 +239,6 @@ fn move_camera(
     let pt = player.single();
     let mut ct = camera.single_mut();
 
-    ct.translation.x = pt.translation.x.clamp(0., LEVEL_LEN - WIN_W);
-    ct.translation.y = pt.translation.y.clamp(0., LEVEL_HEIGHT - WIN_H);
+    ct.translation.x = pt.translation.x.clamp(-MAX_X + (WIN_W/2.), MAX_X - (WIN_W/2.));
+    ct.translation.y = pt.translation.y.clamp(-MAX_Y + (WIN_H/2.), MAX_Y - (WIN_H/2.));
 }
