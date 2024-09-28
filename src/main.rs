@@ -11,7 +11,7 @@ const PLAYER_SPEED: f32 = 480.; //500
 const ACCEL_RATE: f32 = 4800.; //5000
 const SPRINT_MULTIPLIER: f32 = 2.0;
 
-const TILE_SIZE: u32 = 32; //1000
+const TILE_SIZE: u32 = 32; //100
 
 const LEVEL_LEN: f32 = 4800.; //5000
 
