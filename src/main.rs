@@ -104,6 +104,7 @@ fn setup(
     let mut y_offset = -MAX_Y; 
 
     while x_offset < MAX_X + (TILE_SIZE as f32){
+        /* Spawn in north wall */
         commands.spawn((SpriteBundle {
             texture: north_wall_texture_handle.clone(),
             /* Top of level, minus tile size/2 for center spawning yk */
@@ -112,15 +113,17 @@ fn setup(
         },
         Wall,
         ));
+        /* Spawn in south wall */
         commands.spawn((SpriteBundle {
             texture: south_wall_handle.clone(),
-            /* Top of level, minus tile size/2 for center spawning yk */
+            /* bottom of level, plus tile size/2 for center spawning yk */
             transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE/2)as f32), 1.),
             ..default()
         },
         Wall,
         ));
         while y_offset < MAX_Y + (TILE_SIZE as f32){
+            /* floor tiles */
             commands
                 .spawn(SpriteBundle {
                     texture: bg_texture_handle.clone(),
@@ -128,6 +131,24 @@ fn setup(
                     ..default()
                 })
                 .insert(Background);
+            /* east wall */
+            commands.spawn((SpriteBundle {
+                texture: east_wall_handle.clone(),
+                /* right side of level, minus tile size/2 for center spawning yk */
+                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE/2)as f32), y_offset, 1.),
+                ..default()
+            },
+            Wall,
+            ));
+
+            commands.spawn((SpriteBundle {
+                texture: west_wall_handle.clone(),
+                /* left side of level, minus tile size/2 for center spawning yk */
+                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE/2)as f32), y_offset, 1.),
+                ..default()
+            },
+            Wall,
+            ));
            
             y_offset += 32 as f32; 
         }
