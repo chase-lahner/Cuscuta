@@ -94,6 +94,9 @@ fn setup(
     let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
 
     let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
+    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
+    let east_wall_handle:Handle<Image> = asset_server.load("tiles/walls/right_wall.png");
+    let west_wall_handle:Handle<Image> = asset_server.load("tiles/walls/left_wall.png");
     /* We want (0,0) to be center stage, *
      * this will start us in bottom left *
      * for spawning in tiles             */
@@ -107,8 +110,16 @@ fn setup(
             transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2)as f32), 1.),
             ..default()
         },
-    Wall,
-    ));
+        Wall,
+        ));
+        commands.spawn((SpriteBundle {
+            texture: south_wall_handle.clone(),
+            /* Top of level, minus tile size/2 for center spawning yk */
+            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE/2)as f32), 1.),
+            ..default()
+        },
+        Wall,
+        ));
         while y_offset < MAX_Y + (TILE_SIZE as f32){
             commands
                 .spawn(SpriteBundle {
@@ -229,12 +240,22 @@ fn animate_player(
      * 3 = down 
      * ratlas. heh. get it.*/
     let (v, mut ratlas, mut timer, frame_count) = player.single_mut();
-    if v.velocity.x > 0. {
+    if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 
-        if timer.just_finished() {
-            ratlas.index = (ratlas.index + 1) % **frame_count;
-         }
+        if v.velocity.x > 0.{
+            ratlas.index = 1;
+        }
+        else if v.velocity.x < 0. {
+            ratlas.index = 0;
+        }
+
+        if v.velocity.y > 0.{
+            ratlas.index = 2;
+        }
+        else if v.velocity.y < 0. {
+            ratlas.index = 3;
+        }
     }
 }
 
