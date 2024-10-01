@@ -1,7 +1,7 @@
 [package]
 name = "Cuscuta"
 version = "0.1.0"
-authors = ["Rory McCann <rcm71@pitt.edu>"]
+authors = ["Rory McCann <rcm71@pitt.edu>", "Lukas Finn <lef74@pitt.edu>"]
 edition = "2021"
 
 [dependencies]

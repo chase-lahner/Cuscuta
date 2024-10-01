@@ -18,6 +18,10 @@ const LEVEL_W: f32 = 4800.;
 
 const LEVEL_H: f32 = 1600.; 
 
+const ARR_W: usize = (LEVEL_W as usize) / 32;
+
+const ARR_H: usize = (LEVEL_H as usize) / 32;
+
 /* (0,0) is center level,          
  * this gives us easy coordinate usage */
 const MAX_X: f32 = LEVEL_W / 2.;
@@ -91,6 +95,9 @@ impl From<Vec2> for Velocity {
     }
 }
 
+static mut grid1: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
+static mut grid2: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -157,11 +164,90 @@ fn setup(
 }
 
 
-fn SpawnStartRoom(
+fn SpawnStartRoom( /* First Room */
     commands: &mut Commands, 
     asset_server: &Res<AssetServer>
 ) {
     let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
+
+    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
+    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
+    let east_wall_handle: Handle<Image> = asset_server.load("tiles/walls/right_wall.png");
+    let west_wall_handle: Handle<Image> = asset_server.load("tiles/walls/left_wall.png");
+
+    let mut x_offset = -MAX_X + ((TILE_SIZE / 2) as f32);
+    let mut y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
+
+    while x_offset < MAX_X {
+        
+        let mut xcoord: usize;
+        let mut ycoord: usize;
+        /* Spawn in north wall */
+        commands.spawn((SpriteBundle {
+            texture: north_wall_texture_handle.clone(),
+            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), 1.),
+            ..default()
+        }, Wall));
+        
+        xcoord = (x_offset - ((TILE_SIZE / 2) as f32)) as usize;
+        ycoord = (MAX_Y * 2. - ((TILE_SIZE / 2) as f32)) as usize;
+        unsafe{grid1[xcoord/32][ycoord/32] = 1;}
+
+        /* Spawn in south wall */
+        commands.spawn((SpriteBundle {
+            texture: south_wall_handle.clone(),
+            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), 1.),
+            ..default()
+        }, Wall));
+
+        xcoord = (x_offset - ((TILE_SIZE / 2) as f32)) as usize;
+        ycoord = (0) as usize;
+        unsafe{grid1[xcoord/32][ycoord/32] = 1;}
+
+        while y_offset < MAX_Y + (TILE_SIZE as f32) {
+            /* Floor tiles */
+            commands.spawn(SpriteBundle {
+                texture: bg_texture_handle.clone(),
+                transform: Transform::from_xyz(x_offset, y_offset, 0.),
+                ..default()
+            }).insert(Background);
+
+            /* East wall */
+            commands.spawn((SpriteBundle {
+                texture: east_wall_handle.clone(),
+                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                ..default()
+            }, Wall));
+
+            xcoord = (MAX_X * 2. - ((TILE_SIZE / 2) as f32)) as usize;
+            ycoord = (y_offset - ((TILE_SIZE / 2) as f32)) as usize;
+            unsafe{grid1[xcoord/32][ycoord/32] = 1;}
+
+            /* West wall */
+            commands.spawn((SpriteBundle {
+                texture: west_wall_handle.clone(),
+                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                ..default()
+            }, Wall));
+
+            xcoord = (x_offset - ((TILE_SIZE / 2) as f32)) as usize;
+            ycoord = (0) as usize;
+            unsafe{grid1[xcoord/32][ycoord/32] = 1;}
+
+            y_offset += TILE_SIZE as f32;
+        }
+        y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
+        x_offset += TILE_SIZE as f32;
+    }
+    unsafe{println!("{}",&grid1[0][0]);}
+    unsafe{println!("{}",&grid1[5][5]);}
+}
+
+fn SpawnNextRoom( /* Second Room */
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>
+) {
+    let bg_texture_handle = asset_server.load("tiles/solid_floor/solid_floor.png");
 
     let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
     let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
