@@ -96,7 +96,7 @@ impl From<Vec2> for Velocity {
 }
 
 static mut grid1: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
-static mut grid2: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
+static mut grid2: [[u32; ARR_W+1]; ARR_H+1] = [[0; ARR_W+1]; ARR_H+1];
 
 fn main() {
     App::new()
@@ -179,9 +179,10 @@ fn SpawnStartRoom( /* First Room */
     let mut y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
 
     while x_offset < MAX_X {
-        
+
         let mut xcoord: usize;
         let mut ycoord: usize;
+
         /* Spawn in north wall */
         commands.spawn((SpriteBundle {
             texture: north_wall_texture_handle.clone(),
@@ -205,12 +206,6 @@ fn SpawnStartRoom( /* First Room */
         unsafe{grid1[xcoord/32][ycoord/32] = 1;}
 
         while y_offset < MAX_Y + (TILE_SIZE as f32) {
-            /* Floor tiles */
-            commands.spawn(SpriteBundle {
-                texture: bg_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, y_offset, 0.),
-                ..default()
-            }).insert(Background);
 
             /* East wall */
             commands.spawn((SpriteBundle {
@@ -230,17 +225,30 @@ fn SpawnStartRoom( /* First Room */
                 ..default()
             }, Wall));
 
-            xcoord = (x_offset - ((TILE_SIZE / 2) as f32)) as usize;
-            ycoord = (0) as usize;
+            xcoord = (0) as usize;
+            ycoord = (y_offset - ((TILE_SIZE / 2) as f32)) as usize;
             unsafe{grid1[xcoord/32][ycoord/32] = 1;}
+
+            /* Floor tiles */
+            commands.spawn(SpriteBundle {
+                texture: bg_texture_handle.clone(),
+                transform: Transform::from_xyz(x_offset, y_offset, 0.),
+                ..default()
+            }).insert(Background);
 
             y_offset += TILE_SIZE as f32;
         }
         y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
         x_offset += TILE_SIZE as f32;
     }
-    unsafe{println!("{}",&grid1[0][0]);}
-    unsafe{println!("{}",&grid1[5][5]);}
+    for a in 0..150
+    {
+        for b in 0..50
+        {
+            unsafe{print!("{}", grid1[a][b])}
+        }
+        println!()
+    }
 }
 
 fn SpawnNextRoom( /* Second Room */
@@ -261,14 +269,14 @@ fn SpawnNextRoom( /* Second Room */
         /* Spawn in north wall */
         commands.spawn((SpriteBundle {
             texture: north_wall_texture_handle.clone(),
-            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), 1.),
+            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), 3.),
             ..default()
         }, Wall));
         
         /* Spawn in south wall */
         commands.spawn((SpriteBundle {
             texture: south_wall_handle.clone(),
-            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), 1.),
+            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), 3.),
             ..default()
         }, Wall));
 
@@ -276,21 +284,21 @@ fn SpawnNextRoom( /* Second Room */
             /* Floor tiles */
             commands.spawn(SpriteBundle {
                 texture: bg_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, y_offset, 0.),
+                transform: Transform::from_xyz(x_offset, y_offset, 2.),
                 ..default()
             }).insert(Background);
 
             /* East wall */
             commands.spawn((SpriteBundle {
                 texture: east_wall_handle.clone(),
-                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE / 2) as f32), y_offset, 3.),
                 ..default()
             }, Wall));
 
             /* West wall */
             commands.spawn((SpriteBundle {
                 texture: west_wall_handle.clone(),
-                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE / 2) as f32), y_offset, 3.),
                 ..default()
             }, Wall));
 
@@ -355,13 +363,30 @@ fn move_player(
     let mut player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
     let enemy_aabb = Aabb::new(enemy.translation, Vec2::splat(TILE_SIZE as f32));
 
+    // array coords
+    let mut topleft: u32;
+    let mut topright: u32;
+    let mut bottomleft: u32;
+    let mut bottomright: u32;
+
     // horizontal movement and collision detection
     let new_pos: Vec3 = pt.translation + Vec3::new(change.x, 0., 0.);
     player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32)); // Update AABB for new position
 
+    //translate pixel coords into array coords
+    let arrymax: f32 = player_aabb.max.y / 32.0 + (ARR_H as f32 / 2.);
+    let arrymin: f32 = player_aabb.min.y / 32.0 + (ARR_H as f32 / 2.);
+    let arrxmax: f32 = player_aabb.max.x /32.0 + (ARR_W as f32 / 2.);
+    let arrxmin: f32 = player_aabb.min.x /32.0 + (ARR_W as f32 / 2.);
+    unsafe{topleft = grid1[arrxmin as usize][arrymax as usize];}
+    unsafe{topright = grid1[arrxmax as usize][arrymax as usize];}
+    unsafe{bottomleft = grid1[arrxmin as usize][arrymin as usize];}
+    unsafe{bottomright = grid1[arrxmax as usize][arrymin as usize];}
+
     if !aabb_collision(&player_aabb, &enemy_aabb)
         && new_pos.x >= -MAX_X + (TILE_SIZE as f32) / 2.
         && new_pos.x <= MAX_X - (TILE_SIZE as f32) / 2.
+        && topleft != 1 && topright != 1 && bottomleft != 1 && bottomright != 1
     {
         pt.translation = new_pos;
     }
@@ -370,6 +395,16 @@ fn move_player(
     let new_pos = pt.translation + Vec3::new(0., change.y, 0.);
     player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32)); // Update AABB for new position
 
+    //translate pixel coords into array coords
+    let arrymax: f32 = player_aabb.max.y / 32.0 + (ARR_H as f32 / 2.);
+    let arrymin: f32 = player_aabb.min.y / 32.0 + (ARR_H as f32 / 2.);
+    let arrxmax: f32 = player_aabb.max.x /32.0 + (ARR_W as f32 / 2.);
+    let arrxmin: f32 = player_aabb.min.x /32.0 + (ARR_W as f32 / 2.);
+    unsafe{topleft = grid1[arrxmin as usize][arrymax as usize];}
+    unsafe{topright = grid1[arrxmax as usize][arrymax as usize];}
+    unsafe{bottomleft = grid1[arrxmin as usize][arrymin as usize];}
+    unsafe{bottomright = grid1[arrxmax as usize][arrymin as usize];}
+
     //if new_pos.y >= -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5)
     /* FOR ABOVE ^^^ I think it would be better for us to first set the border
     as the screen, then use detection where all wall tiles are present - Lukas */
@@ -377,6 +412,7 @@ fn move_player(
     if !aabb_collision(&player_aabb, &enemy_aabb)
         && new_pos.y >= -MAX_Y + (TILE_SIZE as f32) / 2.
         && new_pos.y <= MAX_Y - (TILE_SIZE as f32) / 2.
+        && topleft != 1 && topright != 1 && bottomleft != 1 && bottomright != 1
     {
         pt.translation = new_pos;
     }
