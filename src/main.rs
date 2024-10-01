@@ -2,6 +2,7 @@ mod sprint_mechanic;
 mod title_sequence;
 
 use bevy::{prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
+use rand::Rng;
 
 const TITLE: &str = "Cuscuta Demo";// window title
 const WIN_W: f32 = 1280.;// window width
@@ -32,6 +33,9 @@ struct Player;// wow! it is he!
 // #[derive(Component, Deref, DerefMut)]
 // struct PopupTimer(Timer);// not currently in use
 
+#[derive(Component)]
+struct Enemy; // danger lurks ahead
+
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);// for switching through animation frames
 
@@ -44,12 +48,33 @@ struct AnimationFrameCount(usize);
 struct Background;
 
 #[derive(Component)]
-
 struct Wall;
 
 #[derive(Component)]
 struct Velocity {
     velocity: Vec2,
+}
+
+struct Aabb {
+    min: Vec2,
+    max: Vec2,
+}
+
+impl Aabb {
+    fn new(center: Vec3, size: Vec2) -> Self {
+        let half_size = size / 2.0;
+        Self {
+            min: Vec2::new(center.x - half_size.x, center.y - half_size.y),
+            max: Vec2::new(center.x + half_size.x, center.y + half_size.y),
+        }
+    }
+
+    fn intersects(&self, other: &Aabb) -> bool {
+        self.min.x < other.max.x
+            && self.max.x > other.min.x
+            && self.min.y < other.max.y
+            && self.max.y > other.min.y
+    }
 }
 
 impl Velocity {
@@ -94,6 +119,9 @@ fn setup(
     let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
 
     let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
+    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
+    let east_wall_handle:Handle<Image> = asset_server.load("tiles/walls/right_wall.png");
+    let west_wall_handle:Handle<Image> = asset_server.load("tiles/walls/left_wall.png");
     /* We want (0,0) to be center stage, *
      * this will start us in bottom left *
      * for spawning in tiles             */
@@ -101,15 +129,26 @@ fn setup(
     let mut y_offset = -MAX_Y; 
 
     while x_offset < MAX_X + (TILE_SIZE as f32){
+        /* Spawn in north wall */
         commands.spawn((SpriteBundle {
             texture: north_wall_texture_handle.clone(),
             /* Top of level, minus tile size/2 for center spawning yk */
             transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2)as f32), 1.),
             ..default()
         },
-    Wall,
-    ));
+        Wall,
+        ));
+        /* Spawn in south wall */
+        commands.spawn((SpriteBundle {
+            texture: south_wall_handle.clone(),
+            /* bottom of level, plus tile size/2 for center spawning yk */
+            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE/2)as f32), 1.),
+            ..default()
+        },
+        Wall,
+        ));
         while y_offset < MAX_Y + (TILE_SIZE as f32){
+            /* floor tiles */
             commands
                 .spawn(SpriteBundle {
                     texture: bg_texture_handle.clone(),
@@ -117,6 +156,24 @@ fn setup(
                     ..default()
                 })
                 .insert(Background);
+            /* east wall */
+            commands.spawn((SpriteBundle {
+                texture: east_wall_handle.clone(),
+                /* right side of level, minus tile size/2 for center spawning yk */
+                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE/2)as f32), y_offset, 1.),
+                ..default()
+            },
+            Wall,
+            ));
+
+            commands.spawn((SpriteBundle {
+                texture: west_wall_handle.clone(),
+                /* left side of level, minus tile size/2 for center spawning yk */
+                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE/2)as f32), y_offset, 1.),
+                ..default()
+            },
+            Wall,
+            ));
            
             y_offset += 32 as f32; 
         }
@@ -128,6 +185,8 @@ fn setup(
     let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
     let player_layout_len = player_layout.textures.len();
     let player_layout_handle = texture_atlases.add(player_layout);
+
+    // spawn player at origin
     commands.spawn((
         SpriteBundle {
             texture: player_sheet_handle,
@@ -144,20 +203,42 @@ fn setup(
         Player,
     ));
 
+
+    // enemy spawning
+    let skeleton_asset = asset_server.load("Skelly.png");
+
+    // spawn enemy near player spawn 
+    commands.spawn((
+        SpriteBundle{
+            texture: skeleton_asset,
+            transform: Transform::from_xyz(100., 50., 900.),
+            ..default()
+        },
+        Enemy,
+    ));
+
+
 }
+
+fn aabb_collision(player_aabb: &Aabb, enemy_aabb: &Aabb) -> bool {
+    player_aabb.intersects(&enemy_aabb)
+}
+
+
 fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
+    enemy_query: Query<&Transform, (With<Enemy>, Without<Player>)>,
 ) {
     let (mut pt, mut pv) = player.single_mut();
+    let enemy = enemy_query.single();
 
     let mut deltav = Vec2::splat(0.);
 
     if input.pressed(KeyCode::KeyA) {
         deltav.x -= 1.;
     }
-
     if input.pressed(KeyCode::KeyD) {
         deltav.x += 1.;
     }
@@ -183,7 +264,6 @@ fn move_player(
 
     pv.velocity = if deltav.length() > 0. {
         (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed)
-    // heres where we use the max_speed
     } else if pv.velocity.length() > acc {
         pv.velocity + (pv.velocity.normalize_or_zero() * -acc)
     } else {
@@ -191,19 +271,30 @@ fn move_player(
     };
     let change = pv.velocity * deltat;
 
+    let mut player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
+    let enemy_aabb = Aabb::new(enemy.translation, Vec2::splat(TILE_SIZE as f32));
+
+    // horizontal movement and collision detection
     let new_pos: Vec3 = pt.translation + Vec3::new(change.x, 0., 0.);
-    if (new_pos.x >= -MAX_X + (TILE_SIZE as f32) / 2.
-       && new_pos.x <= MAX_X - (TILE_SIZE as f32) / 2.)
+    player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32)); // Update AABB for new position
+
+    if !aabb_collision(&player_aabb, &enemy_aabb)
+        && new_pos.x >= -MAX_X + (TILE_SIZE as f32) / 2.
+        && new_pos.x <= MAX_X - (TILE_SIZE as f32) / 2.
     {
         pt.translation = new_pos;
     }
 
+    // vertical movement & collision detection
     let new_pos = pt.translation + Vec3::new(0., change.y, 0.);
+    player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32)); // Update AABB for new position
+
     //if new_pos.y >= -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5)
     /* FOR ABOVE ^^^ I think it would be better for us to first set the border
     as the screen, then use detection where all wall tiles are present - Lukas */
     /* Werd - ROry */
-    if new_pos.y >= -MAX_Y + (TILE_SIZE as f32) / 2.
+    if !aabb_collision(&player_aabb, &enemy_aabb)
+        && new_pos.y >= -MAX_Y + (TILE_SIZE as f32) / 2.
         && new_pos.y <= MAX_Y - (TILE_SIZE as f32) / 2.
     {
         pt.translation = new_pos;
@@ -229,12 +320,22 @@ fn animate_player(
      * 3 = down 
      * ratlas. heh. get it.*/
     let (v, mut ratlas, mut timer, frame_count) = player.single_mut();
-    if v.velocity.x > 0. {
+    if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 
-        if timer.just_finished() {
-            ratlas.index = (ratlas.index + 1) % **frame_count;
-         }
+        if v.velocity.x > 0.{
+            ratlas.index = 1;
+        }
+        else if v.velocity.x < 0. {
+            ratlas.index = 0;
+        }
+
+        if v.velocity.y > 0.{
+            ratlas.index = 2;
+        }
+        else if v.velocity.y < 0. {
+            ratlas.index = 3;
+        }
     }
 }
 
@@ -248,3 +349,4 @@ fn move_camera(
     ct.translation.x = pt.translation.x.clamp(-MAX_X + (WIN_W/2.), MAX_X - (WIN_W/2.));
     ct.translation.y = pt.translation.y.clamp(-MAX_Y + (WIN_H/2.), MAX_Y - (WIN_H/2.));
 }
+
