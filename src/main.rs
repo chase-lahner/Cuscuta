@@ -96,7 +96,7 @@ impl From<Vec2> for Velocity {
 }
 
 static mut grid1: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
-static mut grid2: [[u32; ARR_W+1]; ARR_H+1] = [[0; ARR_W+1]; ARR_H+1];
+static mut grid2: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
 
 fn main() {
     App::new()
@@ -163,6 +163,11 @@ fn setup(
     ));
 }
 
+fn set_collide(room: u32, x: &usize, y: &usize)
+{
+    if room == 1 {unsafe{grid1[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = 1;}}
+    if room == 2 {unsafe{grid2[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = 1;}}
+}
 
 fn SpawnStartRoom( /* First Room */
     commands: &mut Commands, 
@@ -189,10 +194,11 @@ fn SpawnStartRoom( /* First Room */
             transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), 1.),
             ..default()
         }, Wall));
-        
-        xcoord = (x_offset - ((TILE_SIZE / 2) as f32)) as usize;
+
+        xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
         ycoord = (MAX_Y * 2. - ((TILE_SIZE / 2) as f32)) as usize;
-        unsafe{grid1[xcoord/32][ycoord/32] = 1;}
+        set_collide(1, &xcoord, &ycoord);
+        //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
         /* Spawn in south wall */
         commands.spawn((SpriteBundle {
@@ -201,9 +207,10 @@ fn SpawnStartRoom( /* First Room */
             ..default()
         }, Wall));
 
-        xcoord = (x_offset - ((TILE_SIZE / 2) as f32)) as usize;
+        xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
         ycoord = (0) as usize;
-        unsafe{grid1[xcoord/32][ycoord/32] = 1;}
+        set_collide(1, &xcoord, &ycoord);
+        //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
         while y_offset < MAX_Y + (TILE_SIZE as f32) {
 
@@ -215,8 +222,9 @@ fn SpawnStartRoom( /* First Room */
             }, Wall));
 
             xcoord = (MAX_X * 2. - ((TILE_SIZE / 2) as f32)) as usize;
-            ycoord = (y_offset - ((TILE_SIZE / 2) as f32)) as usize;
-            unsafe{grid1[xcoord/32][ycoord/32] = 1;}
+            ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y -1.) as usize;
+            set_collide(1, &xcoord, &ycoord);
+            //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
             /* West wall */
             commands.spawn((SpriteBundle {
@@ -226,8 +234,9 @@ fn SpawnStartRoom( /* First Room */
             }, Wall));
 
             xcoord = (0) as usize;
-            ycoord = (y_offset - ((TILE_SIZE / 2) as f32)) as usize;
-            unsafe{grid1[xcoord/32][ycoord/32] = 1;}
+            ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y - 1.) as usize;
+            set_collide(1, &xcoord, &ycoord);
+            //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
             /* Floor tiles */
             commands.spawn(SpriteBundle {
