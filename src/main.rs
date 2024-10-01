@@ -168,8 +168,8 @@ fn SpawnStartRoom(
     let east_wall_handle: Handle<Image> = asset_server.load("tiles/walls/right_wall.png");
     let west_wall_handle: Handle<Image> = asset_server.load("tiles/walls/left_wall.png");
 
-    let mut x_offset = -MAX_X;
-    let mut y_offset = -MAX_Y;
+    let mut x_offset = -MAX_X + ((TILE_SIZE / 2) as f32);
+    let mut y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
 
     while x_offset < MAX_X + (TILE_SIZE as f32) {
         /* Spawn in north wall */
@@ -210,7 +210,7 @@ fn SpawnStartRoom(
 
             y_offset += TILE_SIZE as f32;
         }
-        y_offset = -MAX_Y;
+        y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
         x_offset += TILE_SIZE as f32;
     }
 }

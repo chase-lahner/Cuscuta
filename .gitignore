@@ -22,3 +22,4 @@ Cargo.lock
 
 # macOS...
 .DS_Store
+assets/tiles/cobblestone_floor/cobblestone_floor.png
