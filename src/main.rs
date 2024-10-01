@@ -110,76 +110,15 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,// to spawn in enities
-    asset_server: Res<AssetServer>,// to access images
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,// used in animation
+    mut commands: Commands, // to spawn in entities
+    asset_server: Res<AssetServer>, // to access images
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
 ) {
+    // spawn the starting room
+    SpawnStartRoom(&mut commands, &asset_server);
+
+    // spawn camera
     commands.spawn(Camera2dBundle::default());
-
-    let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
-
-    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
-    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
-    let east_wall_handle:Handle<Image> = asset_server.load("tiles/walls/right_wall.png");
-    let west_wall_handle:Handle<Image> = asset_server.load("tiles/walls/left_wall.png");
-    /* We want (0,0) to be center stage, *
-     * this will start us in bottom left *
-     * for spawning in tiles             */
-    let mut x_offset = -MAX_X; 
-    let mut y_offset = -MAX_Y; 
-
-    while x_offset < MAX_X + (TILE_SIZE as f32){
-        /* Spawn in north wall */
-        commands.spawn((SpriteBundle {
-            texture: north_wall_texture_handle.clone(),
-            /* Top of level, minus tile size/2 for center spawning yk */
-            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2)as f32), 1.),
-            ..default()
-        },
-        Wall,
-        ));
-        /* Spawn in south wall */
-        commands.spawn((SpriteBundle {
-            texture: south_wall_handle.clone(),
-            /* bottom of level, plus tile size/2 for center spawning yk */
-            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE/2)as f32), 1.),
-            ..default()
-        },
-        Wall,
-        ));
-        while y_offset < MAX_Y + (TILE_SIZE as f32){
-            /* floor tiles */
-            commands
-                .spawn(SpriteBundle {
-                    texture: bg_texture_handle.clone(),
-                    transform: Transform::from_xyz(x_offset, y_offset, 0.),
-                    ..default()
-                })
-                .insert(Background);
-            /* east wall */
-            commands.spawn((SpriteBundle {
-                texture: east_wall_handle.clone(),
-                /* right side of level, minus tile size/2 for center spawning yk */
-                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE/2)as f32), y_offset, 1.),
-                ..default()
-            },
-            Wall,
-            ));
-
-            commands.spawn((SpriteBundle {
-                texture: west_wall_handle.clone(),
-                /* left side of level, minus tile size/2 for center spawning yk */
-                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE/2)as f32), y_offset, 1.),
-                ..default()
-            },
-            Wall,
-            ));
-           
-            y_offset += 32 as f32; 
-        }
-        y_offset = -MAX_Y; 
-        x_offset += 32 as f32; 
-    }
 
     let player_sheet_handle = asset_server.load("berry_rat.png");
     let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
@@ -203,21 +142,77 @@ fn setup(
         Player,
     ));
 
-
     // enemy spawning
     let skeleton_asset = asset_server.load("Skelly.png");
 
-    // spawn enemy near player spawn 
+    // spawn enemy near player spawn
     commands.spawn((
-        SpriteBundle{
+        SpriteBundle {
             texture: skeleton_asset,
             transform: Transform::from_xyz(100., 50., 900.),
             ..default()
         },
         Enemy,
     ));
+}
 
 
+fn SpawnStartRoom(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>
+) {
+    let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
+
+    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
+    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
+    let east_wall_handle: Handle<Image> = asset_server.load("tiles/walls/right_wall.png");
+    let west_wall_handle: Handle<Image> = asset_server.load("tiles/walls/left_wall.png");
+
+    let mut x_offset = -MAX_X;
+    let mut y_offset = -MAX_Y;
+
+    while x_offset < MAX_X + (TILE_SIZE as f32) {
+        /* Spawn in north wall */
+        commands.spawn((SpriteBundle {
+            texture: north_wall_texture_handle.clone(),
+            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), 1.),
+            ..default()
+        }, Wall));
+        
+        /* Spawn in south wall */
+        commands.spawn((SpriteBundle {
+            texture: south_wall_handle.clone(),
+            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), 1.),
+            ..default()
+        }, Wall));
+
+        while y_offset < MAX_Y + (TILE_SIZE as f32) {
+            /* Floor tiles */
+            commands.spawn(SpriteBundle {
+                texture: bg_texture_handle.clone(),
+                transform: Transform::from_xyz(x_offset, y_offset, 0.),
+                ..default()
+            }).insert(Background);
+
+            /* East wall */
+            commands.spawn((SpriteBundle {
+                texture: east_wall_handle.clone(),
+                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                ..default()
+            }, Wall));
+
+            /* West wall */
+            commands.spawn((SpriteBundle {
+                texture: west_wall_handle.clone(),
+                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                ..default()
+            }, Wall));
+
+            y_offset += TILE_SIZE as f32;
+        }
+        y_offset = -MAX_Y;
+        x_offset += TILE_SIZE as f32;
+    }
 }
 
 fn aabb_collision(player_aabb: &Aabb, enemy_aabb: &Aabb) -> bool {
