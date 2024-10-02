@@ -55,6 +55,9 @@ struct Background;
 struct Wall;
 
 #[derive(Component)]
+struct Door;
+
+#[derive(Component)]
 struct Velocity {
     velocity: Vec2,
 }
@@ -123,6 +126,7 @@ fn setup(
 ) {
     // spawn the starting room
     SpawnStartRoom(&mut commands, &asset_server);
+    SpawnNextRoom(&mut commands, &asset_server);
 
     // spawn camera
     commands.spawn(Camera2dBundle::default());
@@ -163,10 +167,10 @@ fn setup(
     ));
 }
 
-fn set_collide(room: u32, x: &usize, y: &usize)
+fn set_collide(room: u32, x: &usize, y: &usize, val: u32)
 {
-    if room == 1 {unsafe{grid1[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = 1;}}
-    if room == 2 {unsafe{grid2[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = 1;}}
+    if room == 1 {unsafe{grid1[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
+    if room == 2 {unsafe{grid2[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
 }
 
 fn SpawnStartRoom( /* First Room */
@@ -179,6 +183,7 @@ fn SpawnStartRoom( /* First Room */
     let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
     let east_wall_handle: Handle<Image> = asset_server.load("tiles/walls/right_wall.png");
     let west_wall_handle: Handle<Image> = asset_server.load("tiles/walls/left_wall.png");
+    let door_handle: Handle<Image> = asset_server.load("tiles/walls/black_void.png");
 
     let mut x_offset = -MAX_X + ((TILE_SIZE / 2) as f32);
     let mut y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
@@ -197,7 +202,7 @@ fn SpawnStartRoom( /* First Room */
 
         xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
         ycoord = (MAX_Y * 2. - ((TILE_SIZE / 2) as f32)) as usize;
-        set_collide(1, &xcoord, &ycoord);
+        set_collide(1, &xcoord, &ycoord, 1);
         //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
         /* Spawn in south wall */
@@ -209,7 +214,7 @@ fn SpawnStartRoom( /* First Room */
 
         xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
         ycoord = (0) as usize;
-        set_collide(1, &xcoord, &ycoord);
+        set_collide(1, &xcoord, &ycoord, 1);
         //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
         while y_offset < MAX_Y + (TILE_SIZE as f32) {
@@ -223,7 +228,7 @@ fn SpawnStartRoom( /* First Room */
 
             xcoord = (MAX_X * 2. - ((TILE_SIZE / 2) as f32)) as usize;
             ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y -1.) as usize;
-            set_collide(1, &xcoord, &ycoord);
+            set_collide(1, &xcoord, &ycoord, 1);
             //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
             /* West wall */
@@ -235,7 +240,7 @@ fn SpawnStartRoom( /* First Room */
 
             xcoord = (0) as usize;
             ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y - 1.) as usize;
-            set_collide(1, &xcoord, &ycoord);
+            set_collide(1, &xcoord, &ycoord, 1);
             //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
             /* Floor tiles */
@@ -244,6 +249,18 @@ fn SpawnStartRoom( /* First Room */
                 transform: Transform::from_xyz(x_offset, y_offset, 0.),
                 ..default()
             }).insert(Background);
+
+            if (x_offset == MAX_X - (3 * TILE_SIZE/2) as f32) && (y_offset == (TILE_SIZE / 2) as f32)
+            {
+                commands.spawn((SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(x_offset, y_offset, 1.),
+                    ..default()
+                }, Door));
+                xcoord = (MAX_X * 2. - (3 * TILE_SIZE/2) as f32) as usize;
+                ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y) as usize;
+                set_collide(1, &xcoord, &ycoord, 2);
+            }
 
             y_offset += TILE_SIZE as f32;
         }
@@ -270,6 +287,7 @@ fn SpawnNextRoom( /* Second Room */
     let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
     let east_wall_handle: Handle<Image> = asset_server.load("tiles/walls/right_wall.png");
     let west_wall_handle: Handle<Image> = asset_server.load("tiles/walls/left_wall.png");
+    let door_handle: Handle<Image> = asset_server.load("tiles/walls/black_void.png");
 
     let mut x_offset = -MAX_X + ((TILE_SIZE / 2) as f32);
     let mut y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
@@ -282,55 +300,67 @@ fn SpawnNextRoom( /* Second Room */
         /* Spawn in north wall */
         commands.spawn((SpriteBundle {
             texture: north_wall_texture_handle.clone(),
-            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), 1.),
+            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), -3.),
             ..default()
         }, Wall));
 
         xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
         ycoord = (MAX_Y * 2. - ((TILE_SIZE / 2) as f32)) as usize;
-        set_collide(2, &xcoord, &ycoord);
+        set_collide(2, &xcoord, &ycoord, 1);
 
         /* Spawn in south wall */
         commands.spawn((SpriteBundle {
             texture: south_wall_handle.clone(),
-            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), 1.),
+            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), -3.),
             ..default()
         }, Wall));
 
         xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
         ycoord = (0) as usize;
-        set_collide(2, &xcoord, &ycoord);
+        set_collide(2, &xcoord, &ycoord, 1);
 
         while y_offset < MAX_Y + (TILE_SIZE as f32) {
 
             /* East wall */
             commands.spawn((SpriteBundle {
                 texture: east_wall_handle.clone(),
-                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE / 2) as f32), y_offset, -3.),
                 ..default()
             }, Wall));
 
             xcoord = (MAX_X * 2. - ((TILE_SIZE / 2) as f32)) as usize;
             ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y -1.) as usize;
-            set_collide(2, &xcoord, &ycoord);
+            set_collide(2, &xcoord, &ycoord, 1);
 
             /* West wall */
             commands.spawn((SpriteBundle {
                 texture: west_wall_handle.clone(),
-                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE / 2) as f32), y_offset, -3.),
                 ..default()
             }, Wall));
 
             xcoord = (0) as usize;
             ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y - 1.) as usize;
-            set_collide(2, &xcoord, &ycoord);
+            set_collide(2, &xcoord, &ycoord, 1);
 
             /* Floor tiles */
             commands.spawn(SpriteBundle {
                 texture: bg_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, y_offset, 0.),
+                transform: Transform::from_xyz(x_offset, y_offset, -2.),
                 ..default()
             }).insert(Background);
+
+            if (x_offset == MAX_X - (3 * TILE_SIZE/2) as f32) && (y_offset == (TILE_SIZE / 2) as f32)
+            {
+                commands.spawn((SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(x_offset, y_offset, 1.),
+                    ..default()
+                }, Door));
+                xcoord = (MAX_X * 2. - (3 * TILE_SIZE/2) as f32) as usize;
+                ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y -1.) as usize;
+                set_collide(2, &xcoord, &ycoord, 2);
+            }
 
             y_offset += TILE_SIZE as f32;
         }
@@ -350,7 +380,6 @@ fn SpawnNextRoom( /* Second Room */
 fn aabb_collision(player_aabb: &Aabb, enemy_aabb: &Aabb) -> bool {
     player_aabb.intersects(&enemy_aabb)
 }
-
 
 fn move_player(
     time: Res<Time>,
@@ -407,6 +436,9 @@ fn move_player(
     let mut bottomleft: u32;
     let mut bottomright: u32;
 
+    // door checker
+    let mut dor: bool = false;
+
     // horizontal movement and collision detection
     let new_pos: Vec3 = pt.translation + Vec3::new(change.x, 0., 0.);
     player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32)); // Update AABB for new position
@@ -427,6 +459,11 @@ fn move_player(
         && topleft != 1 && topright != 1 && bottomleft != 1 && bottomright != 1
     {
         pt.translation = new_pos;
+    }
+
+    if topleft == 2 || topright ==2 || bottomleft == 2 || bottomright == 2
+    {
+        dor = true;
     }
 
     // vertical movement & collision detection
@@ -453,6 +490,17 @@ fn move_player(
         && topleft != 1 && topright != 1 && bottomleft != 1 && bottomright != 1
     {
         pt.translation = new_pos;
+    }
+
+    if topleft == 2 || topright ==2 || bottomleft == 2 || bottomright == 2
+    {
+        dor = true;
+    }
+
+    //transition map
+    if dor == true
+    {
+        println!("HI");
     }
 }
 
