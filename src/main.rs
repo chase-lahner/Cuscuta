@@ -1,7 +1,7 @@
 mod sprint_mechanic;
 mod title_sequence;
 
-use bevy::{prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
+use bevy::{ecs::query::QueryIter, prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
 use rand::Rng;
 
 const TITLE: &str = "Cuscuta Demo";// window title
@@ -553,3 +553,16 @@ fn move_camera(
     ct.translation.y = pt.translation.y.clamp(-MAX_Y + (WIN_H/2.), MAX_Y - (WIN_H/2.));
 }
 
+fn change_room(
+    mut wall: Query<&mut Transform, (Without<Player>, Without<Background>, With<Wall>)>,
+    mut background: Query<&mut Transform, (Without<Player>, With<Background>)>,
+) {
+   for mut wt in wall.iter_mut() {
+    wt.translation.z *= -1.;
+   }
+
+   for mut bt in background.iter_mut() {
+    bt.translation.z *= -1.;
+   }
+
+}
