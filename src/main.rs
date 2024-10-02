@@ -156,7 +156,7 @@ fn setup(
     commands.spawn((
         SpriteBundle {
             texture: skeleton_asset,
-            transform: Transform::from_xyz(100., 50., 900.),
+            transform: Transform::from_xyz(100., 50., 1.),
             ..default()
         },
         Enemy,
