@@ -1,7 +1,7 @@
 mod sprint_mechanic;
 mod title_sequence;
 
-use bevy::{prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
+use bevy::{ecs::query::QueryIter, prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
 use rand::Rng;
 
 const TITLE: &str = "Cuscuta Demo";// window title
@@ -113,6 +113,7 @@ fn main() {
          .add_systems(Update, move_player)// every frame, takes in WASD for movement
          .add_systems(Update, animate_player.after(move_player))
          .add_systems(Update, move_camera.after(animate_player))// follow character
+         .add_systems(Update, change_room.after(animate_player))
          .run();
 }
 
@@ -282,7 +283,7 @@ fn SpawnNextRoom( /* Second Room */
         /* Spawn in north wall */
         commands.spawn((SpriteBundle {
             texture: north_wall_texture_handle.clone(),
-            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), 1.),
+            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), -3.),
             ..default()
         }, Wall));
 
@@ -293,7 +294,7 @@ fn SpawnNextRoom( /* Second Room */
         /* Spawn in south wall */
         commands.spawn((SpriteBundle {
             texture: south_wall_handle.clone(),
-            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), 1.),
+            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), -2.),
             ..default()
         }, Wall));
 
@@ -505,3 +506,16 @@ fn move_camera(
     ct.translation.y = pt.translation.y.clamp(-MAX_Y + (WIN_H/2.), MAX_Y - (WIN_H/2.));
 }
 
+fn change_room(
+    mut wall: Query<&mut Transform, (Without<Player>, Without<Background>, With<Wall>)>,
+    mut background: Query<&mut Transform, (Without<Player>, With<Background>)>,
+) {
+   for mut wt in wall.iter_mut() {
+    wt.translation.z *= -1.;
+   }
+
+   for mut bt in background.iter_mut() {
+    bt.translation.z *= -1.;
+   }
+
+}
