@@ -12,6 +12,9 @@ const PLAYER_SPEED: f32 = 480.;
 const ACCEL_RATE: f32 = 4800.; 
 const SPRINT_MULTIPLIER: f32 = 2.0;
 
+const ENEMY_SPEED: f32 = 200.;
+const NUMBER_OF_ENEMIES: u32 = 10;
+
 const TILE_SIZE: u32 = 32; 
 
 const LEVEL_W: f32 = 4800.; 
@@ -29,16 +32,15 @@ const MAX_Y: f32 = LEVEL_H / 2.;
 
 const ANIM_TIME: f32 = 0.2;
 
-//const NUM_WALL: u32 = 10;
 
 #[derive(Component)]
 struct Player;// wow! it is he!
 
-// #[derive(Component, Deref, DerefMut)]
-// struct PopupTimer(Timer);// not currently in use
 
 #[derive(Component)]
-struct Enemy; // danger lurks ahead
+pub struct Enemy {
+    pub direction: Vec2,
+} 
 
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);// for switching through animation frames
@@ -113,8 +115,10 @@ fn main() {
              ..default()
          }))
          .add_systems(Startup,setup)// runs once, sets up scene
+         .add_systems(Startup, spawn_enemies)
          .add_systems(Update, move_player)// every frame, takes in WASD for movement
-         .add_systems(Update, animate_player.after(move_player))
+         .add_systems(Update, enemy_movement.after(move_player))
+         .add_systems(Update, animate_player.after(move_player)) // animates player, duh
          .add_systems(Update, move_camera.after(animate_player))// follow character
          .run();
 }
@@ -124,13 +128,28 @@ fn setup(
     asset_server: Res<AssetServer>, // to access images
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
 ) {
-    // spawn the starting room
+    // spawn the starting room & next room
     SpawnStartRoom(&mut commands, &asset_server);
     SpawnNextRoom(&mut commands, &asset_server);
 
     // spawn camera
     commands.spawn(Camera2dBundle::default());
 
+    // spawn player
+    SpawnPlayer(&mut commands, &asset_server, &mut texture_atlases);
+}
+
+fn set_collide(room: u32, x: &usize, y: &usize, val: u32)
+{
+    if room == 1 {unsafe{grid1[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
+    if room == 2 {unsafe{grid2[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
+}
+
+fn SpawnPlayer(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>
+) {
     let player_sheet_handle = asset_server.load("berry_rat.png");
     let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
     let player_layout_len = player_layout.textures.len();
@@ -152,25 +171,6 @@ fn setup(
         Velocity::new(),
         Player,
     ));
-
-    // enemy spawning
-    let skeleton_asset = asset_server.load("Skelly.png");
-
-    // spawn enemy near player spawn
-    commands.spawn((
-        SpriteBundle {
-            texture: skeleton_asset,
-            transform: Transform::from_xyz(100., 50., 1.),
-            ..default()
-        },
-        Enemy,
-    ));
-}
-
-fn set_collide(room: u32, x: &usize, y: &usize, val: u32)
-{
-    if room == 1 {unsafe{grid1[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
-    if room == 2 {unsafe{grid2[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
 }
 
 fn SpawnStartRoom( /* First Room */
@@ -181,9 +181,9 @@ fn SpawnStartRoom( /* First Room */
 
     let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
     let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
-    let east_wall_handle: Handle<Image> = asset_server.load("tiles/walls/right_wall.png");
-    let west_wall_handle: Handle<Image> = asset_server.load("tiles/walls/left_wall.png");
-    let door_handle: Handle<Image> = asset_server.load("tiles/walls/black_void.png");
+    let east_wall_handle = asset_server.load("tiles/walls/right_wall.png");
+    let west_wall_handle = asset_server.load("tiles/walls/left_wall.png");
+    let door_handle = asset_server.load("tiles/walls/black_void.png");
 
     let mut x_offset = -MAX_X + ((TILE_SIZE / 2) as f32);
     let mut y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
@@ -243,12 +243,14 @@ fn SpawnStartRoom( /* First Room */
             set_collide(1, &xcoord, &ycoord, 1);
             //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
+
             /* Floor tiles */
             commands.spawn(SpriteBundle {
                 texture: bg_texture_handle.clone(),
                 transform: Transform::from_xyz(x_offset, y_offset, 0.),
                 ..default()
             }).insert(Background);
+
 
             if (x_offset == MAX_X - (3 * TILE_SIZE/2) as f32) && (y_offset == (TILE_SIZE / 2) as f32)
             {
@@ -385,14 +387,13 @@ fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
-    enemy_query: Query<&Transform, (With<Enemy>, Without<Player>)>,
+    mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
     mut room: Query<&mut Transform, (Without<Player>, Without<Enemy>)>,
 ) {
     let (mut pt, mut pv) = player.single_mut();
-    let enemy = enemy_query.single();
-
     let mut deltav = Vec2::splat(0.);
 
+    // INPUT HANDLING
     if input.pressed(KeyCode::KeyA) {
         deltav.x -= 1.;
     }
@@ -428,82 +429,167 @@ fn move_player(
     };
     let change = pv.velocity * deltat;
 
-    let mut player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
-    let enemy_aabb = Aabb::new(enemy.translation, Vec2::splat(TILE_SIZE as f32));
 
-    // array coords
-    let mut topleft: u32;
-    let mut topright: u32;
-    let mut bottomleft: u32;
-    let mut bottomright: u32;
-
-    // door checker
     let mut dor: bool = false;
 
-    // horizontal movement and collision detection
-    let new_pos: Vec3 = pt.translation + Vec3::new(change.x, 0., 0.);
-    player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32)); // Update AABB for new position
+    // take care of horizontal and vertical movement + enemy collision check
+    handle_movement_and_enemy_collisions(&mut pt, change, &mut dor, &mut enemies);
 
-    //translate pixel coords into array coords
-    let arrymax: f32 = player_aabb.max.y / 32.0 + (ARR_H as f32 / 2.);
-    let arrymin: f32 = player_aabb.min.y / 32.0 + (ARR_H as f32 / 2.);
-    let arrxmax: f32 = player_aabb.max.x /32.0 + (ARR_W as f32 / 2.);
-    let arrxmin: f32 = player_aabb.min.x /32.0 + (ARR_W as f32 / 2.);
-    unsafe{topleft = grid1[arrxmin as usize][arrymax as usize];}
-    unsafe{topright = grid1[arrxmax as usize][arrymax as usize];}
-    unsafe{bottomleft = grid1[arrxmin as usize][arrymin as usize];}
-    unsafe{bottomright = grid1[arrxmax as usize][arrymin as usize];}
+    // if we hit a door
+    if dor {
+        transition_map(&mut room, &mut pt);
+    }
+}
 
-    if !aabb_collision(&player_aabb, &enemy_aabb)
-        && new_pos.x >= -MAX_X + (TILE_SIZE as f32) / 2.
+fn handle_movement_and_enemy_collisions(
+    pt: &mut Transform,
+    change: Vec2,
+    dor: &mut bool,
+    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
+) {
+    // handle horizontal movement & collision
+    handle_horizontal_movement(pt, change, dor, enemies);
+
+    // handle vertical movement & collision
+    handle_vertical_movement(pt, change, dor, enemies);
+}
+
+fn handle_horizontal_movement(
+    pt: &mut Transform,
+    change: Vec2,
+    dor: &mut bool,
+    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
+)
+{
+    let new_pos = pt.translation + Vec3::new(change.x, 0., 0.);
+    let player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
+
+    let (topleft, topright, bottomleft, bottomright) = translate_coords_to_grid(&player_aabb);
+
+    // Check enemy collision
+    for enemy_transform in enemies.iter() {
+        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if aabb_collision(&player_aabb, &enemy_aabb) {
+            // Handle enemy collision logic
+            return;
+        }
+    }
+
+    // Movement within bounds and collision check
+    if new_pos.x >= -MAX_X + (TILE_SIZE as f32) / 2.
         && new_pos.x <= MAX_X - (TILE_SIZE as f32) / 2.
         && topleft != 1 && topright != 1 && bottomleft != 1 && bottomright != 1
     {
         pt.translation = new_pos;
     }
 
-    if topleft == 2 || topright ==2 || bottomleft == 2 || bottomright == 2
-    {
-        dor = true;
+    // Check for door transition
+    if topleft == 2 || topright == 2 || bottomleft == 2 || bottomright == 2 {
+        *dor = true;
+    }
+}
+
+fn handle_vertical_movement (
+    pt: &mut Transform,
+    change: Vec2,
+    dor: &mut bool,
+    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
+)
+{
+    let new_pos = pt.translation + Vec3::new(0., change.y, 0.);
+    let player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
+
+    let (topleft, topright, bottomleft, bottomright) = translate_coords_to_grid(&player_aabb);
+
+    // Check enemy collision
+    for enemy_transform in enemies.iter() {
+        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if aabb_collision(&player_aabb, &enemy_aabb) {
+            // Handle enemy collision logic
+            return;
+        }
     }
 
-    // vertical movement & collision detection
-    let new_pos = pt.translation + Vec3::new(0., change.y, 0.);
-    player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32)); // Update AABB for new position
-
-    //translate pixel coords into array coords
-    let arrymax: f32 = player_aabb.max.y / 32.0 + (ARR_H as f32 / 2.);
-    let arrymin: f32 = player_aabb.min.y / 32.0 + (ARR_H as f32 / 2.);
-    let arrxmax: f32 = player_aabb.max.x /32.0 + (ARR_W as f32 / 2.);
-    let arrxmin: f32 = player_aabb.min.x /32.0 + (ARR_W as f32 / 2.);
-    unsafe{topleft = grid1[arrxmin as usize][arrymax as usize];}
-    unsafe{topright = grid1[arrxmax as usize][arrymax as usize];}
-    unsafe{bottomleft = grid1[arrxmin as usize][arrymin as usize];}
-    unsafe{bottomright = grid1[arrxmax as usize][arrymin as usize];}
-
-    //if new_pos.y >= -(WIN_H / 2.) + ((TILE_SIZE as f32) * 1.5)
-    /* FOR ABOVE ^^^ I think it would be better for us to first set the border
-    as the screen, then use detection where all wall tiles are present - Lukas */
-    /* Werd - ROry */
-    if !aabb_collision(&player_aabb, &enemy_aabb)
-        && new_pos.y >= -MAX_Y + (TILE_SIZE as f32) / 2.
+    // Movement within bounds and collision check
+    if new_pos.y >= -MAX_Y + (TILE_SIZE as f32) / 2.
         && new_pos.y <= MAX_Y - (TILE_SIZE as f32) / 2.
         && topleft != 1 && topright != 1 && bottomleft != 1 && bottomright != 1
     {
         pt.translation = new_pos;
     }
 
-    if topleft == 2 || topright ==2 || bottomleft == 2 || bottomright == 2
-    {
-        dor = true;
+    // Check for door transition
+    if topleft == 2 || topright == 2 || bottomleft == 2 || bottomright == 2 {
+        *dor = true;
+    }
+}
+
+fn translate_coords_to_grid(aabb: &Aabb) -> (u32, u32, u32, u32){
+    let arrymax: f32 = aabb.max.y / 32.0 + (ARR_H as f32 / 2.);
+    let arrymin: f32 = aabb.min.y / 32.0 + (ARR_H as f32 / 2.);
+    let arrxmax: f32 = aabb.max.x / 32.0 + (ARR_W as f32 / 2.);
+    let arrxmin: f32 = aabb.min.x / 32.0 + (ARR_W as f32 / 2.);
+
+    let topleft;
+    let topright;
+    let bottomleft;
+    let bottomright;
+
+    unsafe {
+        topleft = grid1[arrxmin as usize][arrymax as usize];
+        topright = grid1[arrxmax as usize][arrymax as usize];
+        bottomleft = grid1[arrxmin as usize][arrymin as usize];
+        bottomright = grid1[arrxmax as usize][arrymin as usize];
     }
 
-    //transition map
-    if dor == true
-    {
-        for mut wt in room.iter_mut() {wt.translation.z *= -1.;}
-        let new_pos: Vec3 = pt.translation + Vec3::new(-MAX_X * 1.9, 0., 0.);
-        pt.translation = new_pos;
+    (topleft, topright, bottomleft, bottomright)
+}
+
+fn transition_map(room: &mut Query<&mut Transform, (Without<Player>, Without<Enemy>)>, pt: &mut Transform) {
+    for mut wt in room.iter_mut() {
+        wt.translation.z *= -1.;
+    }
+    let new_pos: Vec3 = pt.translation + Vec3::new(-MAX_X * 1.9, 0., 0.);
+    pt.translation = new_pos;
+}
+
+fn spawn_enemies(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..NUMBER_OF_ENEMIES {
+        let random_x: f32 = rng.gen_range(-MAX_X..MAX_X);
+        let random_y: f32 = rng.gen_range(-MAX_Y..MAX_Y);
+
+        commands.spawn((
+            SpriteBundle {
+                transform: Transform::from_xyz(random_x, random_y, 900.),
+                texture: asset_server.load("Skelly.png"),
+                ..default()
+            },
+            Enemy {
+                direction: Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+            },
+        ));
+    }
+
+}
+
+pub fn enemy_movement(
+    mut enemy_query: Query<(&mut Transform, &Enemy)>,
+    player_query: Query<&Transform, (With<Player>, Without<Enemy>)>,
+    time: Res<Time>
+) {
+    let player_transform = player_query.single(); 
+
+    for (mut transform, enemy) in enemy_query.iter_mut() {
+
+        let direction_to_player = player_transform.translation - transform.translation;
+
+         let normalized_direction = direction_to_player.normalize();
+        transform.translation += normalized_direction * ENEMY_SPEED * time.delta_seconds();
     }
 }
 
