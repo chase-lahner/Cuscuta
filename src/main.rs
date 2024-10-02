@@ -113,7 +113,6 @@ fn main() {
          .add_systems(Update, move_player)// every frame, takes in WASD for movement
          .add_systems(Update, animate_player.after(move_player))
          .add_systems(Update, move_camera.after(animate_player))// follow character
-         .add_systems(Update, change_room.after(animate_player))
          .run();
 }
 
