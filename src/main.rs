@@ -156,7 +156,7 @@ fn setup(
     commands.spawn((
         SpriteBundle {
             texture: skeleton_asset,
-            transform: Transform::from_xyz(100., 50., 900.),
+            transform: Transform::from_xyz(100., 50., 1.),
             ..default()
         },
         Enemy,
@@ -250,14 +250,14 @@ fn SpawnStartRoom( /* First Room */
         y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
         x_offset += TILE_SIZE as f32;
     }
-    for a in 0..150
+    /*for a in 0..150
     {
         for b in 0..50
         {
             unsafe{print!("{}", grid1[a][b])}
         }
         println!()
-    }
+    }*/
 }
 
 fn SpawnNextRoom( /* Second Room */
@@ -274,48 +274,77 @@ fn SpawnNextRoom( /* Second Room */
     let mut x_offset = -MAX_X + ((TILE_SIZE / 2) as f32);
     let mut y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
 
-    while x_offset < MAX_X + (TILE_SIZE as f32) {
+    while x_offset < MAX_X {
+
+        let mut xcoord: usize;
+        let mut ycoord: usize;
+
         /* Spawn in north wall */
         commands.spawn((SpriteBundle {
             texture: north_wall_texture_handle.clone(),
-            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), 3.),
-            ..default()
-        }, Wall));
-        
-        /* Spawn in south wall */
-        commands.spawn((SpriteBundle {
-            texture: south_wall_handle.clone(),
-            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), 3.),
+            transform: Transform::from_xyz(x_offset, MAX_Y - ((TILE_SIZE / 2) as f32), 1.),
             ..default()
         }, Wall));
 
+        xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
+        ycoord = (MAX_Y * 2. - ((TILE_SIZE / 2) as f32)) as usize;
+        set_collide(2, &xcoord, &ycoord);
+
+        /* Spawn in south wall */
+        commands.spawn((SpriteBundle {
+            texture: south_wall_handle.clone(),
+            transform: Transform::from_xyz(x_offset, -MAX_Y + ((TILE_SIZE / 2) as f32), 1.),
+            ..default()
+        }, Wall));
+
+        xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
+        ycoord = (0) as usize;
+        set_collide(2, &xcoord, &ycoord);
+
         while y_offset < MAX_Y + (TILE_SIZE as f32) {
-            /* Floor tiles */
-            commands.spawn(SpriteBundle {
-                texture: bg_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, y_offset, 2.),
-                ..default()
-            }).insert(Background);
 
             /* East wall */
             commands.spawn((SpriteBundle {
                 texture: east_wall_handle.clone(),
-                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE / 2) as f32), y_offset, 3.),
+                transform: Transform::from_xyz(MAX_X - ((TILE_SIZE / 2) as f32), y_offset, 1.),
                 ..default()
             }, Wall));
+
+            xcoord = (MAX_X * 2. - ((TILE_SIZE / 2) as f32)) as usize;
+            ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y -1.) as usize;
+            set_collide(2, &xcoord, &ycoord);
 
             /* West wall */
             commands.spawn((SpriteBundle {
                 texture: west_wall_handle.clone(),
-                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE / 2) as f32), y_offset, 3.),
+                transform: Transform::from_xyz(-MAX_X + ((TILE_SIZE / 2) as f32), y_offset, 1.),
                 ..default()
             }, Wall));
+
+            xcoord = (0) as usize;
+            ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y - 1.) as usize;
+            set_collide(2, &xcoord, &ycoord);
+
+            /* Floor tiles */
+            commands.spawn(SpriteBundle {
+                texture: bg_texture_handle.clone(),
+                transform: Transform::from_xyz(x_offset, y_offset, 0.),
+                ..default()
+            }).insert(Background);
 
             y_offset += TILE_SIZE as f32;
         }
         y_offset = -MAX_Y + ((TILE_SIZE / 2) as f32);
         x_offset += TILE_SIZE as f32;
     }
+    /*for a in 0..150
+    {
+        for b in 0..50
+        {
+            unsafe{print!("{}", grid2[a][b])}
+        }
+        println!()
+    }*/
 }
 
 fn aabb_collision(player_aabb: &Aabb, enemy_aabb: &Aabb) -> bool {
