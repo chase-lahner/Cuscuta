@@ -354,7 +354,7 @@ fn SpawnNextRoom( /* Second Room */
             {
                 commands.spawn((SpriteBundle {
                     texture: door_handle.clone(),
-                    transform: Transform::from_xyz(x_offset, y_offset, 1.),
+                    transform: Transform::from_xyz(x_offset, y_offset, -3.),
                     ..default()
                 }, Door));
                 xcoord = (MAX_X * 2. - (3 * TILE_SIZE/2) as f32) as usize;
@@ -386,6 +386,7 @@ fn move_player(
     input: Res<ButtonInput<KeyCode>>,
     mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
     enemy_query: Query<&Transform, (With<Enemy>, Without<Player>)>,
+    mut room: Query<&mut Transform, (Without<Player>, Without<Enemy>)>,
 ) {
     let (mut pt, mut pv) = player.single_mut();
     let enemy = enemy_query.single();
@@ -500,7 +501,9 @@ fn move_player(
     //transition map
     if dor == true
     {
-        println!("HI");
+        for mut wt in room.iter_mut() {wt.translation.z *= -1.;}
+        let new_pos: Vec3 = pt.translation + Vec3::new(-MAX_X * 1.9, 0., 0.);
+        pt.translation = new_pos;
     }
 }
 
@@ -553,7 +556,7 @@ fn move_camera(
     ct.translation.y = pt.translation.y.clamp(-MAX_Y + (WIN_H/2.), MAX_Y - (WIN_H/2.));
 }
 
-fn change_room(
+/*fn change_room(
     mut wall: Query<&mut Transform, (Without<Player>, Without<Background>, With<Wall>)>,
     mut background: Query<&mut Transform, (Without<Player>, With<Background>)>,
 ) {
@@ -565,4 +568,4 @@ fn change_room(
     bt.translation.z *= -1.;
    }
 
-}
+}*/
