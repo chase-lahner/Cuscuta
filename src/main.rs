@@ -1,6 +1,6 @@
 mod sprint_mechanic;
-mod title_sequence;
 
+use std::net::UdpSocket;
 use bevy::{ecs::query::QueryIter, prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
 use rand::Rng;
 
@@ -64,6 +64,11 @@ struct Velocity {
     velocity: Vec2,
 }
 
+#[derive(Resource)]
+struct UDP{
+    socket: UdpSocket
+}
+
 struct Aabb {
     min: Vec2,
     max: Vec2,
@@ -117,6 +122,8 @@ fn main() {
          .add_systems(Startup,setup)// runs once, sets up scene
          .add_systems(Startup, spawn_enemies)
          .add_systems(Update, move_player)// every frame, takes in WASD for movement
+         .add_systems(Update, send_packet)
+         .add_systems(Update, recv_packet)
          .add_systems(Update, enemy_movement.after(move_player))
          .add_systems(Update, animate_player.after(move_player)) // animates player, duh
          .add_systems(Update, move_camera.after(animate_player))// follow character
@@ -131,6 +138,11 @@ fn setup(
     // spawn the starting room & next room
     SpawnStartRoom(&mut commands, &asset_server);
     SpawnNextRoom(&mut commands, &asset_server);
+
+    /* initializes our networking socket */
+    let socket = UdpSocket::bind("0.0.0.0:2022").unwrap();
+    commands.insert_resource(UDP {socket: socket});
+
 
     // spawn camera
     commands.spawn(Camera2dBundle::default());
@@ -641,6 +653,21 @@ fn move_camera(
     ct.translation.x = pt.translation.x.clamp(-MAX_X + (WIN_W/2.), MAX_X - (WIN_W/2.));
     ct.translation.y = pt.translation.y.clamp(-MAX_Y + (WIN_H/2.), MAX_Y - (WIN_H/2.));
 }
+
+fn recv_packet(
+    socket: Res<UDP>
+){
+    let mut buf = [0;1024];
+    let (amt, src) = socket.socket.recv_from(&mut buf).unwrap();
+    println!("{}", String::from_utf8_lossy(&buf));
+}
+
+fn send_packet(
+    socket: Res<UDP>
+) {
+    socket.socket.send_to(b"boo!", "0.0.0.0:2021").unwrap();
+}
+
 
 /*fn change_room(
     mut wall: Query<&mut Transform, (Without<Player>, Without<Background>, With<Wall>)>,
