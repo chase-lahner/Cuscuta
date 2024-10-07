@@ -5,13 +5,13 @@ const TICKS_PER_SECOND: u32 = 60;
 
 fn main() -> std::io::Result<()>{
     /* binding to our little mailbox */
-    let socket = UdpSocket::bind("0.0.0.0:2021").unwrap();
+    let socket = UdpSocket::bind("localhost:5001").unwrap();
     /* buffer will be 100 msgs 1024B in length */
     let mut buf: [u8; 1024] = [0;1024];
 
     loop {
         let (amt, src) = socket.recv_from(&mut buf)?;
-        println!("{}",String::from_utf8_lossy(&buf));
-        socket.send_to(b"From server", "0.0.0.0:2022");
+        println!("{:?}",&buf);
+        socket.send_to(b"From server", "localhost:5000").unwrap();
     }
 }

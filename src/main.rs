@@ -1,7 +1,7 @@
 mod sprint_mechanic;
 
-use std::net::UdpSocket;
-use bevy::{ecs::query::QueryIter, prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
+use std::{mem::transmute, net::UdpSocket};
+use bevy::{ecs::query::QueryIter, log::tracing_subscriber::fmt::format, prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
 use rand::Rng;
 
 const TITLE: &str = "Cuscuta Demo";// window title
@@ -122,8 +122,9 @@ fn main() {
          .add_systems(Startup,setup)// runs once, sets up scene
          .add_systems(Startup, spawn_enemies)
          .add_systems(Update, move_player)// every frame, takes in WASD for movement
-         .add_systems(Update, send_packet)
+         //.add_systems(Update, send_packet)
          .add_systems(Update, recv_packet)
+         .add_systems(Update, send_movement_info.after(move_player))
          .add_systems(Update, enemy_movement.after(move_player))
          .add_systems(Update, animate_player.after(move_player)) // animates player, duh
          .add_systems(Update, move_camera.after(animate_player))// follow character
@@ -140,7 +141,7 @@ fn setup(
     SpawnNextRoom(&mut commands, &asset_server);
 
     /* initializes our networking socket */
-    let socket = UdpSocket::bind("0.0.0.0:2022").unwrap();
+    let socket = UdpSocket::bind("localhost:5000").unwrap();
     commands.insert_resource(UDP {socket: socket});
 
 
@@ -663,9 +664,25 @@ fn recv_packet(
 }
 
 fn send_packet(
-    socket: Res<UDP>
+    socket: Res<UDP>,
 ) {
-    socket.socket.send_to(b"boo!", "0.0.0.0:2021").unwrap();
+    socket.socket.send_to(b"boo!", "localhost:5001").unwrap();
+}
+
+fn send_movement_info(
+    socket: Res<UDP>,
+    player: Query<&Transform, With<Player>>,
+    
+) {
+    let pt = player.single();
+    let x = pt.translation.x;
+    let y = pt.translation.y;
+    let xInt = unsafe {x.to_int_unchecked::<u8>()};
+    let yInt = unsafe {y.to_int_unchecked::<u8>()};
+    let buf:[u8;2] = [xInt, yInt];
+    print!("{:?}", &buf);
+
+    socket.socket.send_to(&buf,"localhost:5001").unwrap();
 }
 
 
