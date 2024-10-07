@@ -1,7 +1,7 @@
 
 
 use std::net::UdpSocket;
-use bevy::{ecs::query::QueryIter, prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
+use bevy::{prelude::*, window::PresentMode};
 use rand::Rng;
 
 const TITLE: &str = "Cuscuta Demo";// window title
@@ -34,7 +34,7 @@ const ANIM_TIME: f32 = 0.2;
 
 
 #[derive(Component)]
-struct Player;// wow! it is he!
+pub struct Player;// wow! it is he!
 
 
 #[derive(Component)]
@@ -596,7 +596,7 @@ pub fn enemy_movement(
 ) {
     let player_transform = player_query.single(); 
 
-    for (mut transform, enemy) in enemy_query.iter_mut() {
+    for (mut transform, _enemy) in enemy_query.iter_mut() {
 
         let direction_to_player = player_transform.translation - transform.translation;
 
@@ -623,7 +623,7 @@ fn animate_player(
      * 2 = up
      * 3 = down 
      * ratlas. heh. get it.*/
-    let (v, mut ratlas, mut timer, frame_count) = player.single_mut();
+    let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
     if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 
@@ -658,7 +658,7 @@ fn recv_packet(
     socket: Res<UDP>
 ){
     let mut buf = [0;1024];
-    let (amt, src) = socket.socket.recv_from(&mut buf).unwrap();
+    let (_amt, _src) = socket.socket.recv_from(&mut buf).unwrap();
     println!("{}", String::from_utf8_lossy(&buf));
 }
 
