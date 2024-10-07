@@ -68,7 +68,8 @@ struct Velocity {
 struct UDP{
     socket: UdpSocket
 }
-
+#[derive(Component)]
+struct Pot;
 struct Aabb {
     min: Vec2,
     max: Vec2,
@@ -127,6 +128,7 @@ fn main() {
          .add_systems(Update, enemy_movement.after(move_player))
          .add_systems(Update, animate_player.after(move_player)) // animates player, duh
          .add_systems(Update, move_camera.after(animate_player))// follow character
+         .add_systems(Update, player_interact)
          .run();
 }
 
@@ -147,8 +149,10 @@ fn setup(
     // spawn camera
     commands.spawn(Camera2dBundle::default());
 
+    /* spawn pot to play with */
+    spawn_pot(&mut commands, &asset_server);
     // spawn player
- spawn_player(&mut commands, &asset_server, &mut texture_atlases);
+    spawn_player(&mut commands, &asset_server, &mut texture_atlases);
 }
 
 fn set_collide(room: u32, x: &usize, y: &usize, val: u32)
@@ -182,6 +186,21 @@ fn spawn_player(
         AnimationFrameCount(player_layout_len),
         Velocity::new(),
         Player,
+    ));
+}
+
+fn spawn_pot(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+){
+    let pot_handle = asset_server.load("pot.png");
+    commands.spawn((
+        SpriteBundle {
+            texture: pot_handle,
+            transform: Transform::from_xyz(200.,200.,1.),
+            ..default()
+        },
+        Pot,
     ));
 }
 
