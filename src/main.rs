@@ -1,4 +1,4 @@
-mod sprint_mechanic;
+
 
 use std::net::UdpSocket;
 use bevy::{ecs::query::QueryIter, prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
@@ -105,8 +105,8 @@ impl From<Vec2> for Velocity {
     }
 }
 
-static mut grid1: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
-static mut grid2: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
+static mut GRID1: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
+static mut GRID2: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
 
 fn main() {
     App::new()
@@ -136,11 +136,11 @@ fn setup(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
 ) {
     // spawn the starting room & next room
-    SpawnStartRoom(&mut commands, &asset_server);
-    SpawnNextRoom(&mut commands, &asset_server);
+    spawn_start_room(&mut commands, &asset_server);
+    spawn_next_room(&mut commands, &asset_server);
 
     /* initializes our networking socket */
-    let socket = UdpSocket::bind("0.0.0.0:2022").unwrap();
+    let socket = UdpSocket::bind("localhost:2022").unwrap();
     commands.insert_resource(UDP {socket: socket});
 
 
@@ -148,16 +148,16 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     // spawn player
-    SpawnPlayer(&mut commands, &asset_server, &mut texture_atlases);
+ spawn_player(&mut commands, &asset_server, &mut texture_atlases);
 }
 
 fn set_collide(room: u32, x: &usize, y: &usize, val: u32)
 {
-    if room == 1 {unsafe{grid1[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
-    if room == 2 {unsafe{grid2[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
+    if room == 1 {unsafe{GRID1[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
+    if room == 2 {unsafe{GRID2[x/TILE_SIZE as usize][y/TILE_SIZE as usize] = val;}}
 }
 
-fn SpawnPlayer(
+fn spawn_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>
@@ -185,7 +185,7 @@ fn SpawnPlayer(
     ));
 }
 
-fn SpawnStartRoom( /* First Room */
+fn spawn_start_room( /* First Room */
     commands: &mut Commands, 
     asset_server: &Res<AssetServer>
 ) {
@@ -215,7 +215,7 @@ fn SpawnStartRoom( /* First Room */
         xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
         ycoord = (MAX_Y * 2. - ((TILE_SIZE / 2) as f32)) as usize;
         set_collide(1, &xcoord, &ycoord, 1);
-        //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
+        //unsafe{GRID1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
         /* Spawn in south wall */
         commands.spawn((SpriteBundle {
@@ -227,7 +227,7 @@ fn SpawnStartRoom( /* First Room */
         xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
         ycoord = (0) as usize;
         set_collide(1, &xcoord, &ycoord, 1);
-        //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
+        //unsafe{GRID1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
         while y_offset < MAX_Y + (TILE_SIZE as f32) {
 
@@ -241,7 +241,7 @@ fn SpawnStartRoom( /* First Room */
             xcoord = (MAX_X * 2. - ((TILE_SIZE / 2) as f32)) as usize;
             ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y -1.) as usize;
             set_collide(1, &xcoord, &ycoord, 1);
-            //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
+            //unsafe{GRID1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
             /* West wall */
             commands.spawn((SpriteBundle {
@@ -253,7 +253,7 @@ fn SpawnStartRoom( /* First Room */
             xcoord = (0) as usize;
             ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y - 1.) as usize;
             set_collide(1, &xcoord, &ycoord, 1);
-            //unsafe{grid1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
+            //unsafe{GRID1[xcoord/TILE_SIZE as usize][ycoord/TILE_SIZE as usize] = 1;}
 
 
             /* Floor tiles */
@@ -285,13 +285,13 @@ fn SpawnStartRoom( /* First Room */
     {
         for b in 0..50
         {
-            unsafe{print!("{}", grid1[a][b])}
+            unsafe{print!("{}", GRID1[a][b])}
         }
         println!()
     }*/
 }
 
-fn SpawnNextRoom( /* Second Room */
+fn spawn_next_room( /* Second Room */
     commands: &mut Commands, 
     asset_server: &Res<AssetServer>
 ) {
@@ -385,7 +385,7 @@ fn SpawnNextRoom( /* Second Room */
     {
         for b in 0..50
         {
-            unsafe{print!("{}", grid2[a][b])}
+            unsafe{print!("{}", GRID2[a][b])}
         }
         println!()
     }*/
@@ -548,10 +548,10 @@ fn translate_coords_to_grid(aabb: &Aabb) -> (u32, u32, u32, u32){
     let bottomright;
 
     unsafe {
-        topleft = grid1[arrxmin as usize][arrymax as usize];
-        topright = grid1[arrxmax as usize][arrymax as usize];
-        bottomleft = grid1[arrxmin as usize][arrymin as usize];
-        bottomright = grid1[arrxmax as usize][arrymin as usize];
+        topleft = GRID1[arrxmin as usize][arrymax as usize];
+        topright = GRID1[arrxmax as usize][arrymax as usize];
+        bottomleft = GRID1[arrxmin as usize][arrymin as usize];
+        bottomright = GRID1[arrxmax as usize][arrymin as usize];
     }
 
     (topleft, topright, bottomleft, bottomright)
@@ -665,7 +665,7 @@ fn recv_packet(
 fn send_packet(
     socket: Res<UDP>
 ) {
-    socket.socket.send_to(b"boo!", "0.0.0.0:2021").unwrap();
+    socket.socket.send_to(b"boo!", "localhost:2021").unwrap();
 }
 
 
