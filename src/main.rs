@@ -165,8 +165,8 @@ fn spawn_player(
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>
 ) {
-    let player_sheet_handle = asset_server.load("berry_rat.png");
-    let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
+    let player_sheet_handle = asset_server.load("4x4_walk.png");
+    let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 4, None, None);
     let player_layout_len = player_layout.textures.len();
     let player_layout_handle = texture_atlases.add(player_layout);
 
@@ -636,27 +636,33 @@ fn animate_player(
     >,
 ) {
     /* In texture atlas for ratatta:
-     * 0 = left
-     * 1 = right
-     * 2 = up
-     * 3 = down 
+     * 0 - 3 = up
+     * 4 - 7 = down
+     * 8 - 11 = right
+     * 12 - 15 = left
      * ratlas. heh. get it.*/
     let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
     if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 
-        if v.velocity.x > 0.{
-            ratlas.index = 1;
-        }
-        else if v.velocity.x < 0. {
-            ratlas.index = 0;
-        }
+        let abx = v.velocity.x.abs();
+        let aby = v.velocity.y.abs();
 
-        if v.velocity.y > 0.{
-            ratlas.index = 2;
+        if abx > aby {
+            if v.velocity.x > 0.{
+                ratlas.index = ((ratlas.index + 1) % 4) + 8;
+            }
+            else if v.velocity.x < 0. {
+                ratlas.index = ((ratlas.index + 1) % 4) + 12;
+            }
         }
-        else if v.velocity.y < 0. {
-            ratlas.index = 3;
+        else {
+            if v.velocity.y > 0.{
+                ratlas.index = (ratlas.index + 1) % 4;
+            }
+            else if v.velocity.y < 0. {
+                ratlas.index = ((ratlas.index + 1) % 4) + 4;
+            }
         }
     }
 }
