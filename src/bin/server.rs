@@ -4,15 +4,14 @@ const _TICKS_PER_SECOND: u32 = 60;
 
 fn main() -> std::io::Result<()>{
     /* binding to our little mailbox */
-    let socket = UdpSocket::bind("localhost:2021").unwrap();
+    let socket = UdpSocket::bind("localhost:5001").unwrap();
     /* buffer will be 100 msgs 1024B in length */
     let mut buf: [u8; 1024] = [0;1024];
     let mut sources:HashSet<SocketAddr> = HashSet::new();
     loop {
-        let (_amt, src) = socket.recv_from(&mut buf)?;
-        sources.insert(src);
-        println!("{}",String::from_utf8_lossy(&buf));
-        socket.send_to(b"From server", "localhost:2022").unwrap();
+        let (amt, src) = socket.recv_from(&mut buf)?;
+        println!("{:?}",&buf);
+        socket.send_to(b"From server", "localhost:5000").unwrap();
     }
 
 
