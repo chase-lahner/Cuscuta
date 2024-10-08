@@ -608,6 +608,21 @@ pub fn enemy_movement(
     }
 }
 
+fn player_attack(
+    time: Res<Time>,
+    input: Res<ButtonInput<KeyCode>>,
+    mut player: Query<
+        (
+            &Velocity,
+            &mut TextureAtlas,
+            &mut AnimationTimer,
+            &AnimationFrameCount,
+        ),
+        With<Player>,
+    >,) {
+
+}
+
 fn animate_player(
     time: Res<Time>,
     mut player: Query<
