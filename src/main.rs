@@ -108,6 +108,7 @@ impl From<Vec2> for Velocity {
 
 static mut GRID1: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
 static mut GRID2: [[u32; ARR_H]; ARR_W] = [[0; ARR_H]; ARR_W];
+static mut attacking: bool = false;
 
 fn main() {
     App::new()
@@ -128,6 +129,7 @@ fn main() {
          .add_systems(Update, send_movement_info.after(move_player))
          .add_systems(Update, enemy_movement.after(move_player))
          .add_systems(Update, animate_player.after(move_player)) // animates player, duh
+         .add_systems(Update, player_attack.after(animate_player)) // animates attack swing
          .add_systems(Update, move_camera.after(animate_player))// follow character
          .run();
 }
@@ -165,8 +167,8 @@ fn spawn_player(
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>
 ) {
-    let player_sheet_handle = asset_server.load("berry_rat.png");
-    let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 1, None, None);
+    let player_sheet_handle = asset_server.load("4x8_player.png");
+    let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 8, None, None);
     let player_layout_len = player_layout.textures.len();
     let player_layout_handle = texture_atlases.add(player_layout);
 
@@ -608,6 +610,74 @@ pub fn enemy_movement(
     }
 }
 
+fn player_attack(
+    time: Res<Time>,
+    input: Res<ButtonInput<MouseButton>>,
+    mut player: Query<
+        (
+            &Velocity,
+            &mut TextureAtlas,
+            &mut AnimationTimer,
+            &AnimationFrameCount,
+        ),
+        With<Player>,
+    >,
+) {
+    /* In texture atlas for ratatta:
+     * 0 - 3 = up
+     * 4 - 7 = down
+     * 8 - 11 = right
+     * 12 - 15 = left
+     * ratlas. heh. get it.*/
+     let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
+
+     let abx = v.velocity.x.abs();
+     let aby = v.velocity.y.abs();
+
+     if input.just_pressed(MouseButton::Left)
+     {
+        println!("SWINGING");
+        unsafe{attacking = true;} //set attacking to true to override movement animations
+        
+        // deciding initial frame for swing (so not partial animation)
+        if abx > aby {
+            if v.velocity.x >= 0.{ratlas.index = 8;}
+            else if v.velocity.x < 0. {ratlas.index = 12;}
+        }
+        else {
+            if v.velocity.y >= 0.{ratlas.index = 0;}
+            else if v.velocity.y < 0. {ratlas.index = 4;}
+        }
+
+        timer.reset();
+     }
+    unsafe{if attacking == true
+    {
+        timer.tick(time.delta());
+
+        if abx > aby {
+            if v.velocity.x >= 0.{
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 8;}
+                if ratlas.index == 11{attacking = false; ratlas.index = 24} //allow for movement anims after last swing frame
+            }
+            else if v.velocity.x < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 12;}
+                if ratlas.index == 15{attacking = false; ratlas.index = 28} //allow for movement anims after last swing frame
+            }
+        }
+        else {
+            if v.velocity.y >= 0.{
+                if timer.finished(){ratlas.index = (ratlas.index + 1) % 4;}
+                if ratlas.index == 3{attacking = false; ratlas.index = 16} //allow for movement anims after last swing frame
+            }
+            else if v.velocity.y < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 4;}
+                if ratlas.index == 7{attacking = false; ratlas.index = 20} //allow for movement anims after last swing frame
+            }
+        }
+    }}
+}
+
 fn animate_player(
     time: Res<Time>,
     mut player: Query<
@@ -621,29 +691,36 @@ fn animate_player(
     >,
 ) {
     /* In texture atlas for ratatta:
-     * 0 = left
-     * 1 = right
-     * 2 = up
-     * 3 = down 
+     * 16 - 19 = up
+     * 20 - 23 = down
+     * 24 - 27 = right
+     * 28 - 31 = left
      * ratlas. heh. get it.*/
     let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
-    if v.velocity.cmpne(Vec2::ZERO).any() {
+    unsafe{if attacking == true{return;}} //checking if attack animations are running
+    //if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 
-        if v.velocity.x > 0.{
-            ratlas.index = 1;
-        }
-        else if v.velocity.x < 0. {
-            ratlas.index = 0;
-        }
+        let abx = v.velocity.x.abs();
+        let aby = v.velocity.y.abs();
 
-        if v.velocity.y > 0.{
-            ratlas.index = 2;
+        if abx > aby {
+            if v.velocity.x > 0.{
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 24;}
+            }
+            else if v.velocity.x < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 28;}
+            }
         }
-        else if v.velocity.y < 0. {
-            ratlas.index = 3;
+        else {
+            if v.velocity.y > 0.{
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 16;}
+            }
+            else if v.velocity.y < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 20;}
+            }
         }
-    }
+    //}
 }
 
 fn move_camera(
