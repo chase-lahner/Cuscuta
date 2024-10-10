@@ -52,6 +52,11 @@ struct AnimationFrameCount(usize);
 struct Background;
 
 #[derive(Component)]
+struct Pot{
+    touch: u8
+}
+
+#[derive(Component)]
 struct Wall;
 
 #[derive(Component)]
@@ -258,6 +263,23 @@ fn spawn_player(
     ));
 }
 
+fn spawn_pot(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>
+){
+    let pot_handle = asset_server.load("pot.png");
+    commands.spawn((
+        SpriteBundle{
+            texture: pot_handle,
+            transform: Transform::from_xyz(200.,200.,1.),
+            ..default()
+        },
+        Pot{
+            touch: 0
+        }
+    ));
+}
+
 fn spawn_start_room(
     commands: &mut Commands, 
     asset_server: &Res<AssetServer>,
@@ -394,7 +416,7 @@ fn player_interact(
     mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     mut pot_q: Query<&mut Pot>,
-    mut pot_transform_q: Query<&mut Transform, With<Pot>>
+    mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>
 ){
     let mut pot = pot_q.single_mut();
     let pot_transform = pot_transform_q.single_mut();
