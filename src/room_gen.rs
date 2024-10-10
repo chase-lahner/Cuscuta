@@ -1,29 +1,9 @@
 use bevy::prelude::*;
-
+use rand::Rng;
+use crate::collision::*;
 use crate::cuscuta_resources::*;
 
 
-pub struct Aabb {
-    min: Vec2,
-    max: Vec2,
-}
-
-impl Aabb {
-    pub fn new(center: Vec3, size: Vec2) -> Self {
-        let half_size = size / 2.0;
-        Self {
-            min: Vec2::new(center.x - half_size.x, center.y - half_size.y),
-            max: Vec2::new(center.x + half_size.x, center.y + half_size.y),
-        }
-    }
-
-    pub fn intersects(&self, other: &Aabb) -> bool {
-        self.min.x < other.max.x
-            && self.max.x > other.min.x
-            && self.min.y < other.max.y
-            && self.max.y > other.min.y
-    }
-}
 #[derive(Resource)]
 pub struct RoomManager {
     pub grids: Vec<Vec<Vec<u32>>>,
@@ -78,6 +58,128 @@ impl RoomManager {
     }
 }
 
+pub fn spawn_start_room(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>,
+    room_manager: &mut RoomManager,
+) {
+    let mut rng = rand::thread_rng();
+
+    // generate random integers between 50 and 250, * 32
+    let random_width = rng.gen_range(50..=250);
+    let random_height = rng.gen_range(50..=250);
+
+    // Room width & height as a multiple of 32
+    let room_width = random_width as f32 * TILE_SIZE as f32;  
+    let room_height = random_height as f32 * TILE_SIZE as f32;
+
+    let arr_w = (room_width / TILE_SIZE as f32) as usize;
+    let arr_h = (room_height / TILE_SIZE as f32) as usize;
+
+    // Add the room and switch to it
+    room_manager.add_room(arr_w, arr_h, room_width, room_height);
+    room_manager.switch_room(room_manager.grids.len() - 1); 
+
+    let max_x = room_width / 2.;
+    let max_y = room_height / 2.;
+
+    // add collision grid for start room
+    room_manager.add_room((room_width / TILE_SIZE as f32) as usize,
+     (room_height / TILE_SIZE as f32) as usize, room_width, room_height);
+
+    let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
+    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
+    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
+    let east_wall_handle = asset_server.load("tiles/walls/right_wall.png");
+    let west_wall_handle = asset_server.load("tiles/walls/left_wall.png");
+    let door_handle = asset_server.load("tiles/walls/black_void.png");
+
+    let mut x_offset = -max_x + ((TILE_SIZE / 2) as f32);
+    let mut y_offset = -max_y + ((TILE_SIZE / 2) as f32);
+
+
+    while x_offset < max_x {
+
+
+        let mut _xcoord: usize;
+        let mut _ycoord: usize;
+
+        /* Spawn in north wall */
+        commands.spawn((SpriteBundle {
+            texture: north_wall_texture_handle.clone(),
+            transform: Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), 1.),
+            ..default()
+        }, Wall));
+
+        _xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + max_x) as usize;
+        _ycoord = (max_y * 2. - ((TILE_SIZE / 2) as f32)) as usize;
+        //set_collide(room_manager, xcoord, ycoord, 1);
+
+        /* Spawn in south wall */
+        commands.spawn((SpriteBundle {
+            texture: south_wall_handle.clone(),
+            transform: Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), 1.),
+            ..default()
+        }, Wall));
+
+        _xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
+        _ycoord = (0) as usize;
+        //set_collide(room_manager, xcoord, ycoord, 1);
+
+        while y_offset < max_y + (TILE_SIZE as f32) {
+
+            /* East wall */
+            commands.spawn((SpriteBundle {
+                texture: east_wall_handle.clone(),
+                transform: Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                ..default()
+            }, Wall));
+
+            _xcoord = (MAX_X * 2. - ((TILE_SIZE / 2) as f32)) as usize;
+            _ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y - 1.) as usize;
+            //set_collide(room_manager, xcoord, ycoord, 1);
+
+            /* West wall */
+            commands.spawn((SpriteBundle {
+                texture: west_wall_handle.clone(),
+                transform: Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                ..default()
+            }, Wall));
+
+            _xcoord = (0) as usize;
+            _ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y - 1.) as usize;
+            //set_collide(room_manager, xcoord, ycoord, 1);
+
+            /* Floor tiles */
+            commands.spawn(SpriteBundle {
+                texture: bg_texture_handle.clone(),
+                transform: Transform::from_xyz(x_offset, y_offset, 0.),
+                ..default()
+            }).insert(Background);
+
+            // door
+            if (x_offset == max_x - (3.0 * (TILE_SIZE as f32) / 2.0)) && (y_offset == (TILE_SIZE as f32 / 2.0)) {
+                commands.spawn((
+                    SpriteBundle {
+                        texture: door_handle.clone(),
+                        transform: Transform::from_xyz(x_offset, y_offset, 1.),
+                        ..default()
+                    },
+                    Door,
+                ));
+
+                _xcoord = (MAX_X * 2. - (3 * TILE_SIZE / 2) as f32) as usize;
+                _ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y) as usize;
+                //set_collide(room_manager, xcoord, ycoord, 2);
+            }
+            y_offset += TILE_SIZE as f32;
+        }
+
+        y_offset = -max_y + ((TILE_SIZE / 2) as f32);
+        x_offset += TILE_SIZE as f32;
+    }
+
+}
 pub fn translate_coords_to_grid(aabb: &Aabb, room_manager: &mut RoomManager) -> (u32, u32, u32, u32){
     // get the current room's grid size
     let current_grid = room_manager.current_grid();

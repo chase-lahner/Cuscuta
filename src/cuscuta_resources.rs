@@ -33,6 +33,10 @@ pub const MAX_Y: f32 = LEVEL_H / 2.;
 pub const ANIM_TIME: f32 = 0.2;
 
 
+#[derive(Resource)]
+pub struct Attacking{
+    pub attack: bool
+}
 
 #[derive(Component)]
 pub struct Player;// wow! it is he!
