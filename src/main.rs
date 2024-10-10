@@ -785,8 +785,6 @@ fn send_movement_info(
     let pt = player.single();
     let x = pt.translation.x;
     let y = pt.translation.y;
-    let x_int = unsafe {x.to_int_unchecked::<u8>()};
-    let y_int = unsafe {y.to_int_unchecked::<u8>()};
 
     let x_asu8: &[u8] = unsafe{any_as_u8_slice(&x)};
     let y_asu8: &[u8] = unsafe{any_as_u8_slice(&y)};
