@@ -749,7 +749,8 @@ fn send_movement_info(
     socket: Res<UDP>, // defined in setup
     player: Query<&Transform, With<Player>>, // player transform
     
-) { // consencus algs    let pt = player.single(); // get player transform
+) { // consencus algs    
+    let pt = player.single(); // get player transform
     let x = pt.translation.x;
     let y = pt.translation.y;
     let xInt = unsafe {x.to_int_unchecked::<u8>()};
