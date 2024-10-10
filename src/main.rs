@@ -1,35 +1,8 @@
-use std::{mem::transmute, net::UdpSocket};
-use bevy::{ecs::query::QueryIter, log::tracing_subscriber::fmt::format, prelude::*, render::extract_component::ExtractComponent, window::PresentMode};
-
+use std::net::UdpSocket;
+use bevy::{ prelude::*, window::PresentMode};
+pub mod cuscuta_resources;
 use rand::Rng;
 
-const TITLE: &str = "Cuscuta Demo";// window title
-const WIN_W: f32 = 1280.;// window width
-const WIN_H: f32 = 720.;// window height
-
-const PLAYER_SPEED: f32 = 480.; 
-const ACCEL_RATE: f32 = 4800.; 
-const SPRINT_MULTIPLIER: f32 = 2.0;
-
-const ENEMY_SPEED: f32 = 0.;
-const NUMBER_OF_ENEMIES: u32 = 10;
-
-const TILE_SIZE: u32 = 32; 
-
-const LEVEL_W: f32 = 4800.; 
-
-const LEVEL_H: f32 = 1600.; 
-
-const ARR_W: usize = (LEVEL_W as usize) / 32;
-
-const ARR_H: usize = (LEVEL_H as usize) / 32;
-
-/* (0,0) is center level,          
- * this gives us easy coordinate usage */
-const MAX_X: f32 = LEVEL_W / 2.;
-const MAX_Y: f32 = LEVEL_H / 2.;
-
-const ANIM_TIME: f32 = 0.2;
 
 #[derive(Component)]
 pub struct Player;// wow! it is he!
@@ -41,32 +14,31 @@ pub struct Enemy {
 } 
 
 #[derive(Component, Deref, DerefMut)]
-struct AnimationTimer(Timer);// for switching through animation frames
+pub struct AnimationTimer(Timer);// for switching through animation frames
 
 #[derive(Component, Deref, DerefMut)]
-struct AnimationFrameCount(usize);
+pub struct AnimationFrameCount(usize);
 
 //struct Brick;
 
 #[derive(Component)]
-struct Background;
+pub struct Background;
 
 #[derive(Component)]
-struct Pot{
+pub struct Pot{
     touch: u8
 }
 
 #[derive(Component)]
-struct Wall;
+pub struct Wall;
 
 #[derive(Component)]
-struct Door;
+pub struct Door;
 
 #[derive(Component)]
-struct Velocity {
+pub struct Velocity {
     velocity: Vec2,
 }
-
 #[derive(Resource)]
 struct UDP{
     socket: UdpSocket
@@ -162,7 +134,7 @@ impl From<Vec2> for Velocity {
     }
 }
 
-static mut attacking: bool = false;
+static mut ATTACKING: bool = false;
 
 fn main() {
     App::new()
@@ -170,7 +142,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // need window!
-                title: TITLE.into(),
+                title: cuscuta_resources::TITLE.into(),
                 present_mode: PresentMode::Fifo,
                 ..default() // Name and present mode all we need for now
              }),
@@ -217,8 +189,8 @@ fn setup(
 fn set_collide(room_manager: &mut RoomManager, x: usize, y: usize, val: u32) {
 
     // convert world coordinates to grid indices
-    let grid_x = (x / TILE_SIZE as usize);
-    let grid_y = (y / TILE_SIZE as usize);
+    let grid_x = (x / cuscuta_resources::TILE_SIZE as usize);
+    let grid_y = (y / cuscuta_resources::TILE_SIZE as usize);
 
 
     let current_grid = room_manager.current_grid();
@@ -241,7 +213,8 @@ fn spawn_player(
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>
 ) {
     let player_sheet_handle = asset_server.load("4x8_player.png");
-    let player_layout = TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE), 4, 8, None, None);
+    let player_layout = TextureAtlasLayout::from_grid(
+        UVec2::splat(cuscuta_resources::TILE_SIZE), 4, 8, None, None);
     let player_layout_len = player_layout.textures.len();
     let player_layout_handle = texture_atlases.add(player_layout);
 
@@ -256,7 +229,7 @@ fn spawn_player(
             layout: player_layout_handle,
             index: 0,
         },
-        AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+        AnimationTimer(Timer::from_seconds(cuscuta_resources::ANIM_TIME, TimerMode::Repeating)),
         AnimationFrameCount(player_layout_len),
         Velocity::new(),
         Player,
@@ -292,11 +265,11 @@ fn spawn_start_room(
     let random_height = rng.gen_range(50..=250);
 
     // Room width & height as a multiple of 32
-    let room_width = random_width as f32 * TILE_SIZE as f32;  
-    let room_height = random_height as f32 * TILE_SIZE as f32;
+    let room_width = random_width as f32 * cuscuta_resources::TILE_SIZE as f32;  
+    let room_height = random_height as f32 * cuscuta_resources::TILE_SIZE as f32;
 
-    let arr_w = (room_width / TILE_SIZE as f32) as usize;
-    let arr_h = (room_height / TILE_SIZE as f32) as usize;
+    let arr_w = (room_width / cuscuta_resources::TILE_SIZE as f32) as usize;
+    let arr_h = (room_height / cuscuta_resources::TILE_SIZE as f32) as usize;
 
     // Add the room and switch to it
     room_manager.add_room(arr_w, arr_h, room_width, room_height);
@@ -306,7 +279,8 @@ fn spawn_start_room(
     let mut max_y = room_height / 2.;
 
     // add collision grid for start room
-    room_manager.add_room((room_width / TILE_SIZE as f32) as usize, (room_height / TILE_SIZE as f32) as usize, room_width, room_height);
+    room_manager.add_room((room_width / cuscuta_resources::TILE_SIZE as f32) as usize,
+     (room_height / cuscuta_resources::TILE_SIZE as f32) as usize, room_width, room_height);
 
     let bg_texture_handle = asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png");
     let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
@@ -315,8 +289,8 @@ fn spawn_start_room(
     let west_wall_handle = asset_server.load("tiles/walls/left_wall.png");
     let door_handle = asset_server.load("tiles/walls/black_void.png");
 
-    let mut x_offset = -max_x + ((TILE_SIZE / 2) as f32);
-    let mut y_offset = -max_y + ((TILE_SIZE / 2) as f32);
+    let mut x_offset = -max_x + ((cuscuta_resources::TILE_SIZE / 2) as f32);
+    let mut y_offset = -max_y + ((cuscuta_resources::TILE_SIZE / 2) as f32);
 
 
     while x_offset < max_x {
@@ -328,48 +302,47 @@ fn spawn_start_room(
         /* Spawn in north wall */
         commands.spawn((SpriteBundle {
             texture: north_wall_texture_handle.clone(),
-            transform: Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), 1.),
+            transform: Transform::from_xyz(x_offset, max_y - ((cuscuta_resources::TILE_SIZE / 2) as f32), 1.),
             ..default()
         }, Wall));
 
-        xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + max_x) as usize;
-        ycoord = (max_y * 2. - ((TILE_SIZE / 2) as f32)) as usize;
+        xcoord = (x_offset - ((cuscuta_resources::TILE_SIZE / 2) as f32) + max_x) as usize;
+        ycoord = (max_y * 2. - ((cuscuta_resources::TILE_SIZE / 2) as f32)) as usize;
         //set_collide(room_manager, xcoord, ycoord, 1);
 
         /* Spawn in south wall */
         commands.spawn((SpriteBundle {
             texture: south_wall_handle.clone(),
-            transform: Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), 1.),
+            transform: Transform::from_xyz(x_offset, -max_y + ((cuscuta_resources::TILE_SIZE / 2) as f32), 1.),
             ..default()
         }, Wall));
 
-        xcoord = (x_offset - ((TILE_SIZE / 2) as f32) + MAX_X) as usize;
+        xcoord = (x_offset - ((cuscuta_resources::TILE_SIZE / 2) as f32) + cuscuta_resources::MAX_X) as usize;
         ycoord = (0) as usize;
         //set_collide(room_manager, xcoord, ycoord, 1);
 
-        while y_offset < max_y + (TILE_SIZE as f32) {
-
+        while y_offset < max_y + (cuscuta_resources::TILE_SIZE as f32) {
 
             /* East wall */
             commands.spawn((SpriteBundle {
                 texture: east_wall_handle.clone(),
-                transform: Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                transform: Transform::from_xyz(max_x - ((cuscuta_resources::TILE_SIZE / 2) as f32), y_offset, 1.),
                 ..default()
             }, Wall));
 
-            xcoord = (MAX_X * 2. - ((TILE_SIZE / 2) as f32)) as usize;
-            ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y - 1.) as usize;
+            xcoord = (cuscuta_resources::MAX_X * 2. - ((cuscuta_resources::TILE_SIZE / 2) as f32)) as usize;
+            ycoord = (y_offset - ((cuscuta_resources::TILE_SIZE / 2) as f32) + cuscuta_resources::MAX_Y - 1.) as usize;
             //set_collide(room_manager, xcoord, ycoord, 1);
 
             /* West wall */
             commands.spawn((SpriteBundle {
                 texture: west_wall_handle.clone(),
-                transform: Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, 1.),
+                transform: Transform::from_xyz(-max_x + ((cuscuta_resources::TILE_SIZE / 2) as f32), y_offset, 1.),
                 ..default()
             }, Wall));
 
             xcoord = (0) as usize;
-            ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y - 1.) as usize;
+            ycoord = (y_offset - ((cuscuta_resources::TILE_SIZE / 2) as f32) + cuscuta_resources::MAX_Y - 1.) as usize;
             //set_collide(room_manager, xcoord, ycoord, 1);
 
             /* Floor tiles */
@@ -380,7 +353,7 @@ fn spawn_start_room(
             }).insert(Background);
 
             // door
-            if (x_offset == max_x - (3.0 * (TILE_SIZE as f32) / 2.0)) && (y_offset == (TILE_SIZE as f32 / 2.0)) {
+            if (x_offset == max_x - (3.0 * (cuscuta_resources::TILE_SIZE as f32) / 2.0)) && (y_offset == (cuscuta_resources::TILE_SIZE as f32 / 2.0)) {
                 commands.spawn((
                     SpriteBundle {
                         texture: door_handle.clone(),
@@ -390,15 +363,15 @@ fn spawn_start_room(
                     Door,
                 ));
 
-                xcoord = (MAX_X * 2. - (3 * TILE_SIZE / 2) as f32) as usize;
-                ycoord = (y_offset - ((TILE_SIZE / 2) as f32) + MAX_Y) as usize;
+                xcoord = (cuscuta_resources::MAX_X * 2. - (3 * cuscuta_resources::TILE_SIZE / 2) as f32) as usize;
+                ycoord = (y_offset - ((cuscuta_resources::TILE_SIZE / 2) as f32) + cuscuta_resources::MAX_Y) as usize;
                 //set_collide(room_manager, xcoord, ycoord, 2);
             }
-            y_offset += TILE_SIZE as f32;
+            y_offset += cuscuta_resources::TILE_SIZE as f32;
         }
 
-        y_offset = -max_y + ((TILE_SIZE / 2) as f32);
-        x_offset += TILE_SIZE as f32;
+        y_offset = -max_y + ((cuscuta_resources::TILE_SIZE / 2) as f32);
+        x_offset += cuscuta_resources::TILE_SIZE as f32;
     }
 
 }
@@ -423,9 +396,9 @@ fn player_interact(
     let (mut player_transform, mut _player_velocity) = player.single_mut();
     /* Has nothing to do with particles */
     let pot_particle_collider = Aabb::new(
-        pot_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        pot_transform.translation, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
     let player_particle_collider = Aabb::new(
-        player_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        player_transform.translation, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
 
     /* touch is how many frames since pressed
      * We only want to increment if not pressed
@@ -470,17 +443,17 @@ fn move_player(
     }
 
     let deltat = time.delta_seconds();
-    let acc = ACCEL_RATE * deltat;
+    let acc = cuscuta_resources::ACCEL_RATE * deltat;
 
     // sprint - check if shift is pressed
     let speed_multiplier = if input.pressed(KeyCode::ShiftLeft) {
-        SPRINT_MULTIPLIER
+        cuscuta_resources::SPRINT_MULTIPLIER
     } else {
         1.0
     };
 
     // set new max speed
-    let max_speed = PLAYER_SPEED * speed_multiplier;
+    let max_speed = cuscuta_resources::PLAYER_SPEED * speed_multiplier;
 
 
     pv.velocity = if deltav.length() > 0. {
@@ -499,8 +472,8 @@ fn move_player(
     let (room_width, room_height) = room_manager.current_room_size();
 
     // Calculate new player position and clamp within room boundaries
-    let new_pos_x = (pt.translation.x + change.x).clamp(-room_width / 2.0 + TILE_SIZE as f32 / 2.0, room_width / 2.0 - TILE_SIZE as f32 / 2.0);
-    let new_pos_y = (pt.translation.y + change.y).clamp(-room_height / 2.0 + TILE_SIZE as f32 / 2.0, room_height / 2.0 - TILE_SIZE as f32 / 2.0);
+    let new_pos_x = (pt.translation.x + change.x).clamp(-room_width / 2.0 + cuscuta_resources::TILE_SIZE as f32 / 2.0, room_width / 2.0 - cuscuta_resources::TILE_SIZE as f32 / 2.0);
+    let new_pos_y = (pt.translation.y + change.y).clamp(-room_height / 2.0 + cuscuta_resources::TILE_SIZE as f32 / 2.0, room_height / 2.0 - cuscuta_resources::TILE_SIZE as f32 / 2.0);
 
     pt.translation.x = new_pos_x;
     pt.translation.y = new_pos_y;
@@ -533,14 +506,14 @@ fn handle_movement_and_enemy_collisions(
 ) {
     // Calculate new player position
     let new_pos = pt.translation + Vec3::new(change.x, change.y, 0.0);
-    let player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
+    let player_aabb = Aabb::new(new_pos, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
 
     // Translate player position to grid indices
     let (topleft, topright, bottomleft, bottomright) = translate_coords_to_grid(&player_aabb, room_manager);
 
      // Translate player position to grid indices
-     let grid_x = (new_pos.x / TILE_SIZE as f32).floor();
-     let grid_y = (new_pos.y / TILE_SIZE as f32).floor();
+     let grid_x = (new_pos.x / cuscuta_resources::TILE_SIZE as f32).floor();
+     let grid_y = (new_pos.y / cuscuta_resources::TILE_SIZE as f32).floor();
      println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
 
     // Handle collisions and movement within the grid
@@ -557,18 +530,18 @@ fn handle_movement(
     enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>,
 ) {
     let new_pos = pt.translation + change;
-    let player_aabb = Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
+    let player_aabb = Aabb::new(new_pos, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
 
     // Get the current room's grid size (room width and height)
     let current_grid = room_manager.current_grid();
-    let room_width = current_grid.len() as f32 * TILE_SIZE as f32;
-    let room_height = current_grid[0].len() as f32 * TILE_SIZE as f32;
+    let room_width = current_grid.len() as f32 * cuscuta_resources::TILE_SIZE as f32;
+    let room_height = current_grid[0].len() as f32 * cuscuta_resources::TILE_SIZE as f32;
 
     let (topleft, topright, bottomleft, bottomright) = translate_coords_to_grid(&player_aabb, room_manager);
 
     // check for collisions with enemies
     for enemy_transform in enemies.iter() {
-        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
         if player_aabb.intersects(&enemy_aabb) {
             // handle enemy collision here (if necessary)
             return;
@@ -576,10 +549,10 @@ fn handle_movement(
     }
 
     // movement within bounds and wall/door collision check
-    if new_pos.x >= -room_width / 2.0 + TILE_SIZE as f32 / 2. &&
-        new_pos.x <= room_width / 2.0 - TILE_SIZE as f32 / 2. &&
-        new_pos.y >= -room_height / 2.0 + TILE_SIZE as f32 / 2. &&
-        new_pos.y <= room_height / 2.0 - TILE_SIZE as f32 / 2. &&
+    if new_pos.x >= -room_width / 2.0 + cuscuta_resources::TILE_SIZE as f32 / 2. &&
+        new_pos.x <= room_width / 2.0 - cuscuta_resources::TILE_SIZE as f32 / 2. &&
+        new_pos.y >= -room_height / 2.0 + cuscuta_resources::TILE_SIZE as f32 / 2. &&
+        new_pos.y <= room_height / 2.0 - cuscuta_resources::TILE_SIZE as f32 / 2. &&
         topleft != 1 && topright != 1 && bottomleft != 1 && bottomright != 1
     {
         pt.translation = new_pos;
@@ -595,17 +568,17 @@ fn handle_movement(
 fn translate_coords_to_grid(aabb: &Aabb, room_manager: &mut RoomManager) -> (u32, u32, u32, u32){
     // get the current room's grid size
     let current_grid = room_manager.current_grid();
-    let room_width = current_grid.len() as f32 * TILE_SIZE as f32;
-    let room_height = current_grid[0].len() as f32 * TILE_SIZE as f32;
+    let room_width = current_grid.len() as f32 * cuscuta_resources::TILE_SIZE as f32;
+    let room_height = current_grid[0].len() as f32 * cuscuta_resources::TILE_SIZE as f32;
 
     let max_x = room_width / 2.0;
     let max_y = room_height / 2.0;
 
     // Calculate the grid indices for the player's bounding box corners
-    let arr_x_max = ((aabb.max.x + max_x) / TILE_SIZE as f32).floor().clamp(0., (current_grid.len() - 1) as f32);
-    let arr_x_min = ((aabb.min.x + max_x) / TILE_SIZE as f32).floor().clamp(0., (current_grid.len() - 1) as f32);
-    let arr_y_max = ((aabb.max.y + max_y) / TILE_SIZE as f32).floor().clamp(0., (current_grid[0].len() - 1) as f32);
-    let arr_y_min = ((aabb.min.y + max_y) / TILE_SIZE as f32).floor().clamp(0., (current_grid[0].len() - 1) as f32);
+    let arr_x_max = ((aabb.max.x + max_x) / cuscuta_resources::TILE_SIZE as f32).floor().clamp(0., (current_grid.len() - 1) as f32);
+    let arr_x_min = ((aabb.min.x + max_x) / cuscuta_resources::TILE_SIZE as f32).floor().clamp(0., (current_grid.len() - 1) as f32);
+    let arr_y_max = ((aabb.max.y + max_y) / cuscuta_resources::TILE_SIZE as f32).floor().clamp(0., (current_grid[0].len() - 1) as f32);
+    let arr_y_min = ((aabb.min.y + max_y) / cuscuta_resources::TILE_SIZE as f32).floor().clamp(0., (current_grid[0].len() - 1) as f32);
 
     let topleft = current_grid[arr_x_min as usize][arr_y_max as usize];
     let topright = current_grid[arr_x_max as usize][arr_y_max as usize];
@@ -619,7 +592,7 @@ fn transition_map(room: &mut Query<&mut Transform, (Without<Player>, Without<Ene
     for mut wt in room.iter_mut() {
         wt.translation.z *= -1.;
     }
-    let new_pos: Vec3 = pt.translation + Vec3::new(-MAX_X * 1.9, 0., 0.);
+    let new_pos: Vec3 = pt.translation + Vec3::new(-cuscuta_resources::MAX_X * 1.9, 0., 0.);
     pt.translation = new_pos;
 }
 
@@ -629,10 +602,9 @@ fn spawn_enemies(
 ) {
     let mut rng = rand::thread_rng();
 
-    for _ in 0..NUMBER_OF_ENEMIES {
-        let random_x: f32 = rng.gen_range(-MAX_X..MAX_X);
-        let random_y: f32 = rng.gen_range(-MAX_Y..MAX_Y);
-
+    for _ in 0..cuscuta_resources::NUMBER_OF_ENEMIES {
+        let random_x: f32 = rng.gen_range(-cuscuta_resources::MAX_X..cuscuta_resources::MAX_X);
+        let random_y: f32 = rng.gen_range(-cuscuta_resources::MAX_Y..cuscuta_resources::MAX_Y);
         commands.spawn((
             SpriteBundle {
                 transform: Transform::from_xyz(random_x, random_y, 900.),
@@ -657,7 +629,7 @@ fn enemy_movement(
     for (mut transform, _enemy) in enemy_query.iter_mut() {
         let direction_to_player = player_transform.translation - transform.translation;
         let normalized_direction = direction_to_player.normalize();
-        transform.translation += normalized_direction * ENEMY_SPEED * time.delta_seconds();
+        transform.translation += normalized_direction * cuscuta_resources::ENEMY_SPEED * time.delta_seconds();
     }
 }
 
@@ -688,7 +660,7 @@ fn player_attack(
      if input.just_pressed(MouseButton::Left)
      {
         println!("SWINGING");
-        unsafe{attacking = true;} //set attacking to true to override movement animations
+        unsafe{ATTACKING = true;} //set attacking to true to override movement animations
         
         // deciding initial frame for swing (so not partial animation)
         if abx > aby {
@@ -702,28 +674,28 @@ fn player_attack(
 
         timer.reset();
      }
-    unsafe{if attacking == true
+    unsafe{if ATTACKING == true
     {
         timer.tick(time.delta());
 
         if abx > aby {
             if v.velocity.x >= 0.{
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 8;}
-                if ratlas.index == 11{attacking = false; ratlas.index = 24} //allow for movement anims after last swing frame
+                if ratlas.index == 11{ATTACKING = false; ratlas.index = 24} //allow for movement anims after last swing frame
             }
             else if v.velocity.x < 0. {
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 12;}
-                if ratlas.index == 15{attacking = false; ratlas.index = 28} //allow for movement anims after last swing frame
+                if ratlas.index == 15{ATTACKING = false; ratlas.index = 28} //allow for movement anims after last swing frame
             }
         }
         else {
             if v.velocity.y >= 0.{
                 if timer.finished(){ratlas.index = (ratlas.index + 1) % 4;}
-                if ratlas.index == 3{attacking = false; ratlas.index = 16} //allow for movement anims after last swing frame
+                if ratlas.index == 3{ATTACKING = false; ratlas.index = 16} //allow for movement anims after last swing frame
             }
             else if v.velocity.y < 0. {
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 4;}
-                if ratlas.index == 7{attacking = false; ratlas.index = 20} //allow for movement anims after last swing frame
+                if ratlas.index == 7{ATTACKING = false; ratlas.index = 20} //allow for movement anims after last swing frame
             }
         }
     }}
@@ -749,7 +721,7 @@ fn animate_player(
      * 28 - 31 = left
      * ratlas. heh. get it.*/
     let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
-    unsafe{if attacking == true{return;}} //checking if attack animations are running
+    unsafe{if ATTACKING == true{return;}} //checking if attack animations are running
     //if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 
@@ -786,8 +758,8 @@ fn move_camera(
     // Retrieve the dynamically calculated max_x and max_y from RoomManager
     let (max_x, max_y) = room_manager.current_room_max();
 
-    ct.translation.x = pt.translation.x.clamp(-max_x + (WIN_W / 2.), max_x - (WIN_W / 2.));
-    ct.translation.y = pt.translation.y.clamp(-max_y + (WIN_H / 2.), max_y - (WIN_H / 2.));
+    ct.translation.x = pt.translation.x.clamp(-max_x + (cuscuta_resources::WIN_W / 2.), max_x - (cuscuta_resources::WIN_W / 2.));
+    ct.translation.y = pt.translation.y.clamp(-max_y + (cuscuta_resources::WIN_H / 2.), max_y - (cuscuta_resources::WIN_H / 2.));
 }
 
 fn recv_packet(
