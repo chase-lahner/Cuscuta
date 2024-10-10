@@ -1,0 +1,6 @@
+# binary files, don't modify
+*.png binary
+*.jpg binary
+
+# settings our line ending style CRLF=Win LF=UNIX
+*.rs text eol=crlf

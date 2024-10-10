@@ -52,6 +52,11 @@ struct AnimationFrameCount(usize);
 struct Background;
 
 #[derive(Component)]
+struct Pot{
+    touch: u8
+}
+
+#[derive(Component)]
 struct Wall;
 
 #[derive(Component)]
@@ -181,6 +186,7 @@ fn main() {
          .add_systems(Update, animate_player.after(move_player)) // animates player
          .add_systems(Update, player_attack.after(animate_player)) // animates attack swing
          .add_systems(Update, move_camera.after(animate_player))// follow character
+         .add_systems(Update, player_interact)
          .run();
 }
 
@@ -202,6 +208,8 @@ fn setup(
     // spawn camera
     commands.spawn(Camera2dBundle::default());
 
+    /* spawn pot to play with */
+    spawn_pot(&mut commands, &asset_server);
     // spawn player
     spawn_player(&mut commands, &asset_server, &mut texture_atlases);
 }
@@ -252,6 +260,23 @@ fn spawn_player(
         AnimationFrameCount(player_layout_len),
         Velocity::new(),
         Player,
+    ));
+}
+
+fn spawn_pot(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>
+){
+    let pot_handle = asset_server.load("pot.png");
+    commands.spawn((
+        SpriteBundle{
+            texture: pot_handle,
+            transform: Transform::from_xyz(200.,200.,1.),
+            ..default()
+        },
+        Pot{
+            touch: 0
+        }
     ));
 }
 
@@ -380,6 +405,40 @@ fn spawn_start_room(
 
 fn aabb_collision(player_aabb: &Aabb, enemy_aabb: &Aabb) -> bool {
     player_aabb.intersects(&enemy_aabb)
+}
+
+/* Checks for player interacting with game world.
+ * E for interact? Assumed menu etc. could also
+ * fit in here.. I also currently have pot as
+ * it's own resource, maybe make an 'interactable'
+ * trait for query? - rorto */
+fn player_interact(
+    mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
+    input: Res<ButtonInput<KeyCode>>,
+    mut pot_q: Query<&mut Pot>,
+    mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>
+){
+    let mut pot = pot_q.single_mut();
+    let pot_transform = pot_transform_q.single_mut();
+    let (mut player_transform, mut _player_velocity) = player.single_mut();
+    /* Has nothing to do with particles */
+    let pot_particle_collider = Aabb::new(
+        pot_transform.translation, Vec2::splat(TILE_SIZE as f32));
+    let player_particle_collider = Aabb::new(
+        player_transform.translation, Vec2::splat(TILE_SIZE as f32));
+
+    /* touch is how many frames since pressed
+     * We only want to increment if not pressed
+     * recently */
+    if input.just_pressed(KeyCode::KeyE)
+        && pot_particle_collider.intersects(&player_particle_collider)
+        && pot.touch == 0
+    {
+        pot.touch += 1;
+
+    }
+
+
 }
 
 fn move_player(
