@@ -605,6 +605,7 @@ fn spawn_enemies(
     for _ in 0..cuscuta_resources::NUMBER_OF_ENEMIES {
         let random_x: f32 = rng.gen_range(-cuscuta_resources::MAX_X..cuscuta_resources::MAX_X);
         let random_y: f32 = rng.gen_range(-cuscuta_resources::MAX_Y..cuscuta_resources::MAX_Y);
+
         commands.spawn((
             SpriteBundle {
                 transform: Transform::from_xyz(random_x, random_y, 900.),
@@ -777,11 +778,11 @@ fn send_packet(
 }
 
 fn send_movement_info(
-    socket: Res<UDP>, // defined in setup
-    player: Query<&Transform, With<Player>>, // player transform
+    socket: Res<UDP>,
+    player: Query<&Transform, With<Player>>,
     
-) { // consencus algs    
-    let pt = player.single(); // get player transform
+) {
+    let pt = player.single();
     let x = pt.translation.x;
     let y = pt.translation.y;
     let x_int = unsafe {x.to_int_unchecked::<u8>()};
@@ -789,7 +790,7 @@ fn send_movement_info(
     let buf:[u8;2] = [x_int, y_int];
     //print!("{:?}", &buf);
 
-    socket.socket.send_to(&buf,"localhost:5001").unwrap();  // send to surver at lh 5001 unwrap is error handling
+    socket.socket.send_to(&buf,"localhost:5001").unwrap();
 
 }
 
