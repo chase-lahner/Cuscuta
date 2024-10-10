@@ -812,9 +812,9 @@ fn send_movement_info(
     let pt = player.single(); // get player transform
     let x = pt.translation.x;
     let y = pt.translation.y;
-    let xInt = unsafe {x.to_int_unchecked::<u8>()};
-    let yInt = unsafe {y.to_int_unchecked::<u8>()};
-    let buf:[u8;2] = [xInt, yInt];
+    let x_int = unsafe {x.to_int_unchecked::<u8>()};
+    let y_int = unsafe {y.to_int_unchecked::<u8>()};
+    let buf:[u8;2] = [x_int, y_int];
     //print!("{:?}", &buf);
 
     socket.socket.send_to(&buf,"localhost:5001").unwrap();  // send to surver at lh 5001 unwrap is error handling
