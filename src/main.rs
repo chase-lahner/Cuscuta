@@ -1,144 +1,17 @@
 use std::net::UdpSocket;
 use bevy::{ prelude::*, window::PresentMode};
 pub mod cuscuta_resources;
+pub mod room_gen;
 use rand::Rng;
 
+pub mod network;
 
-#[derive(Component)]
-pub struct Player;// wow! it is he!
-
-
-#[derive(Component)]
-pub struct Enemy {
-    pub direction: Vec2,
-} 
-
-#[derive(Component, Deref, DerefMut)]
-pub struct AnimationTimer(Timer);// for switching through animation frames
-
-#[derive(Component, Deref, DerefMut)]
-pub struct AnimationFrameCount(usize);
-
-//struct Brick;
-
-#[derive(Component)]
-pub struct Background;
-
-#[derive(Component)]
-pub struct Pot{
-    touch: u8
-}
-
-#[derive(Component)]
-pub struct Wall;
-
-#[derive(Component)]
-pub struct Door;
-
-#[derive(Component)]
-pub struct Velocity {
-    velocity: Vec2,
-}
-#[derive(Resource)]
-struct UDP{
-    socket: UdpSocket
-}
-
-#[derive(Resource)]
-struct RoomManager {
-    grids: Vec<Vec<Vec<u32>>>,
-    current_room: usize,
-    room_sizes: Vec<(f32, f32)>,
-    max_sizes: Vec<(f32, f32)>,  
-}
-
-impl RoomManager {
-    fn new() -> Self {
-        Self {
-            grids: Vec::new(),
-            current_room: 0,
-            room_sizes: Vec::new(),
-            max_sizes: Vec::new(), 
-
-        }
-    }
-
-    // add new grid for new room 
-    fn add_room(&mut self, width: usize, height: usize, room_width: f32, room_height: f32) {
-        let new_grid = vec![vec![0; height]; width];
-        self.grids.push(new_grid);
-        self.room_sizes.push((room_width, room_height));
-        
-        // Calculate and store the max_x and max_y based on room size
-        let max_x = room_width / 2.0;
-        let max_y = room_height / 2.0;
-        self.max_sizes.push((max_x, max_y));
-
-        self.current_room = self.grids.len() - 1;
-    }
-
-    // Get mutable reference to the current grid
-    fn current_grid(&mut self) -> &mut Vec<Vec<u32>> {
-    &mut self.grids[self.current_room]
-    }
-    
-    // Get the size of the current room (width, height)
-    fn current_room_size(&self) -> (f32, f32) {
-        self.room_sizes[self.current_room]
-    }
-
-    fn switch_room(&mut self, room_index: usize) {
-        if room_index < self.grids.len() {
-            self.current_room = room_index;
-        }
-    }
-
-    fn current_room_max(&self) -> (f32, f32) {
-        self.max_sizes[self.current_room]
-    }
-}
-
-struct Aabb {
-    min: Vec2,
-    max: Vec2,
-}
-
-impl Aabb {
-    fn new(center: Vec3, size: Vec2) -> Self {
-        let half_size = size / 2.0;
-        Self {
-            min: Vec2::new(center.x - half_size.x, center.y - half_size.y),
-            max: Vec2::new(center.x + half_size.x, center.y + half_size.y),
-        }
-    }
-
-    fn intersects(&self, other: &Aabb) -> bool {
-        self.min.x < other.max.x
-            && self.max.x > other.min.x
-            && self.min.y < other.max.y
-            && self.max.y > other.min.y
-    }
-}
-
-impl Velocity {
-    fn new() -> Self {
-        Self {
-            velocity: Vec2::splat(0.),
-        }
-    }
-}
-
-impl From<Vec2> for Velocity {
-    fn from(velocity: Vec2) -> Self {
-        Self { velocity }
-    }
-}
 
 static mut ATTACKING: bool = false;
 
 fn main() {
     App::new()
-        .insert_resource(RoomManager::new())
+        .insert_resource(room_gen::RoomManager::new())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // need window!
@@ -151,9 +24,9 @@ fn main() {
          .add_systems(Startup,setup)// runs once, sets up scene
          .add_systems(Startup, spawn_enemies)
          .add_systems(Update, move_player)// every frame, takes in WASD for movement
-         .add_systems(Update, send_packet)
-         .add_systems(Update, recv_packet)
-         .add_systems(Update, send_movement_info.after(move_player))
+         .add_systems(Update, network::send_packet)
+         .add_systems(Update, network::recv_packet)
+         .add_systems(Update, network::send_movement_info.after(move_player))
          .add_systems(Update, enemy_movement.after(move_player))
          .add_systems(Update, animate_player.after(move_player)) // animates player
          .add_systems(Update, player_attack.after(animate_player)) // animates attack swing
@@ -166,7 +39,7 @@ fn setup(
     mut commands: Commands, // to spawn in entities
     asset_server: Res<AssetServer>, // to access images
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
-    mut room_manager: ResMut<RoomManager>,
+    mut room_manager: ResMut<room_gen::RoomManager>,
 ) {
     // spawn the starting room & next room
     spawn_start_room(&mut commands, &asset_server, &mut room_manager);
@@ -174,7 +47,7 @@ fn setup(
     /* initializes our networking socket */
     let socket = UdpSocket::bind("localhost:5000").unwrap();
 
-    commands.insert_resource(UDP {socket: socket});
+    commands.insert_resource(network::UDP {socket: socket});
 
 
     // spawn camera
@@ -186,7 +59,7 @@ fn setup(
     spawn_player(&mut commands, &asset_server, &mut texture_atlases);
 }
 
-fn set_collide(room_manager: &mut RoomManager, x: usize, y: usize, val: u32) {
+fn set_collide(room_manager: &mut room_gen::RoomManager, x: usize, y: usize, val: u32) {
 
     // convert world coordinates to grid indices
     let grid_x = (x / cuscuta_resources::TILE_SIZE as usize);
@@ -229,10 +102,10 @@ fn spawn_player(
             layout: player_layout_handle,
             index: 0,
         },
-        AnimationTimer(Timer::from_seconds(cuscuta_resources::ANIM_TIME, TimerMode::Repeating)),
-        AnimationFrameCount(player_layout_len),
-        Velocity::new(),
-        Player,
+        cuscuta_resources::AnimationTimer(Timer::from_seconds(cuscuta_resources::ANIM_TIME, TimerMode::Repeating)),
+        cuscuta_resources::AnimationFrameCount(player_layout_len),
+        cuscuta_resources::Velocity::new(),
+        cuscuta_resources::Player,
     ));
 }
 
@@ -247,7 +120,7 @@ fn spawn_pot(
             transform: Transform::from_xyz(200.,200.,1.),
             ..default()
         },
-        Pot{
+        cuscuta_resources::Pot{
             touch: 0
         }
     ));
@@ -256,7 +129,7 @@ fn spawn_pot(
 fn spawn_start_room(
     commands: &mut Commands, 
     asset_server: &Res<AssetServer>,
-    room_manager: &mut RoomManager,
+    room_manager: &mut room_gen::RoomManager,
 ) {
     let mut rng = rand::thread_rng();
 
@@ -304,7 +177,7 @@ fn spawn_start_room(
             texture: north_wall_texture_handle.clone(),
             transform: Transform::from_xyz(x_offset, max_y - ((cuscuta_resources::TILE_SIZE / 2) as f32), 1.),
             ..default()
-        }, Wall));
+        }, cuscuta_resources::Wall));
 
         xcoord = (x_offset - ((cuscuta_resources::TILE_SIZE / 2) as f32) + max_x) as usize;
         ycoord = (max_y * 2. - ((cuscuta_resources::TILE_SIZE / 2) as f32)) as usize;
@@ -315,7 +188,7 @@ fn spawn_start_room(
             texture: south_wall_handle.clone(),
             transform: Transform::from_xyz(x_offset, -max_y + ((cuscuta_resources::TILE_SIZE / 2) as f32), 1.),
             ..default()
-        }, Wall));
+        }, cuscuta_resources::Wall));
 
         xcoord = (x_offset - ((cuscuta_resources::TILE_SIZE / 2) as f32) + cuscuta_resources::MAX_X) as usize;
         ycoord = (0) as usize;
@@ -328,7 +201,7 @@ fn spawn_start_room(
                 texture: east_wall_handle.clone(),
                 transform: Transform::from_xyz(max_x - ((cuscuta_resources::TILE_SIZE / 2) as f32), y_offset, 1.),
                 ..default()
-            }, Wall));
+            }, cuscuta_resources::Wall));
 
             xcoord = (cuscuta_resources::MAX_X * 2. - ((cuscuta_resources::TILE_SIZE / 2) as f32)) as usize;
             ycoord = (y_offset - ((cuscuta_resources::TILE_SIZE / 2) as f32) + cuscuta_resources::MAX_Y - 1.) as usize;
@@ -339,7 +212,7 @@ fn spawn_start_room(
                 texture: west_wall_handle.clone(),
                 transform: Transform::from_xyz(-max_x + ((cuscuta_resources::TILE_SIZE / 2) as f32), y_offset, 1.),
                 ..default()
-            }, Wall));
+            }, cuscuta_resources::Wall));
 
             xcoord = (0) as usize;
             ycoord = (y_offset - ((cuscuta_resources::TILE_SIZE / 2) as f32) + cuscuta_resources::MAX_Y - 1.) as usize;
@@ -350,7 +223,7 @@ fn spawn_start_room(
                 texture: bg_texture_handle.clone(),
                 transform: Transform::from_xyz(x_offset, y_offset, 0.),
                 ..default()
-            }).insert(Background);
+            }).insert(cuscuta_resources::Background);
 
             // door
             if (x_offset == max_x - (3.0 * (cuscuta_resources::TILE_SIZE as f32) / 2.0)) && (y_offset == (cuscuta_resources::TILE_SIZE as f32 / 2.0)) {
@@ -360,7 +233,7 @@ fn spawn_start_room(
                         transform: Transform::from_xyz(x_offset, y_offset, 1.),
                         ..default()
                     },
-                    Door,
+                    cuscuta_resources::Door,
                 ));
 
                 xcoord = (cuscuta_resources::MAX_X * 2. - (3 * cuscuta_resources::TILE_SIZE / 2) as f32) as usize;
@@ -376,7 +249,7 @@ fn spawn_start_room(
 
 }
 
-fn aabb_collision(player_aabb: &Aabb, enemy_aabb: &Aabb) -> bool {
+fn aabb_collision(player_aabb: &room_gen::Aabb, enemy_aabb: &room_gen::Aabb) -> bool {
     player_aabb.intersects(&enemy_aabb)
 }
 
@@ -386,18 +259,18 @@ fn aabb_collision(player_aabb: &Aabb, enemy_aabb: &Aabb) -> bool {
  * it's own resource, maybe make an 'interactable'
  * trait for query? - rorto */
 fn player_interact(
-    mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
+    mut player: Query<(&mut Transform, &mut cuscuta_resources::Velocity), (With<cuscuta_resources::Player>, Without<cuscuta_resources::Background>)>,
     input: Res<ButtonInput<KeyCode>>,
-    mut pot_q: Query<&mut Pot>,
-    mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>
+    mut pot_q: Query<&mut cuscuta_resources::Pot>,
+    mut pot_transform_q: Query<&mut Transform, (With<cuscuta_resources::Pot>, Without<cuscuta_resources::Player>)>
 ){
     let mut pot = pot_q.single_mut();
     let pot_transform = pot_transform_q.single_mut();
     let (mut player_transform, mut _player_velocity) = player.single_mut();
     /* Has nothing to do with particles */
-    let pot_particle_collider = Aabb::new(
+    let pot_particle_collider = room_gen::Aabb::new(
         pot_transform.translation, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
-    let player_particle_collider = Aabb::new(
+    let player_particle_collider = room_gen::Aabb::new(
         player_transform.translation, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
 
     /* touch is how many frames since pressed
@@ -417,10 +290,10 @@ fn player_interact(
 fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
-    mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
-    mut room: Query<&mut Transform, (Without<Player>, Without<Enemy>)>,
-    mut room_manager: ResMut<RoomManager>,
+    mut player: Query<(&mut Transform, &mut cuscuta_resources::Velocity), (With<cuscuta_resources::Player>, Without<cuscuta_resources::Background>)>,
+    mut enemies: Query<&mut Transform, (With<cuscuta_resources::Enemy>, Without<cuscuta_resources::Player>)>, 
+    mut room: Query<&mut Transform, (Without<cuscuta_resources::Player>, Without<cuscuta_resources::Enemy>)>,
+    mut room_manager: ResMut<room_gen::RoomManager>,
     mut commands: Commands, 
     asset_server: Res<AssetServer>, 
 ) {
@@ -492,7 +365,7 @@ fn move_player(
     // if we hit a door
     if hit_door {
         println!("hit door!");
-        transition_map(&mut room, &mut pt);
+        room_gen::transition_map(&mut room, &mut pt);
     }
 }
 
@@ -501,15 +374,15 @@ fn handle_movement_and_enemy_collisions(
     pt: &mut Transform,
     change: Vec2,
     hit_door: &mut bool,
-    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
-    room_manager: &mut RoomManager,
+    enemies: &mut Query<&mut Transform, (With<cuscuta_resources::Enemy>, Without<cuscuta_resources::Player>)>, 
+    room_manager: &mut room_gen::RoomManager,
 ) {
     // Calculate new player position
     let new_pos = pt.translation + Vec3::new(change.x, change.y, 0.0);
-    let player_aabb = Aabb::new(new_pos, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
+    let player_aabb = room_gen::Aabb::new(new_pos, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
 
     // Translate player position to grid indices
-    let (topleft, topright, bottomleft, bottomright) = translate_coords_to_grid(&player_aabb, room_manager);
+    let (topleft, topright, bottomleft, bottomright) = room_gen::translate_coords_to_grid(&player_aabb, room_manager);
 
      // Translate player position to grid indices
      let grid_x = (new_pos.x / cuscuta_resources::TILE_SIZE as f32).floor();
@@ -525,23 +398,23 @@ fn handle_movement_and_enemy_collisions(
 fn handle_movement(
     pt: &mut Transform,
     change: Vec3,
-    room_manager: &mut RoomManager,
+    room_manager: &mut room_gen::RoomManager,
     hit_door: &mut bool,
-    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>,
+    enemies: &mut Query<&mut Transform, (With<cuscuta_resources::Enemy>, Without<cuscuta_resources::Player>)>,
 ) {
     let new_pos = pt.translation + change;
-    let player_aabb = Aabb::new(new_pos, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
+    let player_aabb = room_gen::Aabb::new(new_pos, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
 
     // Get the current room's grid size (room width and height)
     let current_grid = room_manager.current_grid();
     let room_width = current_grid.len() as f32 * cuscuta_resources::TILE_SIZE as f32;
     let room_height = current_grid[0].len() as f32 * cuscuta_resources::TILE_SIZE as f32;
 
-    let (topleft, topright, bottomleft, bottomright) = translate_coords_to_grid(&player_aabb, room_manager);
+    let (topleft, topright, bottomleft, bottomright) = room_gen::translate_coords_to_grid(&player_aabb, room_manager);
 
     // check for collisions with enemies
     for enemy_transform in enemies.iter() {
-        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
+        let enemy_aabb = room_gen::Aabb::new(enemy_transform.translation, Vec2::splat(cuscuta_resources::TILE_SIZE as f32));
         if player_aabb.intersects(&enemy_aabb) {
             // handle enemy collision here (if necessary)
             return;
@@ -565,37 +438,6 @@ fn handle_movement(
 }
 
 
-fn translate_coords_to_grid(aabb: &Aabb, room_manager: &mut RoomManager) -> (u32, u32, u32, u32){
-    // get the current room's grid size
-    let current_grid = room_manager.current_grid();
-    let room_width = current_grid.len() as f32 * cuscuta_resources::TILE_SIZE as f32;
-    let room_height = current_grid[0].len() as f32 * cuscuta_resources::TILE_SIZE as f32;
-
-    let max_x = room_width / 2.0;
-    let max_y = room_height / 2.0;
-
-    // Calculate the grid indices for the player's bounding box corners
-    let arr_x_max = ((aabb.max.x + max_x) / cuscuta_resources::TILE_SIZE as f32).floor().clamp(0., (current_grid.len() - 1) as f32);
-    let arr_x_min = ((aabb.min.x + max_x) / cuscuta_resources::TILE_SIZE as f32).floor().clamp(0., (current_grid.len() - 1) as f32);
-    let arr_y_max = ((aabb.max.y + max_y) / cuscuta_resources::TILE_SIZE as f32).floor().clamp(0., (current_grid[0].len() - 1) as f32);
-    let arr_y_min = ((aabb.min.y + max_y) / cuscuta_resources::TILE_SIZE as f32).floor().clamp(0., (current_grid[0].len() - 1) as f32);
-
-    let topleft = current_grid[arr_x_min as usize][arr_y_max as usize];
-    let topright = current_grid[arr_x_max as usize][arr_y_max as usize];
-    let bottomleft = current_grid[arr_x_min as usize][arr_y_min as usize];
-    let bottomright = current_grid[arr_x_max as usize][arr_y_min as usize];
-
-    (topleft, topright, bottomleft, bottomright)
-}
-
-fn transition_map(room: &mut Query<&mut Transform, (Without<Player>, Without<Enemy>)>, pt: &mut Transform) {
-    for mut wt in room.iter_mut() {
-        wt.translation.z *= -1.;
-    }
-    let new_pos: Vec3 = pt.translation + Vec3::new(-cuscuta_resources::MAX_X * 1.9, 0., 0.);
-    pt.translation = new_pos;
-}
-
 fn spawn_enemies(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -612,7 +454,7 @@ fn spawn_enemies(
                 texture: asset_server.load("Skelly.png"),
                 ..default()
             },
-            Enemy {
+            cuscuta_resources::Enemy {
                 direction: Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
             },
         ));
@@ -621,8 +463,8 @@ fn spawn_enemies(
 }
 
 fn enemy_movement(
-    mut enemy_query: Query<(&mut Transform, &Enemy)>,
-    player_query: Query<&Transform, (With<Player>, Without<Enemy>)>,
+    mut enemy_query: Query<(&mut Transform, &cuscuta_resources::Enemy)>,
+    player_query: Query<&Transform, (With<cuscuta_resources::Player>, Without<cuscuta_resources::Enemy>)>,
     time: Res<Time>
 ) {
     let player_transform = player_query.single(); 
@@ -639,12 +481,12 @@ fn player_attack(
     input: Res<ButtonInput<MouseButton>>,
     mut player: Query<
         (
-            &Velocity,
+            &cuscuta_resources::Velocity,
             &mut TextureAtlas,
-            &mut AnimationTimer,
-            &AnimationFrameCount,
+            &mut cuscuta_resources::AnimationTimer,
+            &cuscuta_resources::AnimationFrameCount,
         ),
-        With<Player>,
+        With<cuscuta_resources::Player>,
     >,
 ) {
     /* In texture atlas for ratatta:
@@ -707,12 +549,12 @@ fn animate_player(
     time: Res<Time>,
     mut player: Query<
         (
-            &Velocity,
+            &cuscuta_resources::Velocity,
             &mut TextureAtlas,
-            &mut AnimationTimer,
-            &AnimationFrameCount,
+            &mut cuscuta_resources::AnimationTimer,
+            &cuscuta_resources::AnimationFrameCount,
         ),
-        With<Player>,
+        With<cuscuta_resources::Player>,
     >,
 ) {
     /* In texture atlas for ratatta:
@@ -749,9 +591,9 @@ fn animate_player(
 }
 
 fn move_camera(
-    player: Query<&Transform, With<Player>>,
-    mut camera: Query<&mut Transform, (Without<Player>, With<Camera>)>,
-    room_manager: Res<RoomManager>, // Access the RoomManager to get the room-specific max_x and max_y
+    player: Query<&Transform, With<cuscuta_resources::Player>>,
+    mut camera: Query<&mut Transform, (Without<cuscuta_resources::Player>, With<Camera>)>,
+    room_manager: Res<room_gen::RoomManager>, // Access the RoomManager to get the room-specific max_x and max_y
 ) {
     let pt = player.single();
     let mut ct = camera.single_mut();
@@ -763,48 +605,3 @@ fn move_camera(
     ct.translation.y = pt.translation.y.clamp(-max_y + (cuscuta_resources::WIN_H / 2.), max_y - (cuscuta_resources::WIN_H / 2.));
 }
 
-fn recv_packet(
-    socket: Res<UDP>
-){
-    let mut buf = [0;1024];
-    let (_amt, _src) = socket.socket.recv_from(&mut buf).unwrap();
-    //println!("{}", String::from_utf8_lossy(&buf));
-}
-
-fn send_packet(
-    socket: Res<UDP>,
-) {
-    socket.socket.send_to(b"boo!", "localhost:5001").unwrap();
-}
-
-fn send_movement_info(
-    socket: Res<UDP>,
-    player: Query<&Transform, With<Player>>,
-    
-) {
-    let pt = player.single();
-    let x = pt.translation.x;
-    let y = pt.translation.y;
-    let x_int = unsafe {x.to_int_unchecked::<u8>()};
-    let y_int = unsafe {y.to_int_unchecked::<u8>()};
-    let buf:[u8;2] = [x_int, y_int];
-    //print!("{:?}", &buf);
-
-    socket.socket.send_to(&buf,"localhost:5001").unwrap();
-
-}
-
-
-/*fn change_room(
-    mut wall: Query<&mut Transform, (Without<Player>, Without<Background>, With<Wall>)>,
-    mut background: Query<&mut Transform, (Without<Player>, With<Background>)>,
-) {
-   for mut wt in wall.iter_mut() {
-    wt.translation.z *= -1.;
-   }
-
-   for mut bt in background.iter_mut() {
-    bt.translation.z *= -1.;
-   }
-
-}*/
