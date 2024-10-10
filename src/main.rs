@@ -1,5 +1,5 @@
 use std::net::UdpSocket;
-use bevy::{ prelude::*, window::PresentMode};
+use bevy::{ prelude::*, tasks::futures_lite::io::Bytes, window::PresentMode};
 pub mod cuscuta_resources;
 use rand::Rng;
 
@@ -514,7 +514,7 @@ fn handle_movement_and_enemy_collisions(
      // Translate player position to grid indices
      let grid_x = (new_pos.x / cuscuta_resources::TILE_SIZE as f32).floor();
      let grid_y = (new_pos.y / cuscuta_resources::TILE_SIZE as f32).floor();
-     println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
+    // println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
 
     // Handle collisions and movement within the grid
     handle_movement(pt, Vec3::new(change.x, 0., 0.), room_manager, hit_door, enemies);
@@ -787,11 +787,26 @@ fn send_movement_info(
     let y = pt.translation.y;
     let x_int = unsafe {x.to_int_unchecked::<u8>()};
     let y_int = unsafe {y.to_int_unchecked::<u8>()};
-    let buf:[u8;2] = [x_int, y_int];
+
+    let x_asu8: &[u8] = unsafe{any_as_u8_slice(&x)};
+    let y_asu8: &[u8] = unsafe{any_as_u8_slice(&y)};
+   
+    let buf:[u8;8] = [x_asu8[0], x_asu8[1], x_asu8[2],x_asu8[3], y_asu8[0], y_asu8[1], y_asu8[2], y_asu8[3]];
     //print!("{:?}", &buf);
 
     socket.socket.send_to(&buf,"localhost:5001").unwrap();
 
+}
+
+unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array !! https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8
+    ::core::slice::from_raw_parts(
+        (p as *const T) as *const u8,
+        ::core::mem::size_of::<T>(),
+    )
+}
+
+unsafe fn u8_to_f32(input_arr : &[u8]) -> (&[u8], &[f32], &[u8]) { // prefix, actual stuff, suffix
+    input_arr.align_to::<f32>()
 }
 
 
