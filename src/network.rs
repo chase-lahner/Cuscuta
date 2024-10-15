@@ -1,7 +1,7 @@
 
 use bevy::prelude::*;
 use std::net::UdpSocket;
-use crate::cuscuta_resources::*;
+use crate:: Player;
 
 #[derive(Resource)]
 pub struct UDP{

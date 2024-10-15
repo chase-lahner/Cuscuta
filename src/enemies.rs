@@ -3,6 +3,11 @@ use rand::Rng;
 
 use crate::cuscuta_resources::*;
 
+#[derive(Component)]
+pub struct Enemy {
+    pub direction: Vec2,
+} 
+
 
 pub fn spawn_enemies(
     mut commands: Commands,
@@ -30,7 +35,7 @@ pub fn spawn_enemies(
 
 pub fn enemy_movement(
     mut enemy_query: Query<(&mut Transform, &Enemy)>,
-    player_query: Query<&Transform, (With<Player>, Without<Enemy>)>,
+    player_query: Query<&Transform, (With<crate::Player>, Without<Enemy>)>,
     time: Res<Time>
 ) {
     let player_transform = player_query.single(); 

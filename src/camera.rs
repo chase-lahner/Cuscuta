@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{cuscuta_resources::*, room_gen::*};
+use crate::{cuscuta_resources::*, room_gen::*, Player};
 
 
 pub fn move_camera(
@@ -15,6 +15,28 @@ pub fn move_camera(
     let (max_x, max_y) = room_manager.current_room_max();
 
     ct.translation.x = pt.translation.x.clamp(-max_x + (WIN_W / 2.), max_x - (WIN_W / 2.));
-    ct.translation.y = pt.translation.y.clamp(-max_y + (WIN_H / 2.), max_y - (WIN_H / 2.));
+    ct.translation.y = pt.translation.y.clamp(-max_y + (WIN_H / 2.), max_y - (WIN_H / 2.) + (3. * (TILE_SIZE as f32)));
+}
+
+pub fn spawn_camera(
+    commands: &mut Commands,
+    asset_server: & AssetServer
+){
+    /* camera spawn */
+    commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
+    
+    /* ui bar */
+    commands.spawn((
+        NodeBundle {
+            style: Style{
+                width: Val::Px(1280.),
+                height: Val::Px(96.),
+                margin: UiRect{top: Val::VMin(0.), left: Val::VMax(0.),..default()},
+                ..default()
+            },
+            ..default()
+        },
+        UiImage::new(asset_server.load("ui/ui_bar.png"))
+    ));
 }
 

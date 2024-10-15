@@ -1,6 +1,14 @@
 use bevy::prelude::*;
 
-use crate::{carnage::carnage_bar, collision::{self, *}, cuscuta_resources::*, room_gen::*};
+use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, room_gen::*};
+
+#[derive(Component)]
+pub struct Player;// wow! it is he!
+
+#[derive(Resource)]
+pub struct Attacking{
+    pub attack: bool
+}
 
 pub fn player_attack(
     time: Res<Time>,
@@ -14,7 +22,8 @@ pub fn player_attack(
         ),
         With<Player>,
     >,
-    mut attacking: ResMut<Attacking>
+    mut attacking: ResMut<Attacking>,
+    mut carnage_q: Query<&mut CarnageBar, With<CarnageBar>>
 ) {
     /* In texture atlas for ratatta:
      * 0 - 3 = up
@@ -23,7 +32,7 @@ pub fn player_attack(
      * 12 - 15 = left
      * ratlas. heh. get it.*/
      let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
-
+     let mut carnage = carnage_q.single_mut();
      let abx = v.velocity.x.abs();
      let aby = v.velocity.y.abs();
 
@@ -41,7 +50,10 @@ pub fn player_attack(
             if v.velocity.y >= 0.{ratlas.index = 0;}
             else if v.velocity.y < 0. {ratlas.index = 4;}
         }
-
+        /* increment carnage. stupid fer now */
+        if carnage.carnage < 50.{
+            carnage.carnage += 1.;
+        }
         timer.reset();
      }
     if attacking.attack == true
