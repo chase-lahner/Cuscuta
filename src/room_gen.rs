@@ -210,3 +210,21 @@ pub fn transition_map(room: &mut Query<&mut Transform, (Without<Player>, Without
     let new_pos: Vec3 = pt.translation + Vec3::new(-MAX_X * 1.9, 0., 0.);
     pt.translation = new_pos;
 }
+
+
+pub fn spawn_pot(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>
+){
+    let pot_handle = asset_server.load("tiles/pot.png");
+    commands.spawn((
+        SpriteBundle{
+            texture: pot_handle,
+            transform: Transform::from_xyz(200.,200.,1.),
+            ..default()
+        },
+        Pot{
+            touch: 0
+        }
+    ));
+}

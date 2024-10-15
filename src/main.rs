@@ -9,6 +9,7 @@ pub mod player;
 pub mod enemies;
 pub mod init;
 pub mod camera;
+pub mod carnage;
 
 
 fn main() {

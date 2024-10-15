@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 
 use bevy::prelude::*;
 
-use crate::{cuscuta_resources::*, network::*, player::*, room_gen::*};
+use crate::{carnage::{self, *}, cuscuta_resources::*, network::*, player::*, room_gen::*};
 
 
 pub fn setup(
@@ -21,29 +21,15 @@ pub fn setup(
 
     commands.insert_resource(Attacking{attack: false});
 
+    
+
     // spawn camera
     commands.spawn(Camera2dBundle::default());
 
+    spawn_carnage_bar(&mut commands, &asset_server);
     /* spawn pot to play with */
     spawn_pot(&mut commands, &asset_server);
     // spawn player
     spawn_player(&mut commands, &asset_server, &mut texture_atlases);
 }
 
-
-pub fn spawn_pot(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>
-){
-    let pot_handle = asset_server.load("pot.png");
-    commands.spawn((
-        SpriteBundle{
-            texture: pot_handle,
-            transform: Transform::from_xyz(200.,200.,1.),
-            ..default()
-        },
-        Pot{
-            touch: 0
-        }
-    ));
-}

@@ -17,7 +17,7 @@ pub fn spawn_enemies(
         commands.spawn((
             SpriteBundle {
                 transform: Transform::from_xyz(random_x, random_y, 900.),
-                texture: asset_server.load("Skelly.png"),
+                texture: asset_server.load("enemies/skelly.png"),
                 ..default()
             },
             Enemy {
