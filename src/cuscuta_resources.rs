@@ -31,6 +31,13 @@ pub const MAX_X: f32 = LEVEL_W / 2.;
 pub const MAX_Y: f32 = LEVEL_H / 2.;
 
 pub const ANIM_TIME: f32 = 0.2;
+
+
+#[derive(Resource)]
+pub struct Attacking{
+    pub attack: bool
+}
+
 #[derive(Component)]
 pub struct Player;// wow! it is he!
 
@@ -41,10 +48,10 @@ pub struct Enemy {
 } 
 
 #[derive(Component, Deref, DerefMut)]
-pub struct AnimationTimer(Timer);// for switching through animation frames
+pub struct AnimationTimer(pub Timer);// for switching through animation frames
 
 #[derive(Component, Deref, DerefMut)]
-pub struct AnimationFrameCount(usize);
+pub struct AnimationFrameCount(pub usize);
 
 //struct Brick;
 
@@ -53,7 +60,7 @@ pub struct Background;
 
 #[derive(Component)]
 pub struct Pot{
-    touch: u8
+    pub touch: u8
 }
 
 #[derive(Component)]
@@ -64,5 +71,19 @@ pub struct Door;
 
 #[derive(Component)]
 pub struct Velocity {
-    velocity: Vec2,
+    pub velocity: Vec2,
 }
+impl Velocity {
+    pub fn new() -> Self {
+        Self {
+            velocity: Vec2::splat(0.),
+        }
+    }
+}
+
+impl From<Vec2> for Velocity {
+    fn from(velocity: Vec2) -> Self {
+        Self { velocity }
+    }
+}
+
