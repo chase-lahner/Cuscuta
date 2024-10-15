@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 
 use bevy::prelude::*;
 
-use crate::{carnage::{self, *}, cuscuta_resources::*, network::*, player::*, room_gen::*};
+use crate::{camera::spawn_camera, carnage::{self, *}, cuscuta_resources::*, network::*, player::*, room_gen::*};
 
 
 pub fn setup(
@@ -24,7 +24,7 @@ pub fn setup(
     
 
     // spawn camera
-    commands.spawn(Camera2dBundle::default());
+    spawn_camera(&mut commands, &asset_server);
 
     spawn_carnage_bar(&mut commands, &asset_server);
     /* spawn pot to play with */
