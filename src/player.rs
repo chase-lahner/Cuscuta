@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{collision::{self, *}, cuscuta_resources::*, room_gen::*};
+use crate::{carnage::carnage_bar, collision::{self, *}, cuscuta_resources::*, room_gen::*};
 
 pub fn player_attack(
     time: Res<Time>,
@@ -76,7 +76,7 @@ pub fn spawn_player(
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>
 ) {
-    let player_sheet_handle = asset_server.load("4x8_player.png");
+    let player_sheet_handle = asset_server.load("player/4x8_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
         UVec2::splat(TILE_SIZE), 4, 8, None, None);
     let player_layout_len = player_layout.textures.len();
@@ -287,6 +287,7 @@ pub fn handle_movement(
         *hit_door = true;
     }
 }
+
 pub fn animate_player(
     time: Res<Time>,
     mut player: Query<
