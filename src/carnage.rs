@@ -1,15 +1,27 @@
 use bevy::prelude::*;
 
 #[derive(Component)]
-pub struct carnage_bar{
-    pub stealth: u8,
-    pub carnage: u8
+pub struct CarnageBar{
+    pub stealth: f32,
+    pub carnage: f32
 }
 
 pub fn spawn_carnage_bar(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>
+    asset_server: & AssetServer
 ){
-    let carnage_handle: Handle<Image> = asset_server.load("carnage/carnage_bar_border.png");
-
+    /* carnage bar spawn */
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Px(320.0),
+                height: Val::Px(32.0),
+                margin: UiRect{ top: Val::VMin(2.5), left: Val::VMax(37.5),..default()},
+                ..default()
+            },
+            ..default()
+        },
+        UiImage::new(asset_server.load("ui/carnage_bar_border.png")),
+        CarnageBar{stealth: 0., carnage: 0.}
+    ));
 }

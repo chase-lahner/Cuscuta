@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use rand::Rng;
 use crate::collision::*;
 use crate::cuscuta_resources::*;
+use crate::player::*;
+use crate::enemies::*;
 
 
 #[derive(Resource)]

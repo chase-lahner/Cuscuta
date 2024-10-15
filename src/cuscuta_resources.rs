@@ -33,20 +33,6 @@ pub const MAX_Y: f32 = LEVEL_H / 2.;
 pub const ANIM_TIME: f32 = 0.2;
 
 
-#[derive(Resource)]
-pub struct Attacking{
-    pub attack: bool
-}
-
-#[derive(Component)]
-pub struct Player;// wow! it is he!
-
-
-#[derive(Component)]
-pub struct Enemy {
-    pub direction: Vec2,
-} 
-
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationTimer(pub Timer);// for switching through animation frames
 

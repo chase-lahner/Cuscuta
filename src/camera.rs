@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{cuscuta_resources::*, room_gen::*};
+use crate::{cuscuta_resources::*, room_gen::*, Player};
 
 
 pub fn move_camera(
@@ -37,19 +37,6 @@ pub fn spawn_camera(
             ..default()
         },
         UiImage::new(asset_server.load("ui/ui_bar.png"))
-    ));
-    /* carnage bar spawn */
-    commands.spawn((
-        NodeBundle {
-            style: Style {
-                width: Val::Px(320.0),
-                height: Val::Px(32.0),
-                margin: UiRect{ top: Val::VMin(2.5), left: Val::VMax(37.5),..default()},
-                ..default()
-            },
-            ..default()
-        },
-        UiImage::new(asset_server.load("ui/carnage_bar_border.png"))
     ));
 }
 
