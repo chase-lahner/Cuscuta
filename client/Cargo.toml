@@ -1,0 +1,10 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition = "2021"
+authors = ["Rory McCann <rcm71@pitt.edu>", "Lukas Finn <lef74@pitt.edu>"]
+
+[dependencies]
+bevy = "=0.14.0"
+rand = "0.8"
+library = { path = "../library" }
