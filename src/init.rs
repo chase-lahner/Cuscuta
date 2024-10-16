@@ -16,7 +16,6 @@ pub fn setup(
 
     /* initializes our networking socket */
     let socket = UdpSocket::bind("localhost:5000").unwrap();
-
     commands.insert_resource(UDP {socket: socket});
 
     commands.insert_resource(Attacking{attack: false});
