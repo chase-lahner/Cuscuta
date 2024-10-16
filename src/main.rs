@@ -27,9 +27,10 @@ fn main() {
          .add_systems(Startup,init::setup)// runs once, sets up scene
          .add_systems(Startup, enemies::spawn_enemies)
          .add_systems(Update, player::move_player)// every frame, takes in WASD for movement
-         .add_systems(Update, network::send_packet)
-         .add_systems(Update, network::recv_packet)
-         .add_systems(Update, network::send_movement_info.after(player::move_player))
+         .add_systems(Startup, network::send_id_packet.after(init::setup)) // we want id when we spawn a player
+        // .add_systems(Update, network::recv_packet)
+        .add_systems(Startup, network::recv_id.after(network::send_id_packet)) // we want to recieve packet after we send it
+        .add_systems(Update, network::send_movement_info.after(player::move_player))
          .add_systems(Update, enemies::enemy_movement.after(player::move_player))
          .add_systems(Update, player::animate_player.after(player::move_player)) // animates player
          .add_systems(Update, player::player_attack.after(animate_player)) // animates attack swing

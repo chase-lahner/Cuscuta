@@ -4,6 +4,9 @@
 #![allow(dead_code)]
 use bevy::prelude::*;
 
+pub const SERVER_ADR: &str = "localhost:5001";
+pub const GET_PLAYER_ID_CODE: u8 = 255;
+
 pub const TITLE: &str = "Cuscuta Demo";// window title
 pub const WIN_W: f32 = 1280.;// window width
 pub const WIN_H: f32 = 720.;// window height

@@ -1,9 +1,15 @@
 use bevy::prelude::*;
 
-use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, room_gen::*};
+use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network, room_gen::*};
+use std::net::UdpSocket;
 
 #[derive(Component)]
 pub struct Player;// wow! it is he!
+
+#[derive(Component)]
+pub struct NetworkId {
+    pub id: u8, // we will have at most 2 players so no more than a u8 is needed
+}
 
 #[derive(Resource)]
 pub struct Attacking{
@@ -86,7 +92,7 @@ pub fn player_attack(
 pub fn spawn_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
@@ -108,6 +114,9 @@ pub fn spawn_player(
      AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
      AnimationFrameCount(player_layout_len),
      Velocity::new(),
+     NetworkId {
+        id: 0
+     },
      Player,
     ));
 }
@@ -250,7 +259,7 @@ pub fn handle_movement_and_enemy_collisions(
      // Translate player position to grid indices
      let grid_x = (new_pos.x / TILE_SIZE as f32).floor();
      let grid_y = (new_pos.y / TILE_SIZE as f32).floor();
-     println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
+     //println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
 
     // Handle collisions and movement within the grid
     handle_movement(pt, Vec3::new(change.x, 0., 0.), room_manager, hit_door, enemies);
