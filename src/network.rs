@@ -1,10 +1,11 @@
-
 use bevy::a11y::accesskit::CustomAction;
 use bevy::prelude::*;
 use std::str::from_utf8;
 use std::{any, net::UdpSocket};
-use crate::{NetworkId,  Player};
+use crate::{player, NetworkId, Player};
+use serde::{Serialize, Deserialize};
 use crate:: cuscuta_resources;
+use flexbuffers;
 
 
 #[derive(Resource)]
@@ -70,6 +71,30 @@ pub fn send_movement_info(
 pub fn get_id(socket: Res<UDP>){
     let buf: [u8;1] = [cuscuta_resources::GET_PLAYER_ID_CODE];
     socket.socket.send_to(&buf, cuscuta_resources::SERVER_ADR).unwrap();
+}
+
+pub fn serialize_player(
+    player: Query<&Player>
+){
+    let p = player.single();
+    let mut s = flexbuffers::FlexbufferSerializer::new();
+    println!("Player before: {:?}\n", p);
+    p.serialize(&mut s).unwrap();
+
+    let r = flexbuffers::Reader::get_root(s.view()).unwrap();
+
+    println!("Stored in: {:?} bytes. \n", s.view().len());
+
+    let p2 = Player::deserialize(r).unwrap();
+
+    assert_eq!(*p, p2);
+
+    
+
+    
+
+
+
 }
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array !! https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8

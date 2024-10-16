@@ -31,6 +31,7 @@ fn main() {
         // .add_systems(Update, network::recv_packet)
         .add_systems(Startup, network::recv_id.after(network::send_id_packet)) // we want to recieve packet after we send it
         .add_systems(Update, network::send_movement_info.after(player::move_player))
+        .add_systems(Update, network::serialize_player.after(player::move_player))
          .add_systems(Update, enemies::enemy_movement.after(player::move_player))
          .add_systems(Update, player::animate_player.after(player::move_player)) // animates player
          .add_systems(Update, player::player_attack.after(animate_player)) // animates attack swing

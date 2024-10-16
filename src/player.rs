@@ -1,9 +1,10 @@
 use bevy::prelude::*;
+use serde::{Serialize, Deserialize};
 
 use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network, room_gen::*};
 use std::net::UdpSocket;
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Player;// wow! it is he!
 
 #[derive(Component)]
