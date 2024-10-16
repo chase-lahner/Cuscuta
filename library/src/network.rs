@@ -13,6 +13,10 @@ pub struct UDP{
     pub socket: UdpSocket
 }
 
+struct UDPHeader{
+    id: u8
+}
+
 
 // UNUSED as of now
 pub fn recv_packet(
@@ -21,6 +25,12 @@ pub fn recv_packet(
     let mut buf = [0;1024];
     let (_amt, _src) = socket.socket.recv_from(&mut buf).unwrap();
     //println!("{}", String::from_utf8_lossy(&buf));
+}
+
+pub fn send_packet(
+    socket: Res<UDP>,
+    buf: [u8]
+){
 }
 
 
