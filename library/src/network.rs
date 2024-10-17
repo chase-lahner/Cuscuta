@@ -1,12 +1,8 @@
 
-use bevy::a11y::accesskit::CustomAction;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
-use flexbuffers::{Reader, ReaderError};
-use serde::ser::SerializeStruct;
 use serde::{ Deserialize, Serialize};
-use std::str::from_utf8;
-use std::{any, net::UdpSocket};
+use std::net::UdpSocket;
 use crate::player::*;
 use crate:: cuscuta_resources::{self, Velocity};
 use std::{collections::HashMap, net::SocketAddr};
@@ -23,7 +19,8 @@ pub struct BufSerializer{
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-struct UDPHeader{
+pub struct UDPHeader{
+    opcode: u8,
     id: u8,
     p_x: f32,
     p_y: f32,
@@ -86,24 +83,24 @@ pub fn send_id_packet( // function that sends a packet telling server we want an
 }
 
 
-// pub fn send_movement_info(
-//     socket: Res<UDP>,
-//     player: Query<&Transform, With<Player>>,
+pub fn send_movement_info(
+    socket: Res<UDP>,
+    player: Query<&Transform, With<Player>>,
     
-// ) {
-//     let pt = player.single();
-//     let x = pt.translation.x;
-//     let y = pt.translation.y;
-//     let x_int = unsafe {any_as_u8_slice(&x)};
-//     let y_int = unsafe {any_as_u8_slice(&y)};
-//     let buf:[u8;2] = [x_int[0], y_int[0]];
-//     //print!("{:?}", &buf);
+) {
+    let pt = player.single();
+    let x = pt.translation.x;
+    let y = pt.translation.y;
+    let x_int = unsafe {any_as_u8_slice(&x)};
+    let y_int = unsafe {any_as_u8_slice(&y)};
+    let buf:[u8;2] = [x_int[0], y_int[0]];
+    //print!("{:?}", &buf);
 
-//     socket.socket.send_to(&buf,"localhost:5001").unwrap();
+    socket.socket.send_to(&buf,"localhost:5001").unwrap();
 
     
 
-// }
+}
 
 
 pub fn get_id(socket: Res<UDP>)
@@ -135,37 +132,17 @@ pub fn serialize_player(
     let p_y = t.translation.y;
     let i_d = i.id;
     let mut s = flexbuffers::FlexbufferSerializer::new();
-    let to_send = UDPHeader {id: i_d, p_x: p_x, p_y: p_y};
+    let to_send = UDPHeader {opcode: 1, id: i_d, p_x: p_x, p_y: p_y};
 
     to_send.serialize(&mut s).unwrap();
 
     let r  = flexbuffers::Reader::get_root(s.view()).unwrap();
    
    // println!("data type: {:?}", data_type);
-    if let flexbuffers::Blob(blob) = r.as_blob() {
-    let byte_array: &[u8] = blob; // Access the byte slice directly
    // println!("{:?}", byte_array);
-    let send_two = UDPHeader::deserialize(r).unwrap();
+    socket.socket.send_to(s.view(), cuscuta_resources::SERVER_ADR).unwrap();
+} 
 
-    println!("{}", send_two.id);
-
-    socket.socket.send_to(, cuscuta_resources::SERVER_ADR);
-} else {
-    println!("not blob");
-    
-}
-
-}
-
-
-
-fn get_data_from_reader(reader: Reader<&[u8]>) -> Result<&[u8], ReaderError> {
-    // Extract the byte slice from the Reader
-    let data: &[u8] = reader.as_slice();
-
-    // Wrap the byte slice in Ok to return the expected Result type
-    Ok(data)
-}
 
 
 pub fn assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, n_p: &mut u8) -> u8{
