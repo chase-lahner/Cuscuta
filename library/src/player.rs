@@ -1,12 +1,12 @@
 use bevy::prelude::*;
-use serde::{Serialize, Deserialize};
+
 use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network, room_gen::*};
 use std::net::UdpSocket;
 
-#[derive(Component, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Component)]
 pub struct Player;// wow! it is he!
 
-#[derive(Component, Serialize)]
+#[derive(Component)]
 pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
 }
@@ -44,7 +44,6 @@ pub fn player_attack(
 
      if input.just_pressed(MouseButton::Left)
      {
-        println!("SWINGING");
         attacking.attack = true; //set attacking to true to override movement animations
         
         // deciding initial frame for swing (so not partial animation)
@@ -164,6 +163,7 @@ pub fn move_player(
     mut room_manager: ResMut<RoomManager>,
     mut _commands: Commands, 
     _asset_server: Res<AssetServer>, 
+    room_query: Query<Entity, With<Room>>, 
 ) {
 
     let (mut pt, mut pv) = player.single_mut();
@@ -214,11 +214,11 @@ pub fn move_player(
 
     // Calculate new player position and clamp within room boundaries
     let new_pos_x = (pt.translation.x + change.x)
-        .clamp(-room_width / 2.0 + TILE_SIZE as f32 / 2.0,
-         room_width / 2.0 - TILE_SIZE as f32 / 2.0);
+        .clamp(-room_width / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
+         room_width / 2.0 - TILE_SIZE as f32 - TILE_SIZE as f32 / 2.0);
     let new_pos_y = (pt.translation.y + change.y)
-        .clamp(-room_height / 2.0 + TILE_SIZE as f32 / 2.0,
-             room_height / 2.0 - TILE_SIZE as f32 / 2.0);
+        .clamp(-room_height / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
+             room_height / 2.0 - TILE_SIZE as f32 - (TILE_SIZE / 2) as f32 / 2.0);
 
     pt.translation.x = new_pos_x;
     pt.translation.y = new_pos_y;
@@ -236,8 +236,7 @@ pub fn move_player(
 
     // if we hit a door
     if hit_door {
-        println!("hit door!");
-        transition_map(&mut room, &mut pt);
+        transition_map(&mut _commands, &_asset_server, &mut room_manager, room_query, &mut pt); // Pass room_query as argument
     }
 }
 
