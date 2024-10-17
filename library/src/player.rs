@@ -1,12 +1,12 @@
 use bevy::prelude::*;
-
+use serde::{Serialize, Deserialize};
 use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network, room_gen::*};
 use std::net::UdpSocket;
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Player;// wow! it is he!
 
-#[derive(Component)]
+#[derive(Component, Serialize)]
 pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
 }

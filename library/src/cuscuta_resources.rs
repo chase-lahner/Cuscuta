@@ -3,6 +3,7 @@
  * I hope this dead_code isn't package wide... */
 #![allow(dead_code)]
 use bevy::prelude::*;
+use serde::Serialize;
 
 pub const SERVER_ADR: &str = "localhost:5001";
 pub const GET_PLAYER_ID_CODE: u8 = 255;
@@ -58,7 +59,7 @@ pub struct Wall;
 #[derive(Component)]
 pub struct Door;
 
-#[derive(Component)]
+#[derive(Component, Serialize)]
 pub struct Velocity {
     pub velocity: Vec2,
 }

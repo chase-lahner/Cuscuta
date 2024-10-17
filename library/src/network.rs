@@ -1,10 +1,10 @@
 
-use bevy::a11y::accesskit::CustomAction;
 use bevy::prelude::*;
-use std::str::from_utf8;
-use std::{any, net::UdpSocket};
+use flexbuffers::FlexbufferSerializer;
+use serde::{ Deserialize, Serialize};
+use std::net::UdpSocket;
 use crate::player::*;
-use crate:: cuscuta_resources;
+use crate:: cuscuta_resources::{self, Velocity};
 use std::{collections::HashMap, net::SocketAddr};
 
 
@@ -13,9 +13,32 @@ pub struct UDP{
     pub socket: UdpSocket
 }
 
-struct UDPHeader{
-    id: u8
+#[derive(Resource)]
+pub struct BufSerializer{
+    pub serializer: FlexbufferSerializer
 }
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct UDPHeader{
+    opcode: u8,
+    id: u8,
+    p_x: f32,
+    p_y: f32,
+}
+
+// impl Serialize for UDPHeader {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer, {
+
+//             let mut state = serializer.serialize_struct("UDPHeader", 3)?;
+//             state.serialize_field("id", &self.id)?;
+//             state.serialize_field("p_x", &self.p_x)?;
+//             state.serialize_field("p_y", &self.p_y)?;
+//             state.end()
+       
+//     }
+// }
 
 
 // UNUSED as of now
@@ -27,11 +50,11 @@ pub fn recv_packet(
     //println!("{}", String::from_utf8_lossy(&buf));
 }
 
-pub fn send_packet(
-    socket: Res<UDP>,
-    buf: [u8]
-){
-}
+// pub fn send_packet(
+//     socket: Res<UDP>,
+//     buf: [u8]
+// ){
+// }
 
 
 pub fn recv_id(socket: Res<UDP>, mut player: Query<&mut NetworkId, With<Player>> )  // function to recieve ID from server (after we send a request for one)
@@ -75,6 +98,8 @@ pub fn send_movement_info(
 
     socket.socket.send_to(&buf,"localhost:5001").unwrap();
 
+    
+
 }
 
 
@@ -96,6 +121,29 @@ pub unsafe fn u8_to_f32(input_arr : &[u8]) -> (&[u8], &[f32], &[u8])
 { // prefix, actual stuff, suffix
     input_arr.align_to::<f32>()
 }
+
+pub fn serialize_player(
+    player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
+    socket : Res<UDP>
+)
+{
+    let (t, v, i) = player.single();
+    let p_x = t.translation.x;
+    let p_y = t.translation.y;
+    let i_d = i.id;
+    let mut s = flexbuffers::FlexbufferSerializer::new();
+    let to_send = UDPHeader {opcode: 1, id: i_d, p_x: p_x, p_y: p_y};
+
+    to_send.serialize(&mut s).unwrap();
+
+    let r  = flexbuffers::Reader::get_root(s.view()).unwrap();
+   
+   // println!("data type: {:?}", data_type);
+   // println!("{:?}", byte_array);
+    socket.socket.send_to(s.view(), cuscuta_resources::SERVER_ADR).unwrap();
+} 
+
+
 
 pub fn assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, n_p: &mut u8) -> u8{
     let arg_ip = socket_addr.ip();
