@@ -1,9 +1,16 @@
 use std::net::{SocketAddr, UdpSocket};
 use std::collections::HashMap;
 use library::*;
+use bevy::prelude::*;
 
 /* Rate at which we will be sending/recieving packets */
 const _TICKS_PER_SECOND: u32 = 60;
+
+fn old_main() {
+    App::new()
+    .add_systems(Startup, init::server_setup)
+    .run();
+}
 
 
 fn main() -> std::io::Result<()>{

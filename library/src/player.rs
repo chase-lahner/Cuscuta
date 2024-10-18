@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
 use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network, room_gen::*};
-use std::net::UdpSocket;
 
 #[derive(Component)]
 pub struct Player;// wow! it is he!
@@ -11,6 +10,7 @@ pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
 }
 
+/* global boolean to not re-attack */
 #[derive(Resource)]
 pub struct Attacking{
     pub attack: bool
@@ -89,7 +89,8 @@ pub fn player_attack(
     }
 }
 
-pub fn spawn_player(
+/* spawns player with sprite */
+pub fn client_spawn_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
@@ -118,6 +119,20 @@ pub fn spawn_player(
         id: 0
      },
      Player,
+    ));
+}
+
+/* spawns in a player entity for server. No Gui */
+pub fn server_spawn_player(
+    commands: &mut Commands,
+    id: u8
+){
+    commands.spawn((
+        Velocity::new(),
+        NetworkId{
+            id: id
+        },
+        Player,   
     ));
 }
 

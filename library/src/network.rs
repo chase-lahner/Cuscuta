@@ -27,14 +27,10 @@ pub fn recv_packet(
     //println!("{}", String::from_utf8_lossy(&buf));
 }
 
-pub fn send_packet(
-    socket: Res<UDP>,
-    buf: [u8]
-){
-}
 
 
-pub fn recv_id(socket: Res<UDP>, mut player: Query<&mut NetworkId, With<Player>> )  // function to recieve ID from server (after we send a request for one)
+
+pub fn client_recv_id(socket: Res<UDP>, mut player: Query<&mut NetworkId, With<Player>> )  // function to recieve ID from server (after we send a request for one)
 {
  //   print!("RECIEVING");
     let mut network_id = player.single_mut(); // network id is part of player struct
@@ -51,7 +47,7 @@ pub fn recv_id(socket: Res<UDP>, mut player: Query<&mut NetworkId, With<Player>>
     }
 }
 
-pub fn send_id_packet( // function that sends a packet telling server we want an id
+pub fn client_send_id_packet( // function that sends a packet telling server we want an id
     socket: Res<UDP>,
 ) {
    // print!("sending to server!");
@@ -97,7 +93,7 @@ pub unsafe fn u8_to_f32(input_arr : &[u8]) -> (&[u8], &[f32], &[u8])
     input_arr.align_to::<f32>()
 }
 
-pub fn assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, n_p: &mut u8) -> u8{
+pub fn server_assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, n_p: &mut u8) -> u8{
     let arg_ip = socket_addr.ip();
     let ip_string = arg_ip.to_string();
     let player_id: u8 = 255 - *n_p;

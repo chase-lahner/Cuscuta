@@ -70,7 +70,8 @@ pub fn spawn_start_room(
     // generate random integers between 50 and 250, * 32
     let random_width = rng.gen_range(50..=250);
     let random_height = rng.gen_range(50..=250);
-
+    println!("{}",random_width);
+    println!("{}",random_height);
     // Room width & height as a multiple of 32
     let room_width = random_width as f32 * TILE_SIZE as f32;  
     let room_height = random_height as f32 * TILE_SIZE as f32;
@@ -214,7 +215,7 @@ pub fn transition_map(room: &mut Query<&mut Transform, (Without<Player>, Without
 }
 
 
-pub fn spawn_pot(
+pub fn client_spawn_pot(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>
 ){
