@@ -1,4 +1,4 @@
-use bevy::{ prelude::*, window::PresentMode};
+use bevy::{prelude::*, window::PresentMode};
 use library::*;
 
 fn main() {
@@ -18,12 +18,16 @@ fn main() {
          .add_systems(Update, player::move_player)// every frame, takes in WASD for movement
          .add_systems(Startup, network::client_send_id_packet.after(init::client_setup)) // we want id when we spawn a player
         // .add_systems(Update, network::recv_packet)
-        .add_systems(Startup, network::client_recv_id.after(network::client_send_id_packet)) // we want to recieve packet after we send it
-        .add_systems(Update, network::send_movement_info.after(player::move_player))
-         .add_systems(Update, enemies::enemy_movement.after(player::move_player))
-         .add_systems(Update, player::animate_player.after(player::move_player)) // animates player
-         .add_systems(Update, player::player_attack.after(player::animate_player)) // animates attack swing
-         .add_systems(Update, camera::move_camera.after(player::animate_player))// follow character
-         .add_systems(Update, player::player_interact)
-         .run();
+        .add_systems(Startup, network::recv_id.after(network::send_id_packet)) // we want to recieve packet after we send it
+        .add_systems(
+            Update,
+            network::send_movement_info.after(player::move_player),
+        )
+        .add_systems(Update, network::serialize_player.after(player::move_player))
+        .add_systems(Update, enemies::enemy_movement.after(player::move_player))
+        .add_systems(Update, player::animate_player.after(player::move_player)) // animates player
+        .add_systems(Update, player::player_attack.after(player::animate_player)) // animates attack swing
+        .add_systems(Update, camera::move_camera.after(player::animate_player)) // follow character
+        .add_systems(Update, player::player_interact)
+        .run();
 }
