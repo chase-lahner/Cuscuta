@@ -18,12 +18,12 @@ fn main() {
          .add_systems(Update, player::move_player)// every frame, takes in WASD for movement
          .add_systems(Startup, network::client_send_id_packet.after(init::client_setup)) // we want id when we spawn a player
         // .add_systems(Update, network::recv_packet)
-        .add_systems(Startup, network::recv_id.after(network::send_id_packet)) // we want to recieve packet after we send it
         .add_systems(
-            Update,
-            network::send_movement_info.after(player::move_player),
+            Startup,
+            network::id_request.after(init::setup),
         )
-        .add_systems(Update, network::serialize_player.after(player::move_player))
+        .add_systems(Startup, network::recv_id.after(network::id_request)) // we want to recieve packet after we send it
+       // .add_systems(Update, network::serialize_player.after(player::move_player))
         .add_systems(Update, enemies::enemy_movement.after(player::move_player))
         .add_systems(Update, player::animate_player.after(player::move_player)) // animates player
         .add_systems(Update, player::player_attack.after(player::animate_player)) // animates attack swing
