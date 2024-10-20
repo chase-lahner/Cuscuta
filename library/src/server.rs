@@ -10,9 +10,9 @@ use crate::{cuscuta_resources::{self, FlexSerializer, PlayerCount, Velocity}, ne
 
 pub fn send_id(
     source_addr : SocketAddr,
-    mut n_p: ResMut<PlayerCount>,
     server_socket: &UdpSocket, 
-    mut serializer: ResMut<FlexSerializer>
+    mut n_p: ResMut<PlayerCount>,
+    mut serializer: FlexbufferSerializer
 ) {
     let arg_ip = source_addr.ip();
     let ip_string = arg_ip.to_string();
@@ -23,12 +23,12 @@ pub fn send_id(
     let to_send = IdPacket{ id: player_id};
 
 
-    to_send.serialize(  &mut serializer.serializer ).unwrap();
+    to_send.serialize(  &mut serializer ).unwrap();
     const SIZE:usize = size_of::<IdPacket>();
     let mut packet = [0;SIZE+1];
-    packet[..SIZE].clone_from_slice(serializer.serializer.view());
+    packet[..SIZE].clone_from_slice(serializer.view());
     packet[SIZE] = cuscuta_resources::PLAYER_DATA;
-    server_socket.send_to(packet, source_addr).unwrap();
+    server_socket.send_to(&packet, source_addr).unwrap();
 
     println!("SENT!");
 }
@@ -37,7 +37,9 @@ pub fn send_id(
 pub fn listen(
     udp: Res<UDP>,
     commands: Commands,
-    mut player: Query<(&Velocity, &Transform, &NetworkId), With<Player>>
+    mut player: Query<(&Velocity, &Transform, &NetworkId), With<Player>>,
+    mut serializer: ResMut<FlexSerializer>,
+    mut n_p: ResMut<PlayerCount>,
 ) -> std::io::Result<()>{// really doesn;t need to return this am lazy see recv_from line
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
@@ -51,11 +53,17 @@ pub fn listen(
     let opcode = buf[amt];
 
     match opcode{
-        cuscuta_resources::GET_PLAYER_ID_CODE => send_id(src, udp)
-        _ => //TOTO
+        cuscuta_resources::GET_PLAYER_ID_CODE => 
+            send_id(src, &udp.socket, n_p,serializer),
+        cuscuta_resources::PLAYER_DATA =>
+            
+        
+        _ => something()//TOTO
 
-    }
+    };
 
 
     Ok(())
 }
+
+fn something(){}
