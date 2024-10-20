@@ -28,7 +28,7 @@ pub fn client_setup(
     spawn_start_room(&mut commands, &asset_server, &mut room_manager);
 
     /* initializes our networking socket */
-    let socket = UdpSocket::bind(socket_to_assign).unwrap(); //localhost:5000
+    let socket = UdpSocket::bind("localhost:5000").unwrap(); //localhost:5000 THIS SHOULD BE REPLACED WITH CMD ARGS
     commands.insert_resource(UDP {socket: socket});
     
 
