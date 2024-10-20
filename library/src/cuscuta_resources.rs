@@ -3,6 +3,7 @@
  * I hope this dead_code isn't package wide... */
 #![allow(dead_code)]
 use bevy::prelude::*;
+use flexbuffers::FlexbufferSerializer;
 use serde::Serialize;
 
 
@@ -12,7 +13,11 @@ use serde::Serialize;
 
 
 pub const SERVER_ADR: &str = "localhost:5001";
+
+/* opcode!! */
 pub const GET_PLAYER_ID_CODE: u8 = 255;
+pub const PLAYER_DATA: u8 = 254;
+/* end opcode!! */
 
 pub const TITLE: &str = "Cuscuta Demo";// window title
 pub const WIN_W: f32 = 1280.;// window width
@@ -71,6 +76,18 @@ pub struct Health{
     pub max: f32,
     pub current: f32
 }
+
+#[derive(Resource)]
+pub struct PlayerCount{
+    pub count: u8
+}
+
+#[derive(Resource)]
+pub struct FlexSerializer{
+    pub serializer: FlexbufferSerializer
+}
+
+
 
 #[derive(Component, Serialize)]
 pub struct Velocity {

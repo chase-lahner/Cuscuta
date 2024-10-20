@@ -3,6 +3,7 @@ use crate::player::*;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
+use std::mem;
 use std::net::UdpSocket;
 use std::{collections::HashMap, net::SocketAddr};
 
@@ -16,21 +17,19 @@ pub struct BufSerializer {
     pub serializer: FlexbufferSerializer,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct UDPHeader {
-    pub opcode: u8,
-    pub id: u8,
-}
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PlayerPacket{
-    pub head: UDPHeader,
     pub transform_x: f32,
     pub transform_y: f32,
     pub velocity_x: f32,
     pub velocity_y: f32,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct IdPacket{
+    pub id: u8
+}
 
 pub fn send_movement_info(
     socket: Res<UDP>, 
@@ -68,9 +67,7 @@ pub fn serialize_player(
     /* Deconstruct out Query. SHould be client side so we can do single */
     let (t, v, i) = player.single();
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
-    let header = UDPHeader {opcode: 1, id: i.id};
     let outgoing_state = PlayerPacket {
-        head: header, 
         transform_x: t.translation.x,
         transform_y: t.translation.y,
         velocity_x: v.velocity.x,
@@ -79,9 +76,11 @@ pub fn serialize_player(
 
     outgoing_state.serialize(&mut serializer).unwrap();
 
-    let r  = flexbuffers::Reader::get_root(serializer.view()).unwrap();
-   
-    socket.socket.send_to(serializer.view(), cuscuta_resources::SERVER_ADR).unwrap();
+    const SIZE:usize = size_of::<PlayerPacket>();
+    let mut packet: [u8;SIZE+1] = [0;SIZE+1];
+    packet[..SIZE].clone_from_slice(serializer.view());
+    packet[SIZE] = cuscuta_resources::PLAYER_DATA;
+    socket.socket.send_to(&packet, cuscuta_resources::SERVER_ADR).unwrap();
 } 
 
 

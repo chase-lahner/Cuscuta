@@ -3,7 +3,7 @@ use std::net::UdpSocket;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 
-use crate::{camera::spawn_camera, carnage::*, cuscuta_resources, network::*, player::*, room_gen::*};
+use crate::{camera::spawn_camera, carnage::*, cuscuta_resources::{self, FlexSerializer}, network::*, player::*, room_gen::*};
 
 
 pub fn client_setup(
@@ -18,6 +18,7 @@ pub fn client_setup(
     /* initializes our networking socket */
     let socket = UdpSocket::bind("localhost:5000").unwrap();
     commands.insert_resource(UDP {socket: socket});
+    commands.insert_resource(FlexSerializer{serializer:flexbuffers::FlexbufferSerializer::new()});
     
 
     // spawn camera
@@ -36,4 +37,5 @@ pub fn server_setup(
 ){
     let socket = UdpSocket::bind(cuscuta_resources::SERVER_ADR).unwrap();
     commands.insert_resource(UDP{socket:socket});
+    commands.insert_resource(FlexSerializer{serializer:flexbuffers::FlexbufferSerializer::new()});
 }
