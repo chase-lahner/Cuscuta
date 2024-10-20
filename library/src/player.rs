@@ -135,8 +135,8 @@ pub fn player_attack_enemy(
     mut player: Query<(&Transform,&mut Attack), With<Player>,>,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>)>
 ) {
-    let player_aabb = collision::Aabb::new(pt, Vec2::splat(TILE_SIZE as f32));
-
+    //let player_aabb = collision::Aabb::new(pt, Vec2::splat(TILE_SIZE as f32));
+    return;
 }
 
 /* Spawns in player, uses PlayerBundle for some consistency*/
@@ -347,7 +347,7 @@ pub fn update_player_position(
 pub fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
+    mut player: Query<(&mut Transform, &mut Velocity, &mut Roll), (With<Player>, Without<Background>)>,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
     mut room: Query<&mut Transform, (Without<Player>, Without<Enemy>)>,
     mut room_manager: ResMut<RoomManager>,
@@ -356,7 +356,7 @@ pub fn move_player(
     room_query: Query<Entity, With<Room>>, 
 ) {
 
-    let (mut pt, mut pv) = player.single_mut();
+    let (mut pt, mut pv, mut roll_query) = player.single_mut();
     let mut deltav = Vec2::splat(0.);
 
     // INPUT HANDLING
@@ -386,6 +386,11 @@ pub fn move_player(
     // set new max speed
     let max_speed = PLAYER_SPEED * speed_multiplier;
 
+    /* check if rolling */
+    /*let roll = roll_query.as_mut();
+    if input.pressed(KeyCode::KeyR){
+        roll.rolling = true;
+    }*/
 
     pv.velocity = if deltav.length() > 0. {
         (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed)
@@ -548,6 +553,7 @@ pub fn animate_player(
 
 pub fn player_roll(
     time: Res<Time>,
+    input: Res<ButtonInput<KeyCode>>,
     mut player: Query<
         (
             &Velocity,
@@ -572,9 +578,8 @@ pub fn player_roll(
 
     if attack.attacking == true{return;} //do not roll if swinging
 
-     if roll.rolling == true
-     {
-        // deciding initial frame for swing (so not partial animation)
+    if input.pressed(KeyCode::KeyR){
+        roll.rolling = true;
         if abx > aby {
             if v.velocity.x >= 0.{ratlas.index = 44;}
             else if v.velocity.x < 0. {ratlas.index = 40;}
@@ -584,7 +589,8 @@ pub fn player_roll(
             else if v.velocity.y < 0. {ratlas.index = 32;}
         }
         timer.reset();
-     }
+    }
+
     if roll.rolling == true
     {
         timer.tick(time.delta());
