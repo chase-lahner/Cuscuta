@@ -246,6 +246,9 @@ pub fn player_input(
     /* Take in keypresses and translate to velocity change
      * We have a max speeed of max_speed based off of crouch/sprint, 
      * and each frame are going to accelerate towards that, via acceleration */
+
+    /* God. im about to make it all 8 cardinals so we dont speed
+     * up on the diagonals TODODODODODODODODO */
     if input.pressed(KeyCode::KeyA){
         deltav.x -= acceleration;
     }
@@ -261,21 +264,21 @@ pub fn player_input(
 
     /* We now must update the player using the information we just got */
 
-    /* If we can assume that proper checks were done on the last iteration (of this fn),
-     * It may (maybe not) be safe to assume that current speed  */
-    /* check if we must decelerate BEFORE applying  */
-    let adjusted_speed_sq = deltav.length_squared();
+   /* now we chek if we are going to fast. This doessss include
+    * a sqrt... if someone could figure without would be loverly */
+    let mut adjusted_speed = deltav.length();
     
-    if adjusted_speed_sq > current_max * current_max {
+    if adjusted_speed > current_max{
         /* here we are. moving too fast. Honestly, I don't
          * think that we should clamp, we may have just crouched.
-         * We should decelerate by a given rate, our accerleration rate! */
-         
+         * We should decelerate by a given rate, our acceleration rate! */
+        adjusted_speed -= ACCELERATION_RATE;
+        deltav.clamp_length_max(adjusted_speed);
     }
+
+    /* final set */
+    player_velocity.velocity = deltav;
     
-
-
-
 }
 
 
