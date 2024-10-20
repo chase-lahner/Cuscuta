@@ -87,6 +87,7 @@ pub fn player_attack(
 
      if input.just_pressed(MouseButton::Left)
      {
+        
         attack.attacking = true; //set attacking to true to override movement animations
         
         // deciding initial frame for swing (so not partial animation)
@@ -132,11 +133,20 @@ pub fn player_attack(
 }
 
 pub fn player_attack_enemy(
+    mut commands: Commands,
     mut player: Query<(&Transform,&mut Attack), With<Player>,>,
-    mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>)>
+    enemies: Query<(Entity, &mut Transform), (With<Enemy>, Without<Player>)>
 ) {
-    //let player_aabb = collision::Aabb::new(pt, Vec2::splat(TILE_SIZE as f32));
-    return;
+    let (ptransform, pattack) = player.single_mut();
+    if pattack.attacking == false{return;}
+    let player_aabb = collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
+
+    for (ent, enemy_transform) in enemies.iter() {
+        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&enemy_aabb) {
+            commands.entity(ent).despawn();
+        }
+    }
 }
 
 /* Spawns in player, uses PlayerBundle for some consistency*/
