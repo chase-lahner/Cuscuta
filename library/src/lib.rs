@@ -7,3 +7,5 @@ pub mod init;
 pub mod network;
 pub mod player;
 pub mod room_gen;
+pub mod server;
+pub mod client;
