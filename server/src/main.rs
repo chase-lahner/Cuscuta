@@ -7,7 +7,7 @@ use network::UDPHeader;
 use bevy::prelude::*;
 
 /* Rate at which we will be sending/recieving packets */
-const TICKS_PER_SECOND: f64 = 60;
+const TICKS_PER_SECOND: f64 = 60.;
 
 fn old_main() {
     App::new()

@@ -22,7 +22,7 @@ pub struct Sprint{
 /* global boolean to not re-attack */
 #[derive(Component)]
 pub struct Attack{
-    pub attack: bool
+    pub attacking: bool
 }
 
 
@@ -61,10 +61,10 @@ pub fn player_attack(
             &mut TextureAtlas,
             &mut AnimationTimer,
             &AnimationFrameCount,
+            &mut Attack
         ),
         With<Player>,
     >,
-    mut attacking: ResMut<Attacking>,
     mut carnage_q: Query<&mut CarnageBar, With<CarnageBar>>
 ) {
     /* In texture atlas for ratatta:
@@ -73,14 +73,14 @@ pub fn player_attack(
      * 8 - 11 = right
      * 12 - 15 = left
      * ratlas. heh. get it.*/
-     let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
+     let (v, mut ratlas, mut timer, _frame_count, mut attack) = player.single_mut();
      let mut carnage = carnage_q.single_mut();
      let abx = v.velocity.x.abs();
      let aby = v.velocity.y.abs();
 
      if input.just_pressed(MouseButton::Left)
      {
-        attacking.attack = true; //set attacking to true to override movement animations
+        attack.attacking = true; //set attacking to true to override movement animations
         
         // deciding initial frame for swing (so not partial animation)
         if abx > aby {
@@ -97,28 +97,28 @@ pub fn player_attack(
         }
         timer.reset();
      }
-    if attacking.attack == true
+    if attack.attacking == true
     {
         timer.tick(time.delta());
 
         if abx > aby {
             if v.velocity.x >= 0.{
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 8;}
-                if ratlas.index == 11{attacking.attack = false; ratlas.index = 24} //allow for movement anims after last swing frame
+                if ratlas.index == 11{attack.attacking = false; ratlas.index = 24} //allow for movement anims after last swing frame
             }
             else if v.velocity.x < 0. {
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 12;}
-                if ratlas.index == 15{attacking.attack = false; ratlas.index = 28} //allow for movement anims after last swing frame
+                if ratlas.index == 15{attack.attacking = false; ratlas.index = 28} //allow for movement anims after last swing frame
             }
         }
         else {
             if v.velocity.y >= 0.{
                 if timer.finished(){ratlas.index = (ratlas.index + 1) % 4;}
-                if ratlas.index == 3{attacking.attack = false; ratlas.index = 16} //allow for movement anims after last swing frame
+                if ratlas.index == 3{attack.attacking = false; ratlas.index = 16} //allow for movement anims after last swing frame
             }
             else if v.velocity.y < 0. {
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 4;}
-                if ratlas.index == 7{attacking.attack = false; ratlas.index = 20} //allow for movement anims after last swing frame
+                if ratlas.index == 7{attack.attacking = false; ratlas.index = 20} //allow for movement anims after last swing frame
             }
         }
     }
@@ -137,7 +137,7 @@ pub fn client_spawn_player(
     let player_layout_handle = texture_atlases.add(player_layout);
 
     // spawn player at origin
-    commands.spawn(PlayerBundle{
+    commands.spawn(ClientPlayerBundle{
         sprite: SpriteBundle {
             texture: player_sheet_handle,
             transform: Transform::from_xyz(0., 0., 900.),
@@ -160,6 +160,7 @@ pub fn client_spawn_player(
         },
         crouching: Crouch{crouching:false},
         sprinting: Sprint{sprinting:false},
+        attacking: Attack{attacking:false}
 });
 }
 
@@ -483,10 +484,10 @@ pub fn animate_player(
             &mut TextureAtlas,
             &mut AnimationTimer,
             &AnimationFrameCount,
+            &Attack
         ),
         With<Player>,
     >,
-    attacking: Res<Attacking>
 ) {
     /* In texture atlas for ratatta:
      * 16 - 19 = up
@@ -494,8 +495,8 @@ pub fn animate_player(
      * 24 - 27 = right
      * 28 - 31 = left
      * ratlas. heh. get it.*/
-    let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
-    if attacking.attack == true{return;}//checking if attack animations are running
+    let (v, mut ratlas, mut timer, _frame_count, attack) = player.single_mut();
+    if attack.attacking == true{return;}//checking if attack animations are running
     //if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 

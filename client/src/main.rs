@@ -13,13 +13,13 @@ fn main() {
              }),
              ..default()
          }))
-         .add_systems(Startup,(init::client_setup, client::id_request.after(init::client_setup)))// runs once, sets up scene
+         .add_systems(Startup,init::client_setup)
          .add_systems(Startup, enemies::spawn_enemies)
          .add_systems(Update, player::move_player)// every frame, takes in WASD for movement
-         .add_systems(Update, (
-            player::player_input, 
-            player::update_player_position.after(player::player_input),
-            client::send_player.after(player::update_player_position)))
+         //.add_systems(Update, (
+            // player::player_input, 
+            // player::update_player_position.after(player::player_input),
+            // client::send_player.after(player::update_player_position)))
         //.add_systems(Update, network::recv_packet)
         .add_systems(
             Startup,
