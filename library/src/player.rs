@@ -238,12 +238,20 @@ pub fn player_input(
         deltav.y -= acceleration;
     }
 
-    /* We now must update the player using the information we have just gleaned
-     * First condition here is "do we have change?" */
-    player_velocity = if deltav.length() > 0.{
-        /* if we have change, we must apply them to the player */
+    /* We now must update the player using the information we have just gleaned */
 
+    /* check if we must decellerate */
+    /* pythag */
+    let adjusted_speed = f32::powf(
+        f32::powf(player_velocity.velocity.x + deltav.x, 2.) + 
+        f32::powf(player_velocity.velocity.y + deltav.y, 2.), 2.);
+    
+    if adjusted_speed > current_max {
+        
     }
+    
+
+
 
 }
 
