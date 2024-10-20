@@ -12,12 +12,12 @@ pub struct NetworkId {
 
 #[derive(Component)]
 pub struct Crouch{
-    crouching: bool
+    pub crouching: bool
 }
 
 #[derive(Component)]
 pub struct Sprint{
-    sprinting:bool
+    pub sprinting:bool
 }
 /* global boolean to not re-attack */
 #[derive(Resource)]
@@ -201,27 +201,32 @@ pub fn player_interact(
 
 pub fn player_input(
     mut commands: Commands,
-    mut player: Query<(&mut Transform, &mut Velocity, &mut Crouched), (With<Player>, Without<Background>)>,
+    mut player: Query<(&mut Transform, &mut Velocity, &mut Crouch, &mut Sprint), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 
 ) {
-    let (mut player_translation, mut player_velocity) = player.single_mut();
+    let (mut player_translation, mut player_velocity, mut crouch_query, mut sprint_query) = player.single_mut();
     let mut deltav = Vec2::splat(0.);
 
 
     /* first check if we sprint or crouch for gievn frame */
+    let mut sprint = sprint_query.as_mut();
     let sprint_multiplier = if input.pressed(KeyCode::ShiftLeft) {
+        sprint.sprinting = true;
         SPRINT_MULTIPLIER
     } else {
+        sprint.sprinting = false;
         1.0
     };
 
     /* check if crouched */
+    let mut crouch = crouch_query.as_mut();
     let crouch_multiplier = if input.pressed(KeyCode::KeyC){
-
+        crouch.crouching = true;
         CROUCH_MULTIPLIER
     } else {
+        crouch.crouching = false;
         1.0
     };
 
