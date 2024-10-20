@@ -10,11 +10,21 @@ pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
 }
 
+#[derive(Component)]
+pub struct Crouch{
+    crouching: bool
+}
+
+#[derive(Component)]
+pub struct Sprint{
+    sprinting:bool
+}
 /* global boolean to not re-attack */
 #[derive(Resource)]
 pub struct Attacking{
     pub attack: bool
 }
+
 
 #[derive(Bundle)]
 pub struct PlayerBundle{
@@ -25,7 +35,9 @@ pub struct PlayerBundle{
     velo: Velocity,
     id: NetworkId,
     player: Player,
-    health: Health
+    health: Health,
+    crouching: Crouch,
+    sprinting: Sprint,
 }
 
 pub fn player_attack(
@@ -128,12 +140,14 @@ pub fn client_spawn_player(
         velo: Velocity::new(),
         id:NetworkId {
         id: 0
-     },
+        },
         player: Player,
         health: Health{
             max: 100.,
             current: 100.
-        }
+        },
+        crouching: Crouch{crouching:false},
+        sprinting: Sprint{sprinting:false},
 });
 }
 
@@ -187,7 +201,7 @@ pub fn player_interact(
 
 pub fn player_input(
     mut commands: Commands,
-    mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
+    mut player: Query<(&mut Transform, &mut Velocity, &mut Crouched), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 
@@ -205,6 +219,7 @@ pub fn player_input(
 
     /* check if crouched */
     let crouch_multiplier = if input.pressed(KeyCode::KeyC){
+
         CROUCH_MULTIPLIER
     } else {
         1.0
@@ -238,16 +253,18 @@ pub fn player_input(
         deltav.y -= acceleration;
     }
 
-    /* We now must update the player using the information we have just gleaned */
+    /* We now must update the player using the information we just got */
 
-    /* check if we must decellerate */
+    /* If we can assume that proper checks were done on the last iteration (of this fn),
+     * It may (maybe not) be safe to assume that current speed  */
+    /* check if we must decelerate BEFORE applying  */
     /* pythag */
     let adjusted_speed = f32::powf(
         f32::powf(player_velocity.velocity.x + deltav.x, 2.) + 
         f32::powf(player_velocity.velocity.y + deltav.y, 2.), 2.);
     
     if adjusted_speed > current_max {
-        
+
     }
     
 
