@@ -288,29 +288,21 @@ pub fn update_player_position(
     time: Res<Time>,
     mut players: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
 ){
+    /* We use delta time to determine ur velocity earlier, so we really want to use it again here?
+     * It gives second since update, not since we got input... */
     for( mut transform, mut velocity) in players.iter_mut(){
-        transform
-    }
+        transform.translation += velocity.velocity * time.delta_seconds();
+        let mut hit_door = false;
+        // take care of horizontal and vertical movement + enemy collision check
+        // TODODODODODODODODODODODO
 
-    // take care of horizontal and vertical movement + enemy collision check
-    handle_movement_and_enemy_collisions(
-        &mut pt, 
-        change, 
-        &mut hit_door, 
-        &mut enemies,
-        &mut room_manager, 
-    );
-    // if we hit a door
-    if hit_door {
-        transition_map(&mut _commands, &_asset_server, &mut room_manager, room_query, &mut pt); // Pass room_query as argument
+        // if we hit a door
+        // if hit_door {
+        //     transition_map(&mut _commands, &_asset_server, &mut room_manager, room_query, &mut pt); // Pass room_query as argument
+        // }
     }
 }
 
-pub fn update_position(mut query: Query<(&mut Position, &Velocity)>, time: Res<Time>) {
-    for (mut pos, vel) in query.iter_mut() {
-        pos.0 += vel.0 * time.delta_seconds() * 15.0;
-    }
-}
 
 
 /* hopefully deprecated soon ^^ new one ^^
