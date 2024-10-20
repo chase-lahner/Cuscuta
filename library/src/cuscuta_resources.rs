@@ -5,6 +5,12 @@
 use bevy::prelude::*;
 use serde::Serialize;
 
+
+
+
+
+
+
 pub const SERVER_ADR: &str = "localhost:5001";
 pub const GET_PLAYER_ID_CODE: u8 = 255;
 
@@ -13,8 +19,9 @@ pub const WIN_W: f32 = 1280.;// window width
 pub const WIN_H: f32 = 720.;// window height
 
 pub const PLAYER_SPEED: f32 = 480.; 
-pub const ACCEL_RATE: f32 = 4800.; 
+pub const ACCELERATION_RATE: f32 = 4800.; 
 pub const SPRINT_MULTIPLIER: f32 = 2.0;
+pub const CROUCH_MULTIPLIER: f32 = 0.5;
 
 pub const ENEMY_SPEED: f32 = 0.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
@@ -58,6 +65,12 @@ pub struct Wall;
 
 #[derive(Component)]
 pub struct Door;
+
+#[derive(Component)]
+pub struct Health{
+    pub max: f32,
+    pub current: f32
+}
 
 #[derive(Component, Serialize)]
 pub struct Velocity {

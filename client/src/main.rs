@@ -10,19 +10,22 @@ fn main() {
                 title: cuscuta_resources::TITLE.into(),
                 present_mode: PresentMode::Fifo,
                 ..default() // Name and present mode all we need for now
-            }),
-            ..default()
-        }))
-        .add_systems(Startup, init::setup) // runs once, sets up scene
-        .add_systems(Startup, enemies::spawn_enemies)
-        .add_systems(Update, player::move_player) // every frame, takes in WASD for movement
-      //  .add_systems(Startup, network::send_id_packet.after(init::setup)) // we want id when we spawn a player
-        // .add_systems(Update, network::recv_packet)
+             }),
+             ..default()
+         }))
+         .add_systems(Startup,init::client_setup)
+         .add_systems(Startup, enemies::spawn_enemies)
+         .add_systems(Update, player::move_player)// every frame, takes in WASD for movement
+         //.add_systems(Update, (
+            // player::player_input, 
+            // player::update_player_position.after(player::player_input),
+            // client::send_player.after(player::update_player_position)))
+        //.add_systems(Update, network::recv_packet)
         .add_systems(
             Startup,
-            network::id_request.after(init::setup),
+            client::id_request.after(init::client_setup),
         )
-        .add_systems(Startup, network::recv_id.after(network::id_request)) // we want to recieve packet after we send it
+        .add_systems(Startup, client::recv_id.after(client::id_request)) // we want to recieve packet after we send it
        // .add_systems(Update, network::serialize_player.after(player::move_player))
         .add_systems(Update, enemies::enemy_movement.after(player::move_player))
         .add_systems(Update, player::animate_player.after(player::move_player)) // animates player

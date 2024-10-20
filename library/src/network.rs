@@ -22,70 +22,20 @@ pub struct UDPHeader {
     pub id: u8,
 }
 
-// impl Serialize for UDPHeader {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer, {
-
-//             let mut state = serializer.serialize_struct("UDPHeader", 3)?;
-//             state.serialize_field("id", &self.id)?;
-//             state.serialize_field("p_x", &self.p_x)?;
-//             state.serialize_field("p_y", &self.p_y)?;
-//             state.end()
-
-//     }
-// }
-
-// UNUSED as of now
-pub fn recv_packet(socket: Res<UDP>) {
-    let mut buf = [0; 1024];
-    let (_amt, _src) = socket.socket.recv_from(&mut buf).unwrap();
-    //println!("{}", String::from_utf8_lossy(&buf));
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct PlayerPacket{
+    pub head: UDPHeader,
+    pub transform_x: f32,
+    pub transform_y: f32,
+    pub velocity_x: f32,
+    pub velocity_y: f32,
 }
 
-// pub fn send_packet(
-//     socket: Res<UDP>,
-//     buf: [u8]
-// ){
-// }
 
-pub fn recv_id(socket: Res<UDP>, mut player: Query<&mut NetworkId, With<Player>>)
-// function to recieve ID from server (after we send a request for one)
-{
-    
-    let mut network_id = player.single_mut(); // network id is part of player struct
-    let mut buf: [u8; 1024] = [0; 1024]; // buffer
-    let (amt, _src) = socket.socket.recv_from(&mut buf).unwrap(); // recieve buffer from server
-                                                                   //  print!("{:?}",buf[0]);   
-    let t_buf = &buf[..amt];
-
-    let r = flexbuffers::Reader::get_root(t_buf).unwrap();
-
-    let ds_struct = UDPHeader::deserialize(r).unwrap();
-
-    if ds_struct.opcode == cuscuta_resources::GET_PLAYER_ID_CODE
-    {
-        network_id.id = ds_struct.id;
-    }
-
-    println!("ASSIGNED ID: {:?}", network_id.id);
-
-
-}
-
-pub fn send_id_packet(
-    // function that sends a packet telling server we want an id
-    socket: Res<UDP>,
+pub fn send_movement_info(
+    socket: Res<UDP>, 
+    player: Query<&Transform, With<Player>>
 ) {
-    // print!("sending to server!");
-    let buf: [u8; 1] = [cuscuta_resources::GET_PLAYER_ID_CODE]; // code to tell server we want an ID
-    socket
-        .socket
-        .send_to(&buf, cuscuta_resources::SERVER_ADR)
-        .unwrap(); // send to server
-}
-
-pub fn send_movement_info(socket: Res<UDP>, player: Query<&Transform, With<Player>>) {
     let pt = player.single();
     let x = pt.translation.x;
     let y = pt.translation.y;
@@ -97,13 +47,6 @@ pub fn send_movement_info(socket: Res<UDP>, player: Query<&Transform, With<Playe
     socket.socket.send_to(&buf, "localhost:5001").unwrap();
 }
 
-pub fn get_id(socket: Res<UDP>) {
-    let buf: [u8; 1] = [cuscuta_resources::GET_PLAYER_ID_CODE];
-    socket
-        .socket
-        .send_to(&buf, cuscuta_resources::SERVER_ADR)
-        .unwrap();
-}
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     // will slice anything into u8 array !! https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8
@@ -115,35 +58,35 @@ pub unsafe fn u8_to_f32(input_arr: &[u8]) -> (&[u8], &[f32], &[u8]) {
     input_arr.align_to::<f32>()
 }
 
-pub fn id_request(
-    player: Query<(&Transform, &Velocity, &NetworkId), With<Player>>,
-    socket: Res<UDP>,
-) {
+/* Transforms current player state into u8 array that
+ * we can then send across the wire to be deserialized once it arrives */
+pub fn serialize_player(
+    player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
+    socket : Res<UDP>
+)
+{
+    /* Deconstruct out Query. SHould be client side so we can do single */
     let (t, v, i) = player.single();
-    let i_d = i.id;
-    let mut s = flexbuffers::FlexbufferSerializer::new();
-    let to_send = UDPHeader {
-        opcode: cuscuta_resources::GET_PLAYER_ID_CODE,
-        id: i_d,
+    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+    let header = UDPHeader {opcode: 1, id: i.id};
+    let outgoing_state = PlayerPacket {
+        head: header, 
+        transform_x: t.translation.x,
+        transform_y: t.translation.y,
+        velocity_x: v.velocity.x,
+        velocity_y: v.velocity.y,
     };
 
-    to_send.serialize(&mut s).unwrap();
+    outgoing_state.serialize(&mut serializer).unwrap();
 
-    // let r  = flexbuffers::Reader::get_root(s.view()).unwrap();
+    let r  = flexbuffers::Reader::get_root(serializer.view()).unwrap();
+   
+    socket.socket.send_to(serializer.view(), cuscuta_resources::SERVER_ADR).unwrap();
+} 
 
-    // println!("data type: {:?}", data_type);
-    // println!("{:?}", byte_array);
-    socket
-        .socket
-        .send_to(s.view(), cuscuta_resources::SERVER_ADR)
-        .unwrap();
-}
 
-pub fn assign_id(
-    socket_addr: SocketAddr,
-    mut player_hash: HashMap<String, u8>,
-    n_p: &mut u8,
-) -> u8 {
+
+pub fn server_assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, n_p: &mut u8) -> u8{
     let arg_ip = socket_addr.ip();
     let ip_string = arg_ip.to_string();
     let player_id: u8 = 255 - *n_p;

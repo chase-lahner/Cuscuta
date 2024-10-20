@@ -4,9 +4,20 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{ Deserialize, Serialize};
 use library::*;
 use network::UDPHeader;
+use bevy::prelude::*;
 
 /* Rate at which we will be sending/recieving packets */
-const _TICKS_PER_SECOND: u32 = 60;
+const TICKS_PER_SECOND: f64 = 60.;
+
+fn old_main() {
+    App::new()
+    .insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND))
+    .add_systems(Startup, init::server_setup)
+    // .add_systems(FixedUpdate, server::listen)
+    // .add_systems(FixedUpdate, player::update_player.after(server::listen))
+    // .add_systems(FixedUpdate, server::broadcast_changes.after(player::update))
+    .run();
+}
 
 
 fn main() -> std::io::Result<()>{
@@ -63,6 +74,7 @@ pub fn send_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, 
 
 fn deserialize_and_delegate(packet: &[u8], socket_addr : SocketAddr , player_hash : HashMap<String, u8>, n_p: &mut u8, s:  &mut FlexbufferSerializer, socket: &UdpSocket)
 {
+    println!("{:?}",packet);
     let r = flexbuffers::Reader::get_root(packet).unwrap();
     let ds_struct = UDPHeader::deserialize(r).unwrap();
     if ds_struct.opcode == cuscuta_resources::GET_PLAYER_ID_CODE

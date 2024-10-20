@@ -334,7 +334,7 @@ pub fn transition_map(
 }
 
 
-pub fn spawn_pot(
+pub fn client_spawn_pot(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>
 ){

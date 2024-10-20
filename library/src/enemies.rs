@@ -4,12 +4,14 @@ use rand::Rng;
 
 use crate::{cuscuta_resources::*, player::*};
 
+/* struct to query for */
 #[derive(Component)]
 pub struct Enemy {
     pub direction: Vec2,
 } 
 
-
+/* Should soon be deprecated. Need to base
+ * this off of server information...*/
 pub fn spawn_enemies(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -32,6 +34,16 @@ pub fn spawn_enemies(
         ));
     }
 
+}
+pub fn server_spawn_enemy(
+    mut commands: Commands
+){
+    let mut rng = rand::thread_rng();
+    commands.spawn((
+        Enemy{
+            direction: Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize()
+        },
+    ));
 }
 
 pub fn enemy_movement(

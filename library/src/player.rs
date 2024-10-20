@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
 use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network, room_gen::*};
-use std::net::UdpSocket;
 
 #[derive(Component)]
 pub struct Player;// wow! it is he!
@@ -11,9 +10,46 @@ pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
 }
 
-#[derive(Resource)]
-pub struct Attacking{
-    pub attack: bool
+#[derive(Component)]
+pub struct Crouch{
+    pub crouching: bool
+}
+
+#[derive(Component)]
+pub struct Sprint{
+    pub sprinting:bool
+}
+/* global boolean to not re-attack */
+#[derive(Component)]
+pub struct Attack{
+    pub attacking: bool
+}
+
+
+#[derive(Bundle)]
+pub struct ClientPlayerBundle{
+    sprite: SpriteBundle,
+    atlas: TextureAtlas,
+    animation_timer: AnimationTimer,
+    animation_frames: AnimationFrameCount,
+    velo: Velocity,
+    id: NetworkId,
+    player: Player,
+    health: Health,
+    crouching: Crouch,
+    sprinting: Sprint,
+    attacking: Attack,
+}
+
+#[derive(Bundle)]
+pub struct ServerPlayerBundle{
+    velo: Velocity,
+    id: NetworkId,
+    player: Player,
+    health: Health,
+    crouching: Crouch,
+    sprinting: Sprint,
+    attacking: Attack
 }
 
 pub fn player_attack(
@@ -25,10 +61,10 @@ pub fn player_attack(
             &mut TextureAtlas,
             &mut AnimationTimer,
             &AnimationFrameCount,
+            &mut Attack
         ),
         With<Player>,
     >,
-    mut attacking: ResMut<Attacking>,
     mut carnage_q: Query<&mut CarnageBar, With<CarnageBar>>
 ) {
     /* In texture atlas for ratatta:
@@ -37,14 +73,14 @@ pub fn player_attack(
      * 8 - 11 = right
      * 12 - 15 = left
      * ratlas. heh. get it.*/
-     let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
+     let (v, mut ratlas, mut timer, _frame_count, mut attack) = player.single_mut();
      let mut carnage = carnage_q.single_mut();
      let abx = v.velocity.x.abs();
      let aby = v.velocity.y.abs();
 
      if input.just_pressed(MouseButton::Left)
      {
-        attacking.attack = true; //set attacking to true to override movement animations
+        attack.attacking = true; //set attacking to true to override movement animations
         
         // deciding initial frame for swing (so not partial animation)
         if abx > aby {
@@ -61,34 +97,35 @@ pub fn player_attack(
         }
         timer.reset();
      }
-    if attacking.attack == true
+    if attack.attacking == true
     {
         timer.tick(time.delta());
 
         if abx > aby {
             if v.velocity.x >= 0.{
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 8;}
-                if ratlas.index == 11{attacking.attack = false; ratlas.index = 24} //allow for movement anims after last swing frame
+                if ratlas.index == 11{attack.attacking = false; ratlas.index = 24} //allow for movement anims after last swing frame
             }
             else if v.velocity.x < 0. {
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 12;}
-                if ratlas.index == 15{attacking.attack = false; ratlas.index = 28} //allow for movement anims after last swing frame
+                if ratlas.index == 15{attack.attacking = false; ratlas.index = 28} //allow for movement anims after last swing frame
             }
         }
         else {
             if v.velocity.y >= 0.{
                 if timer.finished(){ratlas.index = (ratlas.index + 1) % 4;}
-                if ratlas.index == 3{attacking.attack = false; ratlas.index = 16} //allow for movement anims after last swing frame
+                if ratlas.index == 3{attack.attacking = false; ratlas.index = 16} //allow for movement anims after last swing frame
             }
             else if v.velocity.y < 0. {
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 4;}
-                if ratlas.index == 7{attacking.attack = false; ratlas.index = 20} //allow for movement anims after last swing frame
+                if ratlas.index == 7{attack.attacking = false; ratlas.index = 20} //allow for movement anims after last swing frame
             }
         }
     }
 }
 
-pub fn spawn_player(
+/* Spawns in player, uses PlayerBundle for some consistency*/
+pub fn client_spawn_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
@@ -100,23 +137,44 @@ pub fn spawn_player(
     let player_layout_handle = texture_atlases.add(player_layout);
 
     // spawn player at origin
-    commands.spawn((
-        SpriteBundle {
+    commands.spawn(ClientPlayerBundle{
+        sprite: SpriteBundle {
             texture: player_sheet_handle,
             transform: Transform::from_xyz(0., 0., 900.),
             ..default()
         },
-        TextureAtlas {
+        atlas: TextureAtlas {
             layout: player_layout_handle,
             index: 0,
         },
-     AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
-     AnimationFrameCount(player_layout_len),
-     Velocity::new(),
-     NetworkId {
+        animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+        animation_frames: AnimationFrameCount(player_layout_len),
+        velo: Velocity::new(),
+        id:NetworkId {
         id: 0
-     },
-     Player,
+        },
+        player: Player,
+        health: Health{
+            max: 100.,
+            current: 100.
+        },
+        crouching: Crouch{crouching:false},
+        sprinting: Sprint{sprinting:false},
+        attacking: Attack{attacking:false}
+});
+}
+
+/* spawns in a player entity for server. No Gui */
+pub fn server_spawn_player(
+    commands: &mut Commands,
+    id: u8
+){
+    commands.spawn((
+        Velocity::new(),
+        NetworkId{
+            id: id
+        },
+        Player,   
     ));
 }
 
@@ -154,6 +212,116 @@ pub fn player_interact(
 
 }
 
+pub fn player_input(
+    mut commands: Commands,
+    mut player: Query<( &mut Velocity, &mut Crouch, &mut Sprint), (With<Player>, Without<Background>)>,
+    input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+
+) {
+    let (mut player_velocity, mut crouch_query, mut sprint_query) = player.single_mut();
+    /* should be copy of player for us to apply input to */
+    let mut deltav = player_velocity.velocity;
+
+
+    /* first check if we sprint or crouch for gievn frame */
+    let sprint = sprint_query.as_mut();
+    let sprint_multiplier = if input.pressed(KeyCode::ShiftLeft) {
+        sprint.sprinting = true;
+        SPRINT_MULTIPLIER
+    } else {
+        sprint.sprinting = false;
+        1.0
+    };
+
+    /* check if crouched */
+    let crouch = crouch_query.as_mut();
+    let crouch_multiplier = if input.pressed(KeyCode::KeyC){
+        crouch.crouching = true;
+        CROUCH_MULTIPLIER
+    } else {
+        crouch.crouching = false;
+        1.0
+    };
+
+    /* We have a fixed acceleration rate per time t, this
+     * lets us know how long it has been sine we updated,
+     * allowing us for smooth movement even when frames
+     * fluctuate */
+    let deltat = time.delta_seconds();
+    /* base acceleration * time gives standard movement. 
+     * crouch and sprint either halv, double, or cancel each other out*/
+    let acceleration = ACCELERATION_RATE * deltat * crouch_multiplier * sprint_multiplier;
+    let current_max = PLAYER_SPEED * crouch_multiplier * sprint_multiplier;
+
+
+
+    /* Take in keypresses and translate to velocity change
+     * We have a max speeed of max_speed based off of crouch/sprint, 
+     * and each frame are going to accelerate towards that, via acceleration */
+
+    /* God. im about to make it all 8 cardinals so we dont speed
+     * up on the diagonals TODODODODODODODODO */
+    if input.pressed(KeyCode::KeyA){
+        deltav.x -= acceleration;
+    }
+    if input.pressed(KeyCode::KeyD) {
+        deltav.x += acceleration;
+    }
+    if input.pressed(KeyCode::KeyW) {
+        deltav.y += acceleration;
+    }
+    if input.pressed(KeyCode::KeyS) {
+        deltav.y -= acceleration;
+    }
+
+    /* We now must update the player using the information we just got */
+
+   /* now we chek if we are going to fast. This doessss include
+    * a sqrt... if someone could figure without would be loverly */
+    let mut adjusted_speed = deltav.length();
+    
+    if adjusted_speed > current_max{
+        /* here we are. moving too fast. Honestly, I don't
+         * think that we should clamp, we may have just crouched.
+         * We should decelerate by a given rate, our acceleration rate! s
+         * not using the adjusted, dont want if crouch slow slowdown yk */
+        adjusted_speed -= ACCELERATION_RATE;
+        deltav.clamp_length_max(adjusted_speed);
+    }
+
+    /* final set */
+    player_velocity.velocity = deltav;
+    
+}
+
+/* Old setup had too much in one function, should collision check be
+ * done in here??? */
+pub fn update_player_position(
+    time: Res<Time>,
+    mut players: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
+){
+    /* We use delta time to determine ur velocity earlier, so we really want to use it again here?
+     * It gives second since update, not since we got input... */
+    for( mut transform, mut velocity) in players.iter_mut(){
+        transform.translation.x += velocity.velocity.x * time.delta_seconds();
+        transform.translation.y += velocity.velocity.y * time.delta_seconds();
+
+        let mut hit_door = false;
+        // take care of horizontal and vertical movement + enemy collision check
+        // TODODODODODODODODODODODO
+
+        // if we hit a door
+        // if hit_door {
+        //     transition_map(&mut _commands, &_asset_server, &mut room_manager, room_query, &mut pt); // Pass room_query as argument
+        // }
+    }
+}
+
+
+
+/* hopefully deprecated soon ^^ new one ^^
+ * lil too much going on here, must be broke down */
 pub fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -184,7 +352,7 @@ pub fn move_player(
     }
 
     let deltat = time.delta_seconds();
-    let acc = ACCEL_RATE * deltat;
+    let acc = ACCELERATION_RATE * deltat;
 
     // sprint - check if shift is pressed
     let speed_multiplier = if input.pressed(KeyCode::ShiftLeft) {
@@ -316,10 +484,10 @@ pub fn animate_player(
             &mut TextureAtlas,
             &mut AnimationTimer,
             &AnimationFrameCount,
+            &Attack
         ),
         With<Player>,
     >,
-    attacking: Res<Attacking>
 ) {
     /* In texture atlas for ratatta:
      * 16 - 19 = up
@@ -327,8 +495,8 @@ pub fn animate_player(
      * 24 - 27 = right
      * 28 - 31 = left
      * ratlas. heh. get it.*/
-    let (v, mut ratlas, mut timer, _frame_count) = player.single_mut();
-    if attacking.attack == true{return;}//checking if attack animations are running
+    let (v, mut ratlas, mut timer, _frame_count, attack) = player.single_mut();
+    if attack.attacking == true{return;}//checking if attack animations are running
     //if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 

@@ -6,7 +6,7 @@ pub struct CarnageBar{
     pub carnage: f32
 }
 
-pub fn spawn_carnage_bar(
+pub fn client_spawn_carnage_bar(
     commands: &mut Commands,
     asset_server: & AssetServer
 ){
