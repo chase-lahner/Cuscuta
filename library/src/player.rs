@@ -16,6 +16,11 @@ pub struct Crouch{
 }
 
 #[derive(Component)]
+pub struct Roll{
+    pub rolling: bool
+}
+
+#[derive(Component)]
 pub struct Sprint{
     pub sprinting:bool
 }
@@ -37,6 +42,7 @@ pub struct ClientPlayerBundle{
     player: Player,
     health: Health,
     crouching: Crouch,
+    rolling: Roll,
     sprinting: Sprint,
     attacking: Attack,
 }
@@ -48,6 +54,7 @@ pub struct ServerPlayerBundle{
     player: Player,
     health: Health,
     crouching: Crouch,
+    rolling: Roll,
     sprinting: Sprint,
     attacking: Attack
 }
@@ -124,15 +131,23 @@ pub fn player_attack(
     }
 }
 
+pub fn player_attack_enemy(
+    mut player: Query<(&Transform,&mut Attack), With<Player>,>,
+    mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>)>
+) {
+    let player_aabb = collision::Aabb::new(pt, Vec2::splat(TILE_SIZE as f32));
+
+}
+
 /* Spawns in player, uses PlayerBundle for some consistency*/
 pub fn client_spawn_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    let player_sheet_handle = asset_server.load("player/4x8_player.png");
+    let player_sheet_handle = asset_server.load("player/4x12_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
-        UVec2::splat(TILE_SIZE), 4, 8, None, None);
+        UVec2::splat(TILE_SIZE), 4, 16, None, None); //row is 16 because 4 bottom rows are blank
     let player_layout_len = player_layout.textures.len();
     let player_layout_handle = texture_atlases.add(player_layout);
 
@@ -159,6 +174,7 @@ pub fn client_spawn_player(
             current: 100.
         },
         crouching: Crouch{crouching:false},
+        rolling: Roll{rolling:false},
         sprinting: Sprint{sprinting:false},
         attacking: Attack{attacking:false}
 });
@@ -214,12 +230,12 @@ pub fn player_interact(
 
 pub fn player_input(
     mut commands: Commands,
-    mut player: Query<( &mut Velocity, &mut Crouch, &mut Sprint), (With<Player>, Without<Background>)>,
+    mut player: Query<( &mut Velocity, &mut Crouch, &mut Roll, &mut Sprint), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 
 ) {
-    let (mut player_velocity, mut crouch_query, mut sprint_query) = player.single_mut();
+    let (mut player_velocity, mut crouch_query, mut roll_query, mut sprint_query) = player.single_mut();
     /* should be copy of player for us to apply input to */
     let mut deltav = player_velocity.velocity;
 
@@ -243,6 +259,12 @@ pub fn player_input(
         crouch.crouching = false;
         1.0
     };
+
+    /* check if rolling */
+    let roll = roll_query.as_mut();
+    if input.pressed(KeyCode::KeyR){
+        roll.rolling = true;
+    }
 
     /* We have a fixed acceleration rate per time t, this
      * lets us know how long it has been sine we updated,
@@ -484,7 +506,8 @@ pub fn animate_player(
             &mut TextureAtlas,
             &mut AnimationTimer,
             &AnimationFrameCount,
-            &Attack
+            &Attack,
+            &Roll
         ),
         With<Player>,
     >,
@@ -495,8 +518,9 @@ pub fn animate_player(
      * 24 - 27 = right
      * 28 - 31 = left
      * ratlas. heh. get it.*/
-    let (v, mut ratlas, mut timer, _frame_count, attack) = player.single_mut();
+    let (v, mut ratlas, mut timer, _frame_count, attack, roll) = player.single_mut();
     if attack.attacking == true{return;}//checking if attack animations are running
+    if roll.rolling == true{return;}//checking if roll animations are running
     //if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 
@@ -520,4 +544,70 @@ pub fn animate_player(
             }
         }
     //}
+}
+
+pub fn player_roll(
+    time: Res<Time>,
+    mut player: Query<
+        (
+            &Velocity,
+            &mut TextureAtlas,
+            &mut AnimationTimer,
+            &AnimationFrameCount,
+            &Attack,
+            &mut Roll
+        ),
+        With<Player>,
+    >,
+) {
+    /* In texture atlas for ratatta:
+     * 36 - 39 = up
+     * 32- 35 = down
+     * 44 - 47 = right
+     * 40 - 43 = left
+     * ratlas. heh. get it.*/
+     let (v, mut ratlas, mut timer, _frame_count, attack, mut roll) = player.single_mut();
+     let abx = v.velocity.x.abs();
+     let aby = v.velocity.y.abs();
+
+    if attack.attacking == true{return;} //do not roll if swinging
+
+     if roll.rolling == true
+     {
+        // deciding initial frame for swing (so not partial animation)
+        if abx > aby {
+            if v.velocity.x >= 0.{ratlas.index = 44;}
+            else if v.velocity.x < 0. {ratlas.index = 40;}
+        }
+        else {
+            if v.velocity.y >= 0.{ratlas.index = 36;}
+            else if v.velocity.y < 0. {ratlas.index = 32;}
+        }
+        timer.reset();
+     }
+    if roll.rolling == true
+    {
+        timer.tick(time.delta());
+
+        if abx > aby {
+            if v.velocity.x >= 0.{
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 44;}
+                if ratlas.index == 47{roll.rolling = false; ratlas.index = 24} //allow for movement anims after last swing frame
+            }
+            else if v.velocity.x < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 40;}
+                if ratlas.index == 43{roll.rolling = false; ratlas.index = 28} //allow for movement anims after last swing frame
+            }
+        }
+        else {
+            if v.velocity.y >= 0.{
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 36;}
+                if ratlas.index == 39{roll.rolling = false; ratlas.index = 16} //allow for movement anims after last swing frame
+            }
+            else if v.velocity.y < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 32;}
+                if ratlas.index == 35{roll.rolling = false; ratlas.index = 20} //allow for movement anims after last swing frame
+            }
+        }
+    }
 }

@@ -30,6 +30,7 @@ fn main() {
         .add_systems(Update, enemies::enemy_movement.after(player::move_player))
         .add_systems(Update, player::animate_player.after(player::move_player)) // animates player
         .add_systems(Update, player::player_attack.after(player::animate_player)) // animates attack swing
+        .add_systems(Update, player::player_roll.after(player::animate_player)) // animates roll
         .add_systems(Update, camera::move_camera.after(player::animate_player)) // follow character
         .add_systems(Update, player::player_interact)
         .run();
