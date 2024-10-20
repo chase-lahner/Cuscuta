@@ -201,17 +201,18 @@ pub fn player_interact(
 
 pub fn player_input(
     mut commands: Commands,
-    mut player: Query<(&mut Transform, &mut Velocity, &mut Crouch, &mut Sprint), (With<Player>, Without<Background>)>,
+    mut player: Query<( &mut Velocity, &mut Crouch, &mut Sprint), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 
 ) {
-    let (mut player_translation, mut player_velocity, mut crouch_query, mut sprint_query) = player.single_mut();
-    let mut deltav = Vec2::splat(0.);
+    let (mut player_velocity, mut crouch_query, mut sprint_query) = player.single_mut();
+    /* should be copy of player for us to apply input to */
+    let mut deltav = player_velocity.velocity;
 
 
     /* first check if we sprint or crouch for gievn frame */
-    let mut sprint = sprint_query.as_mut();
+    let sprint = sprint_query.as_mut();
     let sprint_multiplier = if input.pressed(KeyCode::ShiftLeft) {
         sprint.sprinting = true;
         SPRINT_MULTIPLIER
@@ -221,7 +222,7 @@ pub fn player_input(
     };
 
     /* check if crouched */
-    let mut crouch = crouch_query.as_mut();
+    let crouch = crouch_query.as_mut();
     let crouch_multiplier = if input.pressed(KeyCode::KeyC){
         crouch.crouching = true;
         CROUCH_MULTIPLIER
@@ -263,13 +264,13 @@ pub fn player_input(
     /* If we can assume that proper checks were done on the last iteration (of this fn),
      * It may (maybe not) be safe to assume that current speed  */
     /* check if we must decelerate BEFORE applying  */
-    /* pythag */
-    let adjusted_speed = f32::powf(
-        f32::powf(player_velocity.velocity.x + deltav.x, 2.) + 
-        f32::powf(player_velocity.velocity.y + deltav.y, 2.), 2.);
+    let adjusted_speed_sq = deltav.length_squared();
     
-    if adjusted_speed > current_max {
-
+    if adjusted_speed_sq > current_max * current_max {
+        /* here we are. moving too fast. Honestly, I don't
+         * think that we should clamp, we may have just crouched.
+         * We should decelerate by a given rate, our accerleration rate! */
+         
     }
     
 
