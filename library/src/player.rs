@@ -16,6 +16,18 @@ pub struct Attacking{
     pub attack: bool
 }
 
+#[derive(Bundle)]
+pub struct PlayerBundle{
+    sprite: SpriteBundle,
+    atlas: TextureAtlas,
+    animation_timer: AnimationTimer,
+    animation_frames: AnimationFrameCount,
+    velo: Velocity,
+    id: NetworkId,
+    player: Player,
+    health: Health
+}
+
 pub fn player_attack(
     time: Res<Time>,
     input: Res<ButtonInput<MouseButton>>,
@@ -88,7 +100,7 @@ pub fn player_attack(
     }
 }
 
-/* spawns player with sprite */
+/* Spawns in player, uses PlayerBundle for some consistency*/
 pub fn client_spawn_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -101,24 +113,28 @@ pub fn client_spawn_player(
     let player_layout_handle = texture_atlases.add(player_layout);
 
     // spawn player at origin
-    commands.spawn((
-        SpriteBundle {
+    commands.spawn(PlayerBundle{
+        sprite: SpriteBundle {
             texture: player_sheet_handle,
             transform: Transform::from_xyz(0., 0., 900.),
             ..default()
         },
-        TextureAtlas {
+        atlas: TextureAtlas {
             layout: player_layout_handle,
             index: 0,
         },
-     AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
-     AnimationFrameCount(player_layout_len),
-     Velocity::new(),
-     NetworkId {
+        animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+        animation_frames: AnimationFrameCount(player_layout_len),
+        velo: Velocity::new(),
+        id:NetworkId {
         id: 0
      },
-     Player,
-    ));
+        player: Player,
+        health: Health{
+            max: 100.,
+            current: 100.
+        }
+});
 }
 
 /* spawns in a player entity for server. No Gui */
@@ -169,6 +185,72 @@ pub fn player_interact(
 
 }
 
+pub fn player_input(
+    mut commands: Commands,
+    mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
+    input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+
+) {
+    let (mut player_translation, mut player_velocity) = player.single_mut();
+    let mut deltav = Vec2::splat(0.);
+
+
+    /* first check if we sprint or crouch for gievn frame */
+    let sprint_multiplier = if input.pressed(KeyCode::ShiftLeft) {
+        SPRINT_MULTIPLIER
+    } else {
+        1.0
+    };
+
+    /* check if crouched */
+    let crouch_multiplier = if input.pressed(KeyCode::KeyC){
+        CROUCH_MULTIPLIER
+    } else {
+        1.0
+    };
+
+    /* We have a fixed acceleration rate per time t, this
+     * lets us know how long it has been sine we updated,
+     * allowing us for smooth movement even when frames
+     * fluctuate */
+    let deltat = time.delta_seconds();
+    /* base acceleration * time gives standard movement. 
+     * crouch and sprint either halv, double, or cancel each other out*/
+    let acceleration = ACCELERATION_RATE * deltat * crouch_multiplier * sprint_multiplier;
+    let current_max = PLAYER_SPEED * crouch_multiplier * sprint_multiplier;
+
+
+
+    /* Take in keypresses and translate to velocity change
+     * We have a max speeed of max_speed based off of crouch/sprint, 
+     * and each frame are going to accelerate towards that, via acceleration */
+    if input.pressed(KeyCode::KeyA){
+        deltav.x -= acceleration;
+    }
+    if input.pressed(KeyCode::KeyD) {
+        deltav.x += acceleration;
+    }
+    if input.pressed(KeyCode::KeyW) {
+        deltav.y += acceleration;
+    }
+    if input.pressed(KeyCode::KeyS) {
+        deltav.y -= acceleration;
+    }
+
+    /* We now must update the player using the information we have just gleaned
+     * First condition here is "do we have change?" */
+    player_velocity = if deltav.length() > 0.{
+        /* if we have change, we must apply them to the player */
+
+    }
+
+}
+
+
+
+/* hopefully deprecated soon ^^ new one ^^
+ * lil too much going on here, must be broke down */
 pub fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -199,7 +281,7 @@ pub fn move_player(
     }
 
     let deltat = time.delta_seconds();
-    let acc = ACCEL_RATE * deltat;
+    let acc = ACCELERATION_RATE * deltat;
 
     // sprint - check if shift is pressed
     let speed_multiplier = if input.pressed(KeyCode::ShiftLeft) {

@@ -22,6 +22,15 @@ pub struct UDPHeader {
     pub id: u8,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct PlayerPacket{
+    head: UDPHeader,
+    transform_x: f32,
+    transform_y: f32,
+    velocity_x: f32,
+    velocity_y: f32,
+}
+
 // impl Serialize for UDPHeader {
 //     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 //     where
@@ -84,7 +93,10 @@ pub fn client_send_id_packet( // function that sends a packet telling server we 
         .unwrap(); // send to server
 }
 
-pub fn send_movement_info(socket: Res<UDP>, player: Query<&Transform, With<Player>>) {
+pub fn send_movement_info(
+    socket: Res<UDP>, 
+    player: Query<&Transform, With<Player>>
+) {
     let pt = player.single();
     let x = pt.translation.x;
     let y = pt.translation.y;
@@ -138,25 +150,30 @@ pub fn id_request(
         .unwrap();
 }
 
+/* Transforms current player state into u8 array that
+ * we can then send across the wire to be deserialized once it arrives */
 pub fn serialize_player(
     player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
     socket : Res<UDP>
 )
 {
+    /* Deconstruct out Query. SHould be client side so we can do single */
     let (t, v, i) = player.single();
-    let p_x = t.translation.x;
-    let p_y = t.translation.y;
-    let i_d = i.id;
-    let mut s = flexbuffers::FlexbufferSerializer::new();
-    let to_send = UDPHeader {opcode: 1, id: i_d, p_x: p_x, p_y: p_y};
+    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+    let header = UDPHeader {opcode: 1, id: i.id};
+    let outgoing_state = PlayerPacket {
+        head: header, 
+        transform_x: t.translation.x,
+        transform_y: t.translation.y,
+        velocity_x: v.velocity.x,
+        velocity_y: v.velocity.y,
+    };
 
-    to_send.serialize(&mut s).unwrap();
+    outgoing_state.serialize(&mut serializer).unwrap();
 
-    let r  = flexbuffers::Reader::get_root(s.view()).unwrap();
+    let r  = flexbuffers::Reader::get_root(serializer.view()).unwrap();
    
-   // println!("data type: {:?}", data_type);
-   // println!("{:?}", byte_array);
-    socket.socket.send_to(s.view(), cuscuta_resources::SERVER_ADR).unwrap();
+    socket.socket.send_to(serializer.view(), cuscuta_resources::SERVER_ADR).unwrap();
 } 
 
 

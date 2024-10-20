@@ -4,6 +4,7 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{ Deserialize, Serialize};
 use library::*;
 use network::UDPHeader;
+use bevy::prelude::*;
 
 /* Rate at which we will be sending/recieving packets */
 const _TICKS_PER_SECOND: u32 = 60;
@@ -11,6 +12,9 @@ const _TICKS_PER_SECOND: u32 = 60;
 fn old_main() {
     App::new()
     .add_systems(Startup, init::server_setup)
+    .add_systems(FixedUpdate, server::listen)
+    .add_systems(FixedUpdate, player::update_player.after(server::listen))
+    .add_systems(FixedUpdate, server::broadcast_changes.after(player::update))
     .run();
 }
 
