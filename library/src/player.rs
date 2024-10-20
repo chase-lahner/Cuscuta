@@ -291,7 +291,9 @@ pub fn update_player_position(
     /* We use delta time to determine ur velocity earlier, so we really want to use it again here?
      * It gives second since update, not since we got input... */
     for( mut transform, mut velocity) in players.iter_mut(){
-        transform.translation += velocity.velocity * time.delta_seconds();
+        transform.translation.x += velocity.velocity.x * time.delta_seconds();
+        transform.translation.y += velocity.velocity.y * time.delta_seconds();
+
         let mut hit_door = false;
         // take care of horizontal and vertical movement + enemy collision check
         // TODODODODODODODODODODODO

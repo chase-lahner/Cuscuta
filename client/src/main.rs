@@ -16,13 +16,15 @@ fn main() {
          .add_systems(Startup,init::client_setup)// runs once, sets up scene
          .add_systems(Startup, enemies::spawn_enemies)
          .add_systems(Update, player::move_player)// every frame, takes in WASD for movement
-         .add_systems(Startup, network::client_send_id_packet.after(init::client_setup)) // we want id when we spawn a player
-        // .add_systems(Update, network::recv_packet)
+         .add_systems(Update, (
+            player::player_input, 
+            player::update_player_position.after(player::player_input)))
+        //.add_systems(Update, network::recv_packet)
         .add_systems(
             Startup,
-            network::id_request.after(init::setup),
+            network::id_request.after(init::client_setup),
         )
-        .add_systems(Startup, network::recv_id.after(network::id_request)) // we want to recieve packet after we send it
+        .add_systems(Startup, network::client_recv_id.after(network::id_request)) // we want to recieve packet after we send it
        // .add_systems(Update, network::serialize_player.after(player::move_player))
         .add_systems(Update, enemies::enemy_movement.after(player::move_player))
         .add_systems(Update, player::animate_player.after(player::move_player)) // animates player

@@ -127,10 +127,10 @@ pub unsafe fn u8_to_f32(input_arr: &[u8]) -> (&[u8], &[f32], &[u8]) {
 }
 
 pub fn id_request(
-    player: Query<(&Transform, &Velocity, &NetworkId), With<Player>>,
+    player: Query<&NetworkId, With<Player>>,
     socket: Res<UDP>,
 ) {
-    let (t, v, i) = player.single();
+    let i = player.single();
     let i_d = i.id;
     let mut s = flexbuffers::FlexbufferSerializer::new();
     let to_send = UDPHeader {
