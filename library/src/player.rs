@@ -20,14 +20,14 @@ pub struct Sprint{
     pub sprinting:bool
 }
 /* global boolean to not re-attack */
-#[derive(Resource)]
-pub struct Attacking{
+#[derive(Component)]
+pub struct Attack{
     pub attack: bool
 }
 
 
 #[derive(Bundle)]
-pub struct PlayerBundle{
+pub struct ClientPlayerBundle{
     sprite: SpriteBundle,
     atlas: TextureAtlas,
     animation_timer: AnimationTimer,
@@ -38,6 +38,18 @@ pub struct PlayerBundle{
     health: Health,
     crouching: Crouch,
     sprinting: Sprint,
+    attacking: Attack,
+}
+
+#[derive(Bundle)]
+pub struct ServerPlayerBundle{
+    velo: Velocity,
+    id: NetworkId,
+    player: Player,
+    health: Health,
+    crouching: Crouch,
+    sprinting: Sprint,
+    attacking: Attack
 }
 
 pub fn player_attack(

@@ -5,7 +5,7 @@ use flexbuffers::FlexbufferSerializer;
 use network::*;
 use serde::Serialize;
 
-use crate::{cuscuta_resources, network};
+use crate::{cuscuta_resources::{self, Velocity}, network, player::{NetworkId, Player}};
 
 
 pub fn recieve_packets(
@@ -38,13 +38,13 @@ pub fn send_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, 
     socket.send_to(s.view(), "localhost:5000").unwrap();
 
     println!("SENT!");
+}
 
-
-
-
-    
-
-
-
+pub fn listen(
+    udp: Res<UDP>,
+    commands: Commands,
+    mut player: Query<(&Velocity, &Transform, &NetworkId), With<Player>>
+){
+    let mut buf: [u8; 1024] = [0;1024];
     
 }
