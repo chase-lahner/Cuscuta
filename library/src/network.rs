@@ -5,10 +5,15 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 use std::net::UdpSocket;
 use std::{collections::HashMap, net::SocketAddr};
+use std::io;
 
 #[derive(Resource)]
 pub struct UDP {
     pub socket: UdpSocket,
+}
+
+pub struct UserInputAddr { 
+    pub user_string: String,
 }
 
 #[derive(Resource)]
@@ -96,4 +101,13 @@ pub fn server_assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<Stri
     player_hash.insert(ip_string, player_id);
 
     player_id
+}
+
+pub fn get_ip_addr() -> String {
+    print!("Enter the IP Address  + enter then port number + enter you would like your socket to bind to: \n");
+    let mut buffer = String::new();
+    let _ = io::stdin().read_line(&mut buffer);
+
+    buffer
+
 }
