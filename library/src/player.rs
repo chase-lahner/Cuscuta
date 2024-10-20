@@ -271,7 +271,8 @@ pub fn player_input(
     if adjusted_speed > current_max{
         /* here we are. moving too fast. Honestly, I don't
          * think that we should clamp, we may have just crouched.
-         * We should decelerate by a given rate, our acceleration rate! */
+         * We should decelerate by a given rate, our acceleration rate! s
+         * not using the adjusted, dont want if crouch slow slowdown yk */
         adjusted_speed -= ACCELERATION_RATE;
         deltav.clamp_length_max(adjusted_speed);
     }
@@ -281,6 +282,35 @@ pub fn player_input(
     
 }
 
+/* Old setup had too much in one function, should collision check be
+ * done in here??? */
+pub fn update_player_position(
+    time: Res<Time>,
+    mut players: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
+){
+    for( mut transform, mut velocity) in players.iter_mut(){
+        transform
+    }
+
+    // take care of horizontal and vertical movement + enemy collision check
+    handle_movement_and_enemy_collisions(
+        &mut pt, 
+        change, 
+        &mut hit_door, 
+        &mut enemies,
+        &mut room_manager, 
+    );
+    // if we hit a door
+    if hit_door {
+        transition_map(&mut _commands, &_asset_server, &mut room_manager, room_query, &mut pt); // Pass room_query as argument
+    }
+}
+
+pub fn update_position(mut query: Query<(&mut Position, &Velocity)>, time: Res<Time>) {
+    for (mut pos, vel) in query.iter_mut() {
+        pos.0 += vel.0 * time.delta_seconds() * 15.0;
+    }
+}
 
 
 /* hopefully deprecated soon ^^ new one ^^
