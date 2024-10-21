@@ -357,9 +357,6 @@ pub fn update_player_position(
  pub fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&mut Transform, &mut Velocity, &mut Roll), (With<Player>, Without<Background>)>,
-    mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
-    mut room: Query<&mut Transform, (Without<Player>, Without<Enemy>)>,
     mut player_query: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>, Without<Door>)>,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     mut door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>, 
@@ -371,8 +368,6 @@ pub fn update_player_position(
     let mut hit_door = false;
     let mut player_transform = Vec3::ZERO;
 
-    let (mut pt, mut pv, mut roll_query) = player.single_mut();
-    let mut deltav = Vec2::splat(0.);
     // Player movement
     if let Ok((mut pt, mut pv)) = player_query.get_single_mut() {
         let mut deltav = Vec2::splat(0.);
@@ -409,8 +404,6 @@ pub fn update_player_position(
     if input.pressed(KeyCode::KeyR){
         roll.rolling = true;
     }*/
-        // set new max speed
-        let max_speed = PLAYER_SPEED * speed_multiplier;
 
     pv.velocity = if deltav.length() > 0. {
         (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed)
