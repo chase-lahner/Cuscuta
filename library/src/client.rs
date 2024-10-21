@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 
 use crate::network::{IdPacket, PlayerPacket, UDP};

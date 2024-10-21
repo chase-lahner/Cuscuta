@@ -7,29 +7,29 @@ use serde::Serialize;
 
 use crate::{cuscuta_resources::{self, FlexSerializer, PlayerCount, Velocity}, network, player::{NetworkId, Player}};
 
-
+/* Upon request, sends an id to client */
 pub fn send_id(
     source_addr : SocketAddr,
     server_socket: &UdpSocket, 
     mut n_p: ResMut<PlayerCount>,
     serializer: &mut FlexbufferSerializer
 ) {
-    let arg_ip = source_addr.ip();
+    /* assign id, update player count */
     let player_id: u8 = 255 - n_p.count;
-
     n_p.count +=1;
 
+    /* lil  baby struct to serialize */
     let to_send = IdPacket{ id: player_id};
-
-
     to_send.serialize(  &mut *serializer ).unwrap();
+
+    /* once serialized, we throw our opcode on the end */
     const SIZE:usize = size_of::<IdPacket>();
     let mut packet = [0;SIZE+1];
     packet[..SIZE].clone_from_slice(serializer.view());
     packet[SIZE] = cuscuta_resources::GET_PLAYER_ID_CODE;
-    server_socket.send_to(&packet, source_addr).unwrap();
 
-    println!("SENT!");
+    /* Send it on over! */
+    server_socket.send_to(&packet, source_addr).unwrap();
 }
 
 /* Server side listener for packets,  */
