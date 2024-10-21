@@ -35,7 +35,7 @@ pub fn send_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, 
 
     to_send.serialize(  &mut *s ).unwrap();
 
-    socket.send_to(s.view(), "localhost:5000").unwrap();
+    socket.send_to(s.view(), socket_addr).unwrap();
 
     println!("SENT!");
 }
