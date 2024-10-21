@@ -64,9 +64,6 @@ pub struct Pot{
 pub struct Wall;
 
 #[derive(Component)]
-pub struct Door;
-
-#[derive(Component)]
 pub struct Health{
     pub max: f32,
     pub current: f32
@@ -89,4 +86,3 @@ impl From<Vec2> for Velocity {
         Self { velocity }
     }
 }
-

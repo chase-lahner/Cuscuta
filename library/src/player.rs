@@ -354,20 +354,28 @@ pub fn update_player_position(
 
 /* hopefully deprecated soon ^^ new one ^^
  * lil too much going on here, must be broke down */
-pub fn move_player(
+ pub fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     mut player: Query<(&mut Transform, &mut Velocity, &mut Roll), (With<Player>, Without<Background>)>,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
     mut room: Query<&mut Transform, (Without<Player>, Without<Enemy>)>,
+    mut player_query: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>, Without<Door>)>,
+    mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
+    mut door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>, 
     mut room_manager: ResMut<RoomManager>,
-    mut _commands: Commands, 
-    _asset_server: Res<AssetServer>, 
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>, 
     room_query: Query<Entity, With<Room>>, 
 ) {
+    let mut hit_door = false;
+    let mut player_transform = Vec3::ZERO;
 
     let (mut pt, mut pv, mut roll_query) = player.single_mut();
     let mut deltav = Vec2::splat(0.);
+    // Player movement
+    if let Ok((mut pt, mut pv)) = player_query.get_single_mut() {
+        let mut deltav = Vec2::splat(0.);
 
     // INPUT HANDLING
     if input.pressed(KeyCode::KeyA) {
@@ -401,6 +409,8 @@ pub fn move_player(
     if input.pressed(KeyCode::KeyR){
         roll.rolling = true;
     }*/
+        // set new max speed
+        let max_speed = PLAYER_SPEED * speed_multiplier;
 
     pv.velocity = if deltav.length() > 0. {
         (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed)
@@ -411,37 +421,32 @@ pub fn move_player(
     };
 
 
-    let change = pv.velocity * deltat;
+        let change = pv.velocity * deltat;
+        let (room_width, room_height) = room_manager.current_room_size();
 
-    let mut hit_door: bool = false;
+        // Calculate new player position and clamp within room boundaries
+        let new_pos_x = (pt.translation.x + change.x)
+            .clamp(-room_width / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
+                room_width / 2.0 - TILE_SIZE as f32 - TILE_SIZE as f32 / 2.0);
+        let new_pos_y = (pt.translation.y + change.y)
+            .clamp(-room_height / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
+                room_height / 2.0 - TILE_SIZE as f32 - (TILE_SIZE / 2) as f32 / 2.0);
 
-    let (room_width, room_height) = room_manager.current_room_size();
+        pt.translation.x = new_pos_x;
+        pt.translation.y = new_pos_y;
 
-    // Calculate new player position and clamp within room boundaries
-    let new_pos_x = (pt.translation.x + change.x)
-        .clamp(-room_width / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
-         room_width / 2.0 - TILE_SIZE as f32 - TILE_SIZE as f32 / 2.0);
-    let new_pos_y = (pt.translation.y + change.y)
-        .clamp(-room_height / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
-             room_height / 2.0 - TILE_SIZE as f32 - (TILE_SIZE / 2) as f32 / 2.0);
+        // Store the player's position for later use
+        player_transform = pt.translation;
 
-    pt.translation.x = new_pos_x;
-    pt.translation.y = new_pos_y;
+        let (hit_door, door_type) = handle_movement_and_enemy_collisions(&mut pt, change, &mut enemies, &mut room_manager, &door_query);
 
-
-    // take care of horizontal and vertical movement + enemy collision check
-    handle_movement_and_enemy_collisions(
-        &mut pt, 
-        change, 
-        &mut hit_door, 
-        &mut enemies,
-        &mut room_manager, 
-    );
-
-
-    // if we hit a door
-    if hit_door {
-        transition_map(&mut _commands, &_asset_server, &mut room_manager, room_query, &mut pt); // Pass room_query as argument
+       // If a door was hit, handle the transition
+        if hit_door {
+            if let Some(door_type) = door_type {
+            // Pass the door type to transition_map
+            transition_map(&mut commands, &asset_server, &mut room_manager, room_query, door_query, &mut player_query.single_mut().0, door_type);
+            }
+        }
     }
 }
 
@@ -449,10 +454,13 @@ pub fn move_player(
 pub fn handle_movement_and_enemy_collisions(
     pt: &mut Transform,
     change: Vec2,
-    hit_door: &mut bool,
-    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
+    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>, 
     room_manager: &mut RoomManager,
-) {
+    door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>, 
+) -> (bool, Option<DoorType>) {
+    let mut hit_door = false;  
+    let mut door_type = None;  
+
     // Calculate new player position
     let new_pos = pt.translation + Vec3::new(change.x, change.y, 0.0);
     let player_aabb = collision::Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
@@ -466,8 +474,20 @@ pub fn handle_movement_and_enemy_collisions(
      //println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
 
     // Handle collisions and movement within the grid
-    handle_movement(pt, Vec3::new(change.x, 0., 0.), room_manager, hit_door, enemies);
-    handle_movement(pt, Vec3::new(0., change.y, 0.), room_manager, hit_door, enemies);
+    handle_movement(pt, Vec3::new(change.x, 0., 0.), room_manager, enemies, &door_query);
+    handle_movement(pt, Vec3::new(0., change.y, 0.), room_manager, enemies, &door_query);
+
+    for (door_transform, door) in door_query.iter() {
+        let door_aabb = Aabb::new(door_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&door_aabb) {
+            hit_door = true;
+            door_type = Some(door.door_type);
+            break;
+        }
+    }
+
+    // Return the hit_door state and door type
+    (hit_door, door_type)
 }
 
 
@@ -475,9 +495,9 @@ pub fn handle_movement(
     pt: &mut Transform,
     change: Vec3,
     room_manager: &mut RoomManager,
-    hit_door: &mut bool,
-    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>,
-) {
+    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>, 
+    door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>, 
+) -> Option<DoorType> {
     let new_pos = pt.translation + change;
     let player_aabb = collision::Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
 
@@ -493,7 +513,7 @@ pub fn handle_movement(
         let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
         if player_aabb.intersects(&enemy_aabb) {
             // handle enemy collision here (if necessary)
-            return;
+            return None;
         }
     }
 
@@ -509,8 +529,16 @@ pub fn handle_movement(
 
     // check for door transition
     if topleft == 2 || topright == 2 || bottomleft == 2 || bottomright == 2 {
-        *hit_door = true;
+        // If door is hit, return the door type
+        for (door_transform, door) in door_query.iter() {
+            let door_aabb = Aabb::new(door_transform.translation, Vec2::splat(TILE_SIZE as f32));
+            if player_aabb.intersects(&door_aabb) {
+                return Some(door.door_type);  // Return the type of door hit
+            }
+        }
     }
+
+    None // No door was hit
 }
 
 pub fn animate_player(
