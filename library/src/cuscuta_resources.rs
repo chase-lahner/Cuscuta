@@ -23,7 +23,7 @@ pub const ACCELERATION_RATE: f32 = 4800.;
 pub const SPRINT_MULTIPLIER: f32 = 2.0;
 pub const CROUCH_MULTIPLIER: f32 = 0.5;
 
-pub const ENEMY_SPEED: f32 = 0.;
+pub const ENEMY_SPEED: f32 = 160.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
 
 pub const TILE_SIZE: u32 = 32; 
