@@ -1,19 +1,15 @@
 use bevy::prelude::*;
-use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 
-use crate::network::{IdPacket, PlayerPacket, UDP};
+use crate::network::{update_player_state, IdPacket, PlayerPacket, UDP};
 use crate::cuscuta_resources::*;
 use crate::player::*;
 
 pub fn recv_id(
-    mut player: Query<&mut NetworkId, With<Player>>,
+    network_id: &mut NetworkId,
     packet: &[u8],
     mut commands: Commands,
 ) {
-    /* recv id is first, dont have another player so dont worry about player count */
-    let mut network_id = player.single_mut();
-
     /* de-serialize the struct IdHeader which contains our id */
     let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
     let ds_struct = IdPacket::deserialize( deserializer).unwrap();
@@ -100,12 +96,12 @@ pub fn id_request(
 pub fn listen(
     udp: Res<UDP>,
     mut commands: Commands,
-    mut player: Query<(&Velocity, &Transform, &NetworkId), With<Player>>,
+    mut player: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     mut serializer: ResMut<FlexSerializer>,
-) -> std::io::Result<()>{// really doesn;t need to return this am lazy see recv_from line
+) {
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
-    let (amt, src) = udp.socket.recv_from(&mut buf)?;
+    let (amt, src) = udp.socket.recv_from(&mut buf).unwrap();
     
     /* opcode is last byte of anything we send */
     let opcode = buf[amt];
@@ -116,14 +112,14 @@ pub fn listen(
 
     match opcode{
         GET_PLAYER_ID_CODE => 
-            recv_id(player, packet, commands),
+            /* janky but first arg gets id (assumes no other player, should be safe to assume) */
+            recv_id(player.single_mut().2.as_mut(), packet, commands),
         PLAYER_DATA =>
-            update_player(player, packet,),
+            update_player_state(player, packet),
         
         _ => something()//TOTO
 
     };
-
-
-    Ok(())
 }
+
+fn something(){}

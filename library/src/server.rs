@@ -11,14 +11,14 @@ use crate::{cuscuta_resources::{self, FlexSerializer, PlayerCount, Velocity}, ne
 pub fn send_id(
     source_addr : SocketAddr,
     server_socket: &UdpSocket, 
-    mut n_p: ResMut<PlayerCount>,
+    n_p: &mut PlayerCount,
     serializer: &mut FlexbufferSerializer
 ) {
     /* assign id, update player count */
     let player_id: u8 = 255 - n_p.count;
-    n_p.count +=1;
+    n_p.count += 1;
 
-    /* lil  baby struct to serialize */
+    /* lil baby struct to serialize */
     let to_send = IdPacket{ id: player_id};
     to_send.serialize(  &mut *serializer ).unwrap();
 
@@ -35,43 +35,30 @@ pub fn send_id(
 /* Server side listener for packets,  */
 pub fn listen(
     udp: Res<UDP>,
-    commands: Commands,
-    players: Query<(&Velocity, &Transform, &NetworkId), With<Player>>,
-    serializer_q: ResMut<FlexSerializer>,
-    n_p: ResMut<PlayerCount>,
-) -> std::io::Result<()>{// really doesn;t need to return this am lazy see recv_from line
+    mut commands: Commands,
+    players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
+    mut serializer_q: ResMut<FlexSerializer>,
+    mut n_p: ResMut<PlayerCount>,
+) {
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
-    let (amt, src) = udp.socket.recv_from(&mut buf)?;
-    let serializer = &mut serializer_q.into_inner().serializer;
+    let (amt, src) = udp.socket.recv_from(&mut buf).unwrap();
+    let serializer = &mut serializer_q.as_mut().serializer;
     /* trim trailing 0s */
     let t_buf = &buf[..amt-1];
 
     /* when we serialize, we throw our opcode on the end, so we know how to
     * de-serialize... jank? maybe.  */
     let opcode = buf[amt];
-
     match opcode{
         cuscuta_resources::GET_PLAYER_ID_CODE => 
-            send_id(src, &udp.socket, n_p,serializer),
+            send_id(src, &udp.socket, n_p.as_mut(),serializer),
         cuscuta_resources::PLAYER_DATA =>
-            update_player_state(players, t_buf,),
+            update_player_state(players, t_buf),
         _ => 
             something()//TOTO
 
     };
-
-
-    Ok(())
 }
 
 fn something(){}
-
-pub fn update_player_state(
-    /* fake query, passed from above system */
-    mut player: Query<(&Velocity, &Transform, &NetworkId), With<Player>>,
-    mut buf: &[u8],
-) { 
-
-
-}

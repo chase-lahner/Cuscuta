@@ -32,22 +32,6 @@ pub struct IdPacket{
     pub id: u8
 }
 
-pub fn send_movement_info(
-    socket: Res<UDP>, 
-    player: Query<&Transform, With<Player>>
-) {
-    let pt = player.single();
-    let x = pt.translation.x;
-    let y = pt.translation.y;
-    let x_int = unsafe { any_as_u8_slice(&x) };
-    let y_int = unsafe { any_as_u8_slice(&y) };
-    let buf: [u8; 2] = [x_int[0], y_int[0]];
-    //print!("{:?}", &buf);
-
-    socket.socket.send_to(&buf, "localhost:5001").unwrap();
-}
-
-
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     // will slice anything into u8 array !! https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8
     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
@@ -97,4 +81,23 @@ pub fn server_assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<Stri
     player_hash.insert(ip_string, player_id);
 
     player_id
+}
+
+/* once we have our packeet, we must use it to update
+ * the player specified */
+ pub fn update_player_state(
+    /* fake query, passed from above system */
+    mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
+    buf: &[u8],
+) { 
+    let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
+    let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
+    for (mut velo, mut transform, network_id) in players.iter_mut(){
+        if network_id.id == player_struct.id{
+            transform.translation.x = player_struct.transform_x;
+            transform.translation.y = player_struct.transform_y;
+            velo.velocity.x = player_struct.velocity_x;
+            velo.velocity.y = player_struct.velocity_y;
+        }
+    }
 }
