@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::network::{update_player_state, IdPacket, PlayerPacket, UDP};
+use crate::network::{append_opcode, update_player_state, IdPacket, PlayerPacket, UDP};
 use crate::cuscuta_resources::*;
 use crate::player::*;
 
@@ -49,16 +49,18 @@ pub fn id_request(
      * like this to be a fn, but with how you need CONSTANT 
      * to declare array on top of different struct sizes
      * i didn't feel like mallocating anything */
-    const SIZE:usize = size_of::<IdPacket>();
-    let mut packet = [0;SIZE+1];
-    packet[..SIZE].clone_from_slice(serializer.serializer.view());
-    packet[SIZE] = GET_PLAYER_ID_CODE;
+    let opcode: &[u8] = std::slice::from_ref(&GET_PLAYER_ID_CODE);
+    let packet_vec  = append_opcode(serializer.serializer.view(), opcode);
+    let packet: &[u8] = &(&packet_vec);
+
+
 
     /* beam me up scotty */
     socket
         .socket
         .send_to(&packet, SERVER_ADR)
         .unwrap();
+
 }
 
 /* Transforms current player state into u8 array that
@@ -83,10 +85,12 @@ pub fn id_request(
             };
         
             outgoing_state.serialize(&mut serializer.serializer).unwrap();
-            const SIZE:usize = size_of::<PlayerPacket>();
-            let mut packet = [0;SIZE+1];
-            packet[..SIZE].clone_from_slice(serializer.serializer.view());
-            packet[SIZE] = PLAYER_DATA;
+            
+            let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
+            let packet_vec  = append_opcode(serializer.serializer.view(), opcode);
+            let packet: &[u8] = &(&packet_vec);
+
+            
             socket.socket.send_to(&packet, SERVER_ADR).unwrap();
         }
     }
@@ -99,10 +103,11 @@ pub fn listen(
     mut player: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     mut serializer: ResMut<FlexSerializer>,
 ) {
+    info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
     let (amt, src) = udp.socket.recv_from(&mut buf).unwrap();
-    
+    info!("actually read");
     /* opcode is last byte of anything we send */
     let opcode = buf[amt];
 
@@ -123,3 +128,4 @@ pub fn listen(
 }
 
 fn something(){}
+

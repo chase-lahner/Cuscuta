@@ -35,7 +35,9 @@ pub fn client_setup(
 pub fn server_setup(
     mut commands: Commands
 ){
+    info!("entered setup");
     let socket = UdpSocket::bind(cuscuta_resources::SERVER_ADR).unwrap();
     commands.insert_resource(UDP{socket:socket});
     commands.insert_resource(FlexSerializer{serializer:flexbuffers::FlexbufferSerializer::new()});
+    info!("done setup");
 }

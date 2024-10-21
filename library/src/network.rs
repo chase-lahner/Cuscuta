@@ -1,9 +1,10 @@
-use crate::cuscuta_resources::{self, Velocity};
+use crate::cuscuta_resources::{self, FlexSerializer, Velocity, PLAYER_DATA};
 use crate::player::*;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 use std::mem;
+use std::io::Write;
 use std::net::UdpSocket;
 use std::{collections::HashMap, net::SocketAddr};
 
@@ -46,12 +47,12 @@ pub unsafe fn u8_to_f32(input_arr: &[u8]) -> (&[u8], &[f32], &[u8]) {
  * we can then send across the wire to be deserialized once it arrives */
 pub fn serialize_player(
     player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
-    socket : Res<UDP>
+    socket : Res<UDP>,
+    mut serializer: ResMut<FlexSerializer>,
 )
 {
     /* Deconstruct out Query. SHould be client side so we can do single */
     let (t, v, i) = player.single();
-    let mut serializer = flexbuffers::FlexbufferSerializer::new();
     let outgoing_state = PlayerPacket {
         id: i.id,
         transform_x: t.translation.x,
@@ -60,28 +61,17 @@ pub fn serialize_player(
         velocity_y: v.velocity.y,
     };
 
-    outgoing_state.serialize(&mut serializer).unwrap();
+    outgoing_state.serialize(&mut serializer.serializer).unwrap();
 
-    const SIZE:usize = size_of::<PlayerPacket>();
-    let mut packet: [u8;SIZE+1] = [0;SIZE+1];
-    packet[..SIZE].clone_from_slice(serializer.view());
-    packet[SIZE] = cuscuta_resources::PLAYER_DATA;
+    /* slices are gross and ugl and i need +1 sooooo vec back to slice ig */
+    let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
+    let packet_vec  = append_opcode(serializer.serializer.view(), opcode);
+    let packet: &[u8] = &(&packet_vec);
+
+    /* beam him up scotty */
     socket.socket.send_to(&packet, cuscuta_resources::SERVER_ADR).unwrap();
 } 
 
-
-
-pub fn server_assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, n_p: &mut u8) -> u8{
-    let arg_ip = socket_addr.ip();
-    let ip_string = arg_ip.to_string();
-    let player_id: u8 = 255 - *n_p;
-
-    *n_p += 1;
-
-    player_hash.insert(ip_string, player_id);
-
-    player_id
-}
 
 /* once we have our packeet, we must use it to update
  * the player specified */
@@ -100,4 +90,15 @@ pub fn server_assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<Stri
             velo.velocity.y = player_struct.velocity_y;
         }
     }
+}
+
+
+pub fn append_opcode(
+    slice: &[u8],
+    opcode: &[u8],
+) -> Vec<u8> {
+    let mut vec: Vec<u8> = Vec::with_capacity(slice.len() + 1);
+    vec.write(slice).unwrap();
+    vec.write(opcode);
+    vec
 }

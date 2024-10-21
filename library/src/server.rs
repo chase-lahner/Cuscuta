@@ -5,7 +5,7 @@ use flexbuffers::FlexbufferSerializer;
 use network::*;
 use serde::Serialize;
 
-use crate::{cuscuta_resources::{self, FlexSerializer, PlayerCount, Velocity}, network, player::{NetworkId, Player}};
+use crate::{cuscuta_resources::{self, FlexSerializer, PlayerCount, Velocity, GET_PLAYER_ID_CODE}, network, player::{NetworkId, Player}};
 
 /* Upon request, sends an id to client */
 pub fn send_id(
@@ -23,10 +23,10 @@ pub fn send_id(
     to_send.serialize(  &mut *serializer ).unwrap();
 
     /* once serialized, we throw our opcode on the end */
-    const SIZE:usize = size_of::<IdPacket>();
-    let mut packet = [0;SIZE+1];
-    packet[..SIZE].clone_from_slice(serializer.view());
-    packet[SIZE] = cuscuta_resources::GET_PLAYER_ID_CODE;
+    let opcode: &[u8] = std::slice::from_ref(&GET_PLAYER_ID_CODE);
+    let packet_vec  = append_opcode(serializer.view(), opcode);
+    let packet: &[u8] = &(&packet_vec);
+
 
     /* Send it on over! */
     server_socket.send_to(&packet, source_addr).unwrap();
@@ -40,19 +40,27 @@ pub fn listen(
     mut serializer_q: ResMut<FlexSerializer>,
     mut n_p: ResMut<PlayerCount>,
 ) {
+    info!("Listening!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
     let (amt, src) = udp.socket.recv_from(&mut buf).unwrap();
+    info!("Read!");
     let serializer = &mut serializer_q.as_mut().serializer;
+    
+    /* when we serialize, we throw our opcode on the end, so we know how to
+    * de-serialize... jank? maybe.  */
+    let opcode = buf[amt -1];
+    
     /* trim trailing 0s */
     let t_buf = &buf[..amt-1];
 
-    /* when we serialize, we throw our opcode on the end, so we know how to
-    * de-serialize... jank? maybe.  */
-    let opcode = buf[amt];
+    
+    info!("{:?}",buf);
+    info!("opcode::{}",&opcode);
     match opcode{
-        cuscuta_resources::GET_PLAYER_ID_CODE => 
-            send_id(src, &udp.socket, n_p.as_mut(),serializer),
+        cuscuta_resources::GET_PLAYER_ID_CODE => {
+            info!("sending id to client");
+            send_id(src, &udp.socket, n_p.as_mut(),serializer)},
         cuscuta_resources::PLAYER_DATA =>
             update_player_state(players, t_buf),
         _ => 

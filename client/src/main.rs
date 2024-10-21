@@ -13,7 +13,10 @@ fn main() {
              }),
              ..default()
          }))
-         .add_systems(Startup,init::client_setup)
+         .add_systems(Startup,(
+            init::client_setup, 
+            client::id_request.after(init::client_setup)
+        ))
          .add_systems(Startup, enemies::spawn_enemies)
          .add_systems(Update, player::move_player)// every frame, takes in WASD for movement
          //.add_systems(Update, (
@@ -21,10 +24,6 @@ fn main() {
             // player::update_player_position.after(player::player_input),
             // client::send_player.after(player::update_player_position)))
         .add_systems(Update, client::listen)
-        .add_systems(
-            Startup,
-            client::id_request.after(init::client_setup),
-        )
        // .add_systems(Update, network::serialize_player.after(player::move_player))
         .add_systems(Update, enemies::enemy_movement.after(player::move_player))
         .add_systems(Update, player::animate_player.after(player::move_player)) // animates player
