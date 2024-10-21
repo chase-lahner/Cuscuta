@@ -4,7 +4,7 @@ use library::*;
 fn main() {
     App::new()
         .insert_resource(room_gen::RoomManager::new())
-        .add_systems(PreStartup, init::ip_setup)
+        .add_systems(PreStartup, init::ip_setup) // should run before we spawn / send data to server
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // need window!

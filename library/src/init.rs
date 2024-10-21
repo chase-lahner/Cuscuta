@@ -9,12 +9,12 @@ pub fn ip_setup(
     mut commands: Commands
 )
 {
-    let binding = get_ip_addr();
-    let ip_string = binding.trim();
+    let binding = get_ip_addr(); // call fn in network and to get ip from user
+    let ip_string = binding.trim(); // trim extra whitespce
 
      /* initializes our networking socket */
-     let socket = UdpSocket::bind(ip_string).unwrap(); //localhost:5000 THIS SHOULD BE REPLACED WITH CMD ARGS
-     commands.insert_resource(UDP {socket: socket});
+     let socket = UdpSocket::bind(ip_string).unwrap(); // string has a toSocketAddr implementation so this works
+     commands.insert_resource(UDP {socket: socket}); // insert socket resource
 }
 
 
