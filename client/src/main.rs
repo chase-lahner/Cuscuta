@@ -4,6 +4,7 @@ use library::*;
 fn main() {
     App::new()
         .insert_resource(room_gen::RoomManager::new())
+        .add_systems(PreStartup, init::ip_setup)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // need window!
@@ -13,7 +14,8 @@ fn main() {
              }),
              ..default()
          }))
-         .add_systems(Startup,init::client_setup)
+         
+         .add_systems(Startup,init::client_setup.after(init::ip_setup))
          .add_systems(Startup, enemies::spawn_enemies)
          .add_systems(Update, player::move_player)// every frame, takes in WASD for movement
          //.add_systems(Update, (

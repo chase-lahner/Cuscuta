@@ -5,6 +5,18 @@ use flexbuffers::FlexbufferSerializer;
 
 use crate::{camera::spawn_camera, carnage::*, cuscuta_resources, network::*, player::*, room_gen::*};
 
+pub fn ip_setup(
+    mut commands: Commands
+)
+{
+    let binding = get_ip_addr();
+    let ip_string = binding.trim();
+
+     /* initializes our networking socket */
+     let socket = UdpSocket::bind(ip_string).unwrap(); //localhost:5000 THIS SHOULD BE REPLACED WITH CMD ARGS
+     commands.insert_resource(UDP {socket: socket});
+}
+
 
 pub fn client_setup(
     mut commands: Commands, // to spawn in entities
@@ -12,24 +24,14 @@ pub fn client_setup(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
     mut room_manager: ResMut<RoomManager>,
 ) {
-    let ip_string = get_ip_addr();
-    let mut sendable: Vec<u8> = Vec::new();
-
     // let socket = SocketAddrV4::new(Ipv4Addr::new(sendable[0], sendable[1],sendable[2],sendable[3]), split_u16);
     
-    let mut addrs = ip_string.to_socket_addrs().unwrap();
-
-    let socket_to_assign = addrs.next().unwrap();
-
-    print!("Socket: {}",socket_to_assign);
-
+    
     
     // spawn the starting room & next room
     spawn_start_room(&mut commands, &asset_server, &mut room_manager);
 
-    /* initializes our networking socket */
-    let socket = UdpSocket::bind("localhost:5000").unwrap(); //localhost:5000 THIS SHOULD BE REPLACED WITH CMD ARGS
-    commands.insert_resource(UDP {socket: socket});
+   
     
 
     // spawn camera
