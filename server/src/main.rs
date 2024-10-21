@@ -22,7 +22,7 @@ fn old_main() {
 
 fn main() -> std::io::Result<()>{
     /* binding to our little mailbox */
-    let socket = UdpSocket::bind("localhost:5001").unwrap();
+    let socket = UdpSocket::bind("10.4.81.214:5001").unwrap(); // "localhost:5001"
     let mut num_players: u8 = 0; // TODO: decrement when disconnect, idk its like connectionless so we need to send a packet saying to dec when we disconnect 
     let mut player_hash: HashMap<String, u8> = HashMap::new();
     let mut s = flexbuffers::FlexbufferSerializer::new();
