@@ -11,7 +11,7 @@ use serde::Serialize;
 
 
 
-pub const SERVER_ADR: &str = "localhost:5001";
+pub const SERVER_ADR: &str = "10.4.81.214:5001"; //136.142.159.86:5001
 pub const GET_PLAYER_ID_CODE: u8 = 255;
 
 pub const TITLE: &str = "Cuscuta Demo";// window title
