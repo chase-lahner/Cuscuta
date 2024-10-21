@@ -87,6 +87,11 @@ pub struct FlexSerializer{
     pub serializer: FlexbufferSerializer
 }
 
+#[derive(Resource)]
+pub struct ClientId{
+    pub id: u8
+}
+
 
 
 #[derive(Component, Serialize)]

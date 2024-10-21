@@ -214,12 +214,15 @@ pub fn player_interact(
 
 pub fn player_input(
     mut commands: Commands,
-    mut player: Query<( &mut Velocity, &mut Crouch, &mut Sprint), (With<Player>, Without<Background>)>,
+    mut players: Query<( &mut Velocity, &mut Crouch, &mut Sprint), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 
 ) {
-    let (mut player_velocity, mut crouch_query, mut sprint_query) = player.single_mut();
+    
+    // TODODODODODODODO
+    /* GRAB CLIENTID FROM RES AND CHECK AGAINST PLAYER Wahhhhhhhh */
+    let (mut player_velocity, mut crouch_query, mut sprint_query) = players.single_mut();
     /* should be copy of player for us to apply input to */
     let mut deltav = player_velocity.velocity;
 

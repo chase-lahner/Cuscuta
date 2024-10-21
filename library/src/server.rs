@@ -36,7 +36,7 @@ pub fn send_id(
 pub fn listen(
     udp: Res<UDP>,
     commands: Commands,
-    player: Query<(&Velocity, &Transform, &NetworkId), With<Player>>,
+    players: Query<(&Velocity, &Transform, &NetworkId), With<Player>>,
     serializer_q: ResMut<FlexSerializer>,
     n_p: ResMut<PlayerCount>,
 ) -> std::io::Result<()>{// really doesn;t need to return this am lazy see recv_from line
@@ -45,7 +45,7 @@ pub fn listen(
     let (amt, src) = udp.socket.recv_from(&mut buf)?;
     let serializer = &mut serializer_q.into_inner().serializer;
     /* trim trailing 0s */
-    let t_buf = &buf[..amt];
+    let t_buf = &buf[..amt-1];
 
     /* when we serialize, we throw our opcode on the end, so we know how to
     * de-serialize... jank? maybe.  */
@@ -55,9 +55,9 @@ pub fn listen(
         cuscuta_resources::GET_PLAYER_ID_CODE => 
             send_id(src, &udp.socket, n_p,serializer),
         cuscuta_resources::PLAYER_DATA =>
-            update_player(player, t_buf,),
-        
-        _ => something()//TOTO
+            update_player_state(players, t_buf,),
+        _ => 
+            something()//TOTO
 
     };
 
@@ -67,10 +67,11 @@ pub fn listen(
 
 fn something(){}
 
-pub fn update_player(
+pub fn update_player_state(
     /* fake query, passed from above system */
     mut player: Query<(&Velocity, &Transform, &NetworkId), With<Player>>,
     mut buf: &[u8],
 ) { 
+
 
 }

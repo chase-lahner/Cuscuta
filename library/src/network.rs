@@ -20,6 +20,7 @@ pub struct BufSerializer {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PlayerPacket{
+    pub id: u8,
     pub transform_x: f32,
     pub transform_y: f32,
     pub velocity_x: f32,
@@ -68,6 +69,7 @@ pub fn serialize_player(
     let (t, v, i) = player.single();
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
     let outgoing_state = PlayerPacket {
+        id: i.id,
         transform_x: t.translation.x,
         transform_y: t.translation.y,
         velocity_x: v.velocity.x,
