@@ -117,8 +117,14 @@ pub fn listen(
     info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
-    let (amt, src) = udp.socket.recv_from(&mut buf).unwrap();
-    info!("actually read");
+
+    let packet = udp.socket.recv_from(&mut buf);
+    match packet{
+        Err(e) => return,
+        _ => info!("recieved packet")
+    }
+    let (amt, src) = packet.unwrap();  
+
     /* opcode is last byte of anything we send */
     let opcode = buf[amt-1];
 
