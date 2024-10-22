@@ -578,84 +578,98 @@ fn generate_doors(
     z_index: f32,
 ) {
     let door_handle = asset_server.load("tiles/walls/black_void.png");
+    if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
+        if (left_x as i32 - 80 > 0){
+            
+            // Left door
+            let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
+            let door_left_y = TILE_SIZE as f32 / 2.0;
+            commands.spawn((
+                SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
+                    ..default()
+                },
+                Door {
+                    next: Some(room_manager.global_z_index),
+                    door_type: DoorType::Left,
+                },
+                Room,
+            ));
 
-    // Right door
-    let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
-    let door_y = TILE_SIZE as f32 / 2.0;  
-    commands.spawn((
-        SpriteBundle {
-            texture: door_handle.clone(),
-            transform: Transform::from_xyz(door_x, door_y, z_index + 0.1),
-            ..default()
-        },
-        Door {
-            next: Some(room_manager.global_z_index),
-            door_type: DoorType::Right,
-        },
-        Room,
-    ));
-    
-    let xcoord_right = ((max_x * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
-    let ycoord_right = (door_y + max_y) as usize;
-    set_collide(room_manager, xcoord_right, ycoord_right, 2);
+            let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
+            let ycoord_left = (door_left_y + max_y) as usize;
+            set_collide(room_manager, xcoord_left, ycoord_left, 2);
+        }
 
+        if (right_x as i32 + 80 < 400){
 
-    // Left door
-    let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
-    let door_left_y = TILE_SIZE as f32 / 2.0;
-    commands.spawn((
-        SpriteBundle {
-            texture: door_handle.clone(),
-            transform: Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
-            ..default()
-        },
-        Door {
-            next: Some(room_manager.global_z_index),
-            door_type: DoorType::Left,
-        },
-        Room,
-    ));
-    let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
-    let ycoord_left = (door_left_y + max_y) as usize;
-    set_collide(room_manager, xcoord_left, ycoord_left, 2);
+            // Right door
+            let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
+            let door_y = TILE_SIZE as f32 / 2.0;  
+            commands.spawn((
+                SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(door_x, door_y, z_index + 0.1),
+                    ..default()
+                },
+                Door {
+                    next: Some(room_manager.global_z_index),
+                    door_type: DoorType::Right,
+                },
+                Room,
+            ));
+            
+            let xcoord_right = ((max_x * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
+            let ycoord_right = (door_y + max_y) as usize;
+            set_collide(room_manager, xcoord_right, ycoord_right, 2);
 
-    // Top door
-    let door_top_x = TILE_SIZE as f32 / 2.0;
-    let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
-    commands.spawn((
-        SpriteBundle {
-            texture: door_handle.clone(),
-            transform: Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
-            ..default()
-        },
-        Door {
-            next: Some(room_manager.global_z_index),
-            door_type: DoorType::Top,
-        },
-        Room,
-    ));
-    let xcoord_top = (door_top_x + max_x) as usize;
-    let ycoord_top = ((max_y * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
-    set_collide(room_manager, xcoord_top, ycoord_top, 2);
+        }
 
-    // Bottom door
-    let door_bottom_x = TILE_SIZE as f32 / 2.0;
-    let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
-    commands.spawn((
-        SpriteBundle {
-            texture: door_handle.clone(),
-            transform: Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
-            ..default()
-        },
-        Door {
-            next: Some(room_manager.global_z_index),
-            door_type: DoorType::Bottom,
-        },
-        Room,
-    ));
-    let xcoord_bottom = (door_bottom_x + max_x) as usize;
-    let ycoord_bottom = ((-max_y * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
-    set_collide(room_manager, xcoord_bottom, ycoord_bottom, 2);
+        if (top_y as i32 - 80 > 0){
+            // Top door
+            let door_top_x = TILE_SIZE as f32 / 2.0;
+            let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
+            commands.spawn((
+                SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
+                    ..default()
+                },
+                Door {
+                    next: Some(room_manager.global_z_index),
+                    door_type: DoorType::Top,
+                },
+                Room,
+            ));
+
+            let xcoord_top = (door_top_x + max_x) as usize;
+            let ycoord_top = ((max_y * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
+            set_collide(room_manager, xcoord_top, ycoord_top, 2);
+
+        }
+
+        if (bottom_y as i32 + 80 < 400){
+            // Bottom door
+            let door_bottom_x = TILE_SIZE as f32 / 2.0;
+            let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
+            commands.spawn((
+                SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
+                    ..default()
+                },
+                Door {
+                    next: Some(room_manager.global_z_index),
+                    door_type: DoorType::Bottom,
+                },
+                Room,
+            ));
+            let xcoord_bottom = (door_bottom_x + max_x) as usize;
+            let ycoord_bottom = ((-max_y * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
+            set_collide(room_manager, xcoord_bottom, ycoord_bottom, 2);
+        }
+    }
 }
 
 pub fn generate_random_room_with_bounds(
