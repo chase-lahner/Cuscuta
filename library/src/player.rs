@@ -173,22 +173,6 @@ pub fn player_attack(
     }
 }
 
-pub fn player_attack_enemy(
-    mut commands: Commands,
-    mut player: Query<(&Transform,&mut Attack), With<Player>,>,
-    enemies: Query<(Entity, &mut Transform), (With<Enemy>, Without<Player>)>
-) {
-    let (ptransform, pattack) = player.single_mut();
-    if pattack.attacking == false{return;}
-    let player_aabb = collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
-
-    for (ent, enemy_transform) in enemies.iter() {
-        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
-        if player_aabb.intersects(&enemy_aabb) {
-            commands.entity(ent).despawn();
-        }
-    }
-}
 
 pub fn player_attack_enemy(
     mut commands: Commands,
@@ -330,7 +314,6 @@ pub fn player_input(
     mut player: Query<( &mut Velocity, &mut Crouch, &mut Roll, &mut Sprint), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-
 ) {
     let (mut player_velocity, mut crouch_query, mut roll_query, mut sprint_query) = player.single_mut();
     /* should be copy of player for us to apply input to */

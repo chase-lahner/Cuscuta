@@ -94,12 +94,3 @@ pub fn get_ip_addr() -> String {
     buffer // return buffer
 
 }
-
-pub fn get_ip_addr() -> String {
-    print!("Enter the IP Address  + enter then port number + enter you would like your socket to bind to: \n");
-    let mut buffer = String::new();
-    let _ = io::stdin().read_line(&mut buffer); // read from stdin
-
-    buffer // return buffer
-
-}

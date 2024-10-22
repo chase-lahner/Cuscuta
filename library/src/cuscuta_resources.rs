@@ -12,7 +12,7 @@ use serde::Serialize;
 
 
 
-pub const SERVER_ADR: &str = "10.4.81.214:5001"; //136.142.159.86:5001
+pub const SERVER_ADR: &str = "localhost:5001"; //136.142.159.86:5001
 pub const GET_PLAYER_ID_CODE: u8 = 255;
 pub const PLAYER_DATA: u8 = 254;
 /* end opcode!! */
@@ -25,9 +25,6 @@ pub const PLAYER_SPEED: f32 = 480.;
 pub const ACCELERATION_RATE: f32 = 4800.; 
 pub const SPRINT_MULTIPLIER: f32 = 2.0;
 pub const CROUCH_MULTIPLIER: f32 = 0.5;
-
-pub const PLAYER_SPRITE_COL: u32 = 4;
-pub const PLAYER_SPRITE_ROW: u32 = 8;
 
 pub const PLAYER_SPRITE_COL: u32 = 4;
 pub const PLAYER_SPRITE_ROW: u32 = 16;

@@ -3,7 +3,7 @@ use std::{net::{ Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs, UdpSocket}, 
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 
-use crate::{camera::spawn_camera, carnage::*, cuscuta_resources, network::*, player::*, room_gen::*};
+use crate::{camera::spawn_camera, carnage::*, cuscuta_resources::{self, ClientId}, network::*, player::*, room_gen::*};
 
 pub fn ip_setup(
     mut commands: Commands
@@ -51,6 +51,5 @@ pub fn server_setup(
     info!("entered setup");
     let socket = UdpSocket::bind(cuscuta_resources::SERVER_ADR).unwrap();
     commands.insert_resource(UDP{socket:socket});
-    commands.insert_resource(FlexSerializer{serializer:flexbuffers::FlexbufferSerializer::new()});
     info!("done setup");
 }
