@@ -30,7 +30,7 @@ pub const PLAYER_SPRITE_COL: u32 = 4;
 pub const PLAYER_SPRITE_ROW: u32 = 8;
 
 pub const PLAYER_SPRITE_COL: u32 = 4;
-pub const PLAYER_SPRITE_ROW: u32 = 8;
+pub const PLAYER_SPRITE_ROW: u32 = 16;
 
 pub const ENEMY_SPEED: f32 = 160.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
