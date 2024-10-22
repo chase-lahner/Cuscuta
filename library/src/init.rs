@@ -33,6 +33,8 @@ pub fn client_setup(
     // spawn the starting room & next room
     spawn_start_room(&mut commands, &asset_server, &mut room_manager);
 
+    /* initialize to 0. works for single player!
+     * will be assigned when given one from server */
     commands.insert_resource(ClientId{id:0});
     
 

@@ -109,11 +109,13 @@ pub fn player_attack(
             &mut TextureAtlas,
             &mut AnimationTimer,
             &AnimationFrameCount,
-            &mut Attack
+            &mut Attack,
+            &NetworkId,
         ),
         With<Player>,
     >,
-    mut carnage_q: Query<&mut CarnageBar, With<CarnageBar>>
+    mut carnage_q: Query<&mut CarnageBar, With<CarnageBar>>,
+    client_id: Res<ClientId>,
 ) {
     /* In texture atlas for ratatta:
      * 0 - 3 = up
@@ -121,53 +123,58 @@ pub fn player_attack(
      * 8 - 11 = right
      * 12 - 15 = left
      * ratlas. heh. get it.*/
-     let (v, mut ratlas, mut timer, _frame_count, mut attack) = player.single_mut();
-     let mut carnage = carnage_q.single_mut();
-     let abx = v.velocity.x.abs();
-     let aby = v.velocity.y.abs();
+     for (v, mut ratlas, mut timer, _frame_count, mut attack, id) in player.iter_mut(){
+        if id.id == client_id.id{
 
-     if input.just_pressed(MouseButton::Left)
-     {
-        
-        attack.attacking = true; //set attacking to true to override movement animations
-        
-        // deciding initial frame for swing (so not partial animation)
-        if abx > aby {
-            if v.velocity.x >= 0.{ratlas.index = 8;}
-            else if v.velocity.x < 0. {ratlas.index = 12;}
-        }
-        else {
-            if v.velocity.y >= 0.{ratlas.index = 0;}
-            else if v.velocity.y < 0. {ratlas.index = 4;}
-        }
-        /* increment carnage. stupid fer now */
-        if carnage.carnage < 50.{
-            carnage.carnage += 1.;
-        }
-        timer.reset();
-     }
-    if attack.attacking == true
-    {
-        timer.tick(time.delta());
+     
+            let mut carnage = carnage_q.single_mut();
+            let abx = v.velocity.x.abs();
+            let aby = v.velocity.y.abs();
 
-        if abx > aby {
-            if v.velocity.x >= 0.{
-                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 8;}
-                if ratlas.index == 11{attack.attacking = false; ratlas.index = 24} //allow for movement anims after last swing frame
+            if input.just_pressed(MouseButton::Left)
+            {
+                
+                attack.attacking = true; //set attacking to true to override movement animations
+                
+                // deciding initial frame for swing (so not partial animation)
+                if abx > aby {
+                    if v.velocity.x >= 0.{ratlas.index = 8;}
+                    else if v.velocity.x < 0. {ratlas.index = 12;}
+                }
+                else {
+                    if v.velocity.y >= 0.{ratlas.index = 0;}
+                    else if v.velocity.y < 0. {ratlas.index = 4;}
+                }
+                /* increment carnage. stupid fer now */
+                if carnage.carnage < 50.{
+                    carnage.carnage += 1.;
+                }
+                timer.reset();
             }
-            else if v.velocity.x < 0. {
-                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 12;}
-                if ratlas.index == 15{attack.attacking = false; ratlas.index = 28} //allow for movement anims after last swing frame
-            }
-        }
-        else {
-            if v.velocity.y >= 0.{
-                if timer.finished(){ratlas.index = (ratlas.index + 1) % 4;}
-                if ratlas.index == 3{attack.attacking = false; ratlas.index = 16} //allow for movement anims after last swing frame
-            }
-            else if v.velocity.y < 0. {
-                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 4;}
-                if ratlas.index == 7{attack.attacking = false; ratlas.index = 20} //allow for movement anims after last swing frame
+            if attack.attacking == true
+            {
+                timer.tick(time.delta());
+
+                if abx > aby {
+                    if v.velocity.x >= 0.{
+                        if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 8;}
+                        if ratlas.index == 11{attack.attacking = false; ratlas.index = 24} //allow for movement anims after last swing frame
+                    }
+                    else if v.velocity.x < 0. {
+                        if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 12;}
+                        if ratlas.index == 15{attack.attacking = false; ratlas.index = 28} //allow for movement anims after last swing frame
+                    }
+                }
+                else {
+                    if v.velocity.y >= 0.{
+                        if timer.finished(){ratlas.index = (ratlas.index + 1) % 4;}
+                        if ratlas.index == 3{attack.attacking = false; ratlas.index = 16} //allow for movement anims after last swing frame
+                    }
+                    else if v.velocity.y < 0. {
+                        if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 4;}
+                        if ratlas.index == 7{attack.attacking = false; ratlas.index = 20} //allow for movement anims after last swing frame
+                    }
+                }
             }
         }
     }
@@ -176,19 +183,24 @@ pub fn player_attack(
 
 pub fn player_attack_enemy(
     mut commands: Commands,
-    mut player: Query<(&Transform,&mut Attack), With<Player>,>,
-    enemies: Query<(Entity, &mut Transform), (With<Enemy>, Without<Player>)>
+    mut player: Query<(&Transform,&mut Attack, &NetworkId), With<Player>,>,
+    enemies: Query<(Entity, &mut Transform), (With<Enemy>, Without<Player>)>,
+    client_id: Res<ClientId>,
 ) {
-    let (ptransform, pattack) = player.single_mut();
-    if pattack.attacking == false{return;}
-    let player_aabb = collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
+    for (ptransform, pattack, id) in  player.iter_mut(){
+        if id.id == client_id.id{
+            if pattack.attacking == false{return;}
+            let player_aabb = collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
 
-    for (ent, enemy_transform) in enemies.iter() {
-        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
-        if player_aabb.intersects(&enemy_aabb) {
-            commands.entity(ent).despawn();
+            for (ent, enemy_transform) in enemies.iter() {
+                let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+                if player_aabb.intersects(&enemy_aabb) {
+                    commands.entity(ent).despawn();
+                }
+            }
         }
     }
+
 }
 
 /* Spawns in user player, uses PlayerBundle for some consistency*/
@@ -310,7 +322,6 @@ pub fn player_interact(
 }
 
 pub fn player_input(
-    mut commands: Commands,
     mut player: Query<( &mut Velocity, &mut Crouch, &mut Roll, &mut Sprint, &NetworkId), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
@@ -435,19 +446,24 @@ pub fn update_player_position(
  pub fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
-    mut player_query: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>, Without<Door>)>,
+    mut player_query: Query<(&mut Transform, &mut Velocity, &NetworkId), (With<Player>, Without<Background>, Without<Door>)>,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     mut door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>, 
     mut room_manager: ResMut<RoomManager>,
     mut commands: Commands, 
     asset_server: Res<AssetServer>, 
     room_query: Query<Entity, With<Room>>, 
+    client_id: Res<ClientId>,
 ) {
     let mut hit_door = false;
     let mut player_transform = Vec3::ZERO;
+    let door_type: Option<DoorType> = Option::None;
 
     // Player movement
-    if let Ok((mut pt, mut pv)) = player_query.get_single_mut() {
+    for ((mut pt, mut pv, id)) in player_query.iter_mut() {
+        if id.id != client_id.id {
+            continue
+        }
         let mut deltav = Vec2::splat(0.);
 
     // INPUT HANDLING
@@ -510,16 +526,16 @@ pub fn update_player_position(
         player_transform = pt.translation;
 
         let (hit_door, door_type) = handle_movement_and_enemy_collisions(&mut pt, change, &mut enemies, &mut room_manager, &door_query);
-
-       // If a door was hit, handle the transition
-        if hit_door {
-            if let Some(door_type) = door_type {
-            // Pass the door type to transition_map
-            transition_map(&mut commands, &asset_server, &mut room_manager, room_query, door_query, &mut player_query.single_mut().0, door_type);
-            }
+    }
+    // If a door was hit, handle the transition
+    if hit_door {
+        if let Some(door_type) = door_type {
+        // Pass the door type to transition_map
+        transition_map(&mut commands, &asset_server, &mut room_manager, room_query, door_query, &mut player_query.single_mut().0, door_type);
         }
     }
 }
+
 
 
 pub fn handle_movement_and_enemy_collisions(
@@ -632,10 +648,9 @@ pub fn animate_player(
      * 24 - 27 = right
      * 28 - 31 = left
      * ratlas. heh. get it.*/
-    let (v, mut ratlas, mut timer, _frame_count, attack, roll) = player.single_mut();
-    if attack.attacking == true{return;}//checking if attack animations are running
-    if roll.rolling == true{return;}//checking if roll animations are running
-    //if v.velocity.cmpne(Vec2::ZERO).any() {
+    for (v, mut ratlas, mut timer, _frame_count, attack, roll) in player.iter_mut(){
+        if attack.attacking == true{return;}//checking if attack animations are running
+        if roll.rolling == true{return;}//checking if roll animations are running
         timer.tick(time.delta());
 
         let abx = v.velocity.x.abs();
@@ -657,7 +672,7 @@ pub fn animate_player(
                 if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 20;}
             }
         }
-    //}
+    }
 }
 
 pub fn player_roll(
@@ -670,10 +685,12 @@ pub fn player_roll(
             &mut AnimationTimer,
             &AnimationFrameCount,
             &Attack,
-            &mut Roll
+            &mut Roll,
+            &NetworkId,
         ),
         With<Player>,
     >,
+    client_id: Res<ClientId>
 ) {
     /* In texture atlas for ratatta:
      * 36 - 39 = up
@@ -681,48 +698,53 @@ pub fn player_roll(
      * 44 - 47 = right
      * 40 - 43 = left
      * ratlas. heh. get it.*/
-     let (v, mut ratlas, mut timer, _frame_count, attack, mut roll) = player.single_mut();
-     let abx = v.velocity.x.abs();
-     let aby = v.velocity.y.abs();
+     for (v, mut ratlas, mut timer, _frame_count, attack, mut roll, id) in player.iter_mut()
+     {
+        if id.id == client_id.id{
 
-    if attack.attacking == true{return;} //do not roll if swinging
+            let abx = v.velocity.x.abs();
+            let aby = v.velocity.y.abs();
 
-    if input.pressed(KeyCode::KeyR){
-        roll.rolling = true;
-        if abx > aby {
-            if v.velocity.x >= 0.{ratlas.index = 44;}
-            else if v.velocity.x < 0. {ratlas.index = 40;}
+            if attack.attacking == true{return;} //do not roll if swinging
+
+            if input.pressed(KeyCode::KeyR){
+                roll.rolling = true;
+                if abx > aby {
+                    if v.velocity.x >= 0.{ratlas.index = 44;}
+                    else if v.velocity.x < 0. {ratlas.index = 40;}
+                }
+                else {
+                    if v.velocity.y >= 0.{ratlas.index = 36;}
+                    else if v.velocity.y < 0. {ratlas.index = 32;}
+                }
+                timer.reset();
+            }
+
+            if roll.rolling == true
+            {
+                timer.tick(time.delta());
+
+                if abx > aby {
+                    if v.velocity.x >= 0.{
+                        if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 44;}
+                        if ratlas.index == 47{roll.rolling = false; ratlas.index = 24} //allow for movement anims after last swing frame
+                    }
+                    else if v.velocity.x < 0. {
+                        if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 40;}
+                        if ratlas.index == 43{roll.rolling = false; ratlas.index = 28} //allow for movement anims after last swing frame
+                    }
+                }
+                else {
+                    if v.velocity.y >= 0.{
+                        if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 36;}
+                        if ratlas.index == 39{roll.rolling = false; ratlas.index = 16} //allow for movement anims after last swing frame
+                    }
+                    else if v.velocity.y < 0. {
+                        if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 32;}
+                        if ratlas.index == 35{roll.rolling = false; ratlas.index = 20} //allow for movement anims after last swing frame
+                    }
+                }
         }
-        else {
-            if v.velocity.y >= 0.{ratlas.index = 36;}
-            else if v.velocity.y < 0. {ratlas.index = 32;}
-        }
-        timer.reset();
     }
-
-    if roll.rolling == true
-    {
-        timer.tick(time.delta());
-
-        if abx > aby {
-            if v.velocity.x >= 0.{
-                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 44;}
-                if ratlas.index == 47{roll.rolling = false; ratlas.index = 24} //allow for movement anims after last swing frame
-            }
-            else if v.velocity.x < 0. {
-                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 40;}
-                if ratlas.index == 43{roll.rolling = false; ratlas.index = 28} //allow for movement anims after last swing frame
-            }
-        }
-        else {
-            if v.velocity.y >= 0.{
-                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 36;}
-                if ratlas.index == 39{roll.rolling = false; ratlas.index = 16} //allow for movement anims after last swing frame
-            }
-            else if v.velocity.y < 0. {
-                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 32;}
-                if ratlas.index == 35{roll.rolling = false; ratlas.index = 20} //allow for movement anims after last swing frame
-            }
-        }
-    }
+}
 }

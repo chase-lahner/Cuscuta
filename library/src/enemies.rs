@@ -48,14 +48,17 @@ pub fn server_spawn_enemy(
 
 pub fn enemy_movement(
     mut enemy_query: Query<(&mut Transform, &Enemy)>,
-    player_query: Query<&Transform, (With<Player>, Without<Enemy>)>,
-    time: Res<Time>
+    player_query: Query<(&Transform, &NetworkId), (With<Player>, Without<Enemy>)>,
+    time: Res<Time>,
+    client_id: Res<ClientId>,
 ) {
-    let player_transform = player_query.single(); 
-
-    for (mut transform, _enemy) in enemy_query.iter_mut() {
-        let direction_to_player = player_transform.translation - transform.translation;
-        let normalized_direction = direction_to_player.normalize();
-        transform.translation += normalized_direction * ENEMY_SPEED * time.delta_seconds();
-    }
+    for (player_transform, player_id) in player_query.iter(){
+        if player_id.id == client_id.id{
+            for (mut transform, _enemy) in enemy_query.iter_mut() {
+                let direction_to_player = player_transform.translation - transform.translation;
+                let normalized_direction = direction_to_player.normalize();
+                transform.translation += normalized_direction * ENEMY_SPEED * time.delta_seconds();
+            }
+        }
+    } 
 }

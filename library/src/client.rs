@@ -24,9 +24,6 @@ pub fn recv_id(
     network_id.addr = source_addr;
     id.id = ds_struct.id;
 
-    /* assign it to the game world */
-    commands.insert_resource(ClientId{id:ds_struct.id});
-
     info!("ASSIGNED ID: {:?}", network_id.id);
 }
 
