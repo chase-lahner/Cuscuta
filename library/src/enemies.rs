@@ -60,7 +60,6 @@ pub fn enemy_movement(
         //let playerto: Player;
         let mut longest: f32 = 0.0;
         for (mut pt, p, mut ph) in player_query.iter_mut(){
-            let hel: Mut<'_, Health> = ph;
             let xdis = (pt.translation.x - transform.translation.x).abs() * (pt.translation.x - transform.translation.x).abs();
             let ydis = (pt.translation.x - transform.translation.x).abs() * (pt.translation.x - transform.translation.x).abs();
             if ydis + xdis < ENEMY_SPOT_DISTANCE * ENEMY_SPOT_DISTANCE {
@@ -74,7 +73,7 @@ pub fn enemy_movement(
             let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
             let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
             if enemy_aabb.intersects(&player_aabb){
-                //ph.current = ph.current - 25.;
+                ph.current -= 5.;
 
                 let direction_to_player = player_transform.translation - transform.translation;
                 let normalized_direction = direction_to_player.normalize();

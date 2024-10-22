@@ -34,15 +34,12 @@ pub fn spawn_camera(
         NodeBundle {
             style: Style{
                 width: Val::Px(1280.),
-                /* currently a 32 tile tall bar is plopped at top of screen */
+                /* currently a 3 tile tall bar is plopped at top of screen */
                 height: Val::Px(96.),
                 margin: UiRect{top: Val::VMin(0.), left: Val::VMax(0.),..default()},
                 ..default()
             },
-            transform: Transform{
-                translation: Vec3::new(0.,0.,900.),
-                ..default()
-            },
+            z_index: ZIndex::Global(0),
             ..default()
         },
         UiImage::new(asset_server.load("ui/ui_bar.png"))

@@ -230,16 +230,9 @@ pub fn client_spawn_user_player(
         animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
         animation_frames: AnimationFrameCount(player_layout_len),
         velo: Velocity::new(),
-        id:NetworkId {
-        id: 0,
-        /* stupid fake NULL ass address. dont use this. is set when connection established */
-        addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080)
-        },
+        id:NetworkId::new(),
         player: Player,
-        health: Health{
-            max: 100.,
-            current: 100.
-        },
+        health: Health::new(),
         crouching: Crouch{crouching:false},
         rolling: Roll{rolling:false},
         sprinting: Sprint{sprinting:false},
