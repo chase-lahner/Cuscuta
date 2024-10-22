@@ -78,7 +78,7 @@ pub fn id_request(
 {
     /* Deconstruct out Query. SHould be client side so we can do single */
     for (t, v, i)  in player.iter(){
-        if i.id == client_id.id{
+        if i.id == client_id.id && (v.velocity.x != 0. || v.velocity.y != 0.){
             let outgoing_state = PlayerPacket { 
                 id: client_id.id,
                 transform_x: t.translation.x,

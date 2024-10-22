@@ -131,7 +131,7 @@ fn update_player_state(
     /* Deconstruct out Query. SHould be client side so we can do single */
     for (t, v, i)  in player.iter(){
         for address in addresses.list.iter(){
-            if *address != i.addr{
+            if *address != i.addr && (v.velocity.x != 0. || v.velocity.y != 0.){
                 let outgoing_state = PlayerPacket { 
                     id: i.id,
                     transform_x: t.translation.x,
