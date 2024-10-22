@@ -12,11 +12,15 @@ const TICKS_PER_SECOND: f64 = 60.;
 
 fn main() {
     App::new()
+    .insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND))
     .insert_resource(PlayerCount{count:0})
     .add_plugins(DefaultPlugins)
     .add_systems(Startup, init::server_setup)
-    .add_systems(Update, server::listen)
-    .add_systems(Update, player::update_player_position.after(server::listen))
+    .add_systems(FixedUpdate, (
+        server::listen, 
+        ///player::update_player_position.after(server::listen),
+        server::send_player
+    ))
     .add_systems(FixedUpdate, server::send_player)
     .run();
 }

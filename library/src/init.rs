@@ -3,7 +3,7 @@ use std::{net::{ Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs, UdpSocket}, 
 use bevy::{prelude::*, tasks::IoTaskPool};
 use flexbuffers::FlexbufferSerializer;
 
-use crate::{camera::spawn_camera, carnage::*, cuscuta_resources::{self, ClientId}, network::*, player::*, room_gen::*};
+use crate::{camera::spawn_camera, carnage::*, cuscuta_resources::{self, AddressList, ClientId}, network::*, player::*, room_gen::*};
 
 pub fn ip_setup(
     mut commands: Commands
@@ -14,6 +14,8 @@ pub fn ip_setup(
 
      /* initializes our networking socket */
      let socket = UdpSocket::bind(ip_string).unwrap(); // string has a toSocketAddr implementation so this works
+     socket.set_nonblocking(true).unwrap();
+
      commands.insert_resource(UDP {socket: socket}); // insert socket resource
 }
 
@@ -31,6 +33,8 @@ pub fn client_setup(
     // spawn the starting room & next room
     spawn_start_room(&mut commands, &asset_server, &mut room_manager);
 
+    /* initialize to 0. works for single player!
+     * will be assigned when given one from server */
     commands.insert_resource(ClientId{id:0});
     
 
@@ -50,6 +54,8 @@ pub fn server_setup(
 ){
     info!("entered setup");
     let socket = UdpSocket::bind(cuscuta_resources::SERVER_ADR).unwrap();
+    socket.set_nonblocking(true).unwrap();
     commands.insert_resource(UDP{socket:socket});
+    commands.insert_resource(AddressList::new());
     info!("done setup");
 }

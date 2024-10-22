@@ -19,9 +19,18 @@ pub fn client_spawn_carnage_bar(
                 margin: UiRect{ top: Val::VMin(2.5), left: Val::VMax(37.5),..default()},
                 ..default()
             },
+            z_index: ZIndex::Global(999),
             ..default()
         },
         UiImage::new(asset_server.load("ui/carnage_bar_border.png")),
         CarnageBar{stealth: 0., carnage: 0.}
     ));
+
+    // commands.spawn((
+    //     NodeBundle{
+    //         style: Style {
+
+    //         }
+    //     }
+    // ))
 }

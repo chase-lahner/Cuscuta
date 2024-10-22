@@ -24,9 +24,6 @@ pub fn recv_id(
     network_id.addr = source_addr;
     id.id = ds_struct.id;
 
-    /* assign it to the game world */
-    commands.insert_resource(ClientId{id:ds_struct.id});
-
     info!("ASSIGNED ID: {:?}", network_id.id);
 }
 
@@ -81,7 +78,7 @@ pub fn id_request(
 {
     /* Deconstruct out Query. SHould be client side so we can do single */
     for (t, v, i)  in player.iter(){
-        if i.id == client_id.id{
+        if i.id == client_id.id && (v.velocity.x != 0. || v.velocity.y != 0.){
             let outgoing_state = PlayerPacket { 
                 id: client_id.id,
                 transform_x: t.translation.x,
@@ -117,8 +114,12 @@ pub fn listen(
     info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
-    let (amt, src) = udp.socket.recv_from(&mut buf).unwrap();
-    info!("actually read");
+    let packet = udp.socket.recv_from(&mut buf);
+    match packet{
+        Err(e)=> return,
+        _ => info!("read packet!")
+    }
+    let (amt, src) = packet.unwrap();
     /* opcode is last byte of anything we send */
     let opcode = buf[amt-1];
 
