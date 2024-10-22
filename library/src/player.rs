@@ -311,89 +311,97 @@ pub fn player_interact(
 
 pub fn player_input(
     mut commands: Commands,
-    mut player: Query<( &mut Velocity, &mut Crouch, &mut Roll, &mut Sprint), (With<Player>, Without<Background>)>,
+    mut player: Query<( &mut Velocity, &mut Crouch, &mut Roll, &mut Sprint, &NetworkId), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
+    client_id: Res<ClientId>,
 ) {
-    let (mut player_velocity, mut crouch_query, mut roll_query, mut sprint_query) = player.single_mut();
-    /* should be copy of player for us to apply input to */
-    let mut deltav = player_velocity.velocity;
+    for (mut player_velocity, mut crouch_query, mut roll_query, mut sprint_query, player_id) in player.iter_mut(){
+        if player_id.id == client_id.id{
+            /* should be copy of player for us to apply input to */
+            let mut deltav = player_velocity.velocity;
 
 
-    /* first check if we sprint or crouch for gievn frame */
-    let sprint = sprint_query.as_mut();
-    let sprint_multiplier = if input.pressed(KeyCode::ShiftLeft) {
-        sprint.sprinting = true;
-        SPRINT_MULTIPLIER
-    } else {
-        sprint.sprinting = false;
-        1.0
-    };
+            /* first check if we sprint or crouch for gievn frame */
+            let sprint = sprint_query.as_mut();
+            let sprint_multiplier = if input.pressed(KeyCode::ShiftLeft) {
+                sprint.sprinting = true;
+                SPRINT_MULTIPLIER
+            } else {
+                sprint.sprinting = false;
+                1.0
+            };
 
-    /* check if crouched */
-    let crouch = crouch_query.as_mut();
-    let crouch_multiplier = if input.pressed(KeyCode::KeyC){
-        crouch.crouching = true;
-        CROUCH_MULTIPLIER
-    } else {
-        crouch.crouching = false;
-        1.0
-    };
+            /* check if crouched */
+            let crouch = crouch_query.as_mut();
+            let crouch_multiplier = if input.pressed(KeyCode::KeyC){
+                crouch.crouching = true;
+                CROUCH_MULTIPLIER
+            } else {
+                crouch.crouching = false;
+                1.0
+            };
 
-    /* check if rolling */
-    let roll = roll_query.as_mut();
-    if input.pressed(KeyCode::KeyR){
-        roll.rolling = true;
+            /* check if rolling */
+            let roll = roll_query.as_mut();
+            if input.pressed(KeyCode::KeyR){
+                roll.rolling = true;
+            }
+
+            /* We have a fixed acceleration rate per time t, this
+            * lets us know how long it has been sine we updated,
+            * allowing us for smooth movement even when frames
+            * fluctuate */
+            let deltat = time.delta_seconds();
+            /* base acceleration * time gives standard movement. 
+            * crouch and sprint either halv, double, or cancel each other out*/
+            let acceleration = ACCELERATION_RATE * deltat * crouch_multiplier * sprint_multiplier;
+            let current_max = PLAYER_SPEED * crouch_multiplier * sprint_multiplier;
+
+
+
+            /* Take in keypresses and translate to velocity change
+            * We have a max speeed of max_speed based off of crouch/sprint, 
+            * and each frame are going to accelerate towards that, via acceleration */
+
+            /* God. im about to make it all 8 cardinals so we dont speed
+            * up on the diagonals TODODODODODODODODO */
+            if input.pressed(KeyCode::KeyA){
+                deltav.x -= acceleration;
+            }
+            if input.pressed(KeyCode::KeyD) {
+                deltav.x += acceleration;
+            }
+            if input.pressed(KeyCode::KeyW) {
+                deltav.y += acceleration;
+            }
+            if input.pressed(KeyCode::KeyS) {
+                deltav.y -= acceleration;
+            }
+
+            /* We now must update the player using the information we just got */
+
+            /* now we chek if we are going to fast. This doessss include
+            * a sqrt... if someone could figure without would be loverly */
+            let mut adjusted_speed = deltav.length();
+            
+            if adjusted_speed > current_max{
+                /* here we are. moving too fast. Honestly, I don't
+                * think that we should clamp, we may have just crouched.
+                * We should decelerate by a given rate, our acceleration rate! s
+                * not using the adjusted, dont want if crouch slow slowdown yk */
+                adjusted_speed -= ACCELERATION_RATE;
+                deltav.clamp_length_max(adjusted_speed);
+            }
+
+            /* final set */
+            player_velocity.velocity = deltav;
+
+
+
+        }
     }
-
-    /* We have a fixed acceleration rate per time t, this
-     * lets us know how long it has been sine we updated,
-     * allowing us for smooth movement even when frames
-     * fluctuate */
-    let deltat = time.delta_seconds();
-    /* base acceleration * time gives standard movement. 
-     * crouch and sprint either halv, double, or cancel each other out*/
-    let acceleration = ACCELERATION_RATE * deltat * crouch_multiplier * sprint_multiplier;
-    let current_max = PLAYER_SPEED * crouch_multiplier * sprint_multiplier;
-
-
-
-    /* Take in keypresses and translate to velocity change
-     * We have a max speeed of max_speed based off of crouch/sprint, 
-     * and each frame are going to accelerate towards that, via acceleration */
-
-    /* God. im about to make it all 8 cardinals so we dont speed
-     * up on the diagonals TODODODODODODODODO */
-    if input.pressed(KeyCode::KeyA){
-        deltav.x -= acceleration;
-    }
-    if input.pressed(KeyCode::KeyD) {
-        deltav.x += acceleration;
-    }
-    if input.pressed(KeyCode::KeyW) {
-        deltav.y += acceleration;
-    }
-    if input.pressed(KeyCode::KeyS) {
-        deltav.y -= acceleration;
-    }
-
-    /* We now must update the player using the information we just got */
-
-   /* now we chek if we are going to fast. This doessss include
-    * a sqrt... if someone could figure without would be loverly */
-    let mut adjusted_speed = deltav.length();
     
-    if adjusted_speed > current_max{
-        /* here we are. moving too fast. Honestly, I don't
-         * think that we should clamp, we may have just crouched.
-         * We should decelerate by a given rate, our acceleration rate! s
-         * not using the adjusted, dont want if crouch slow slowdown yk */
-        adjusted_speed -= ACCELERATION_RATE;
-        deltav.clamp_length_max(adjusted_speed);
-    }
-
-    /* final set */
-    player_velocity.velocity = deltav;
     
 }
 

@@ -1,6 +1,6 @@
 use std::{net::{ Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs, UdpSocket}, str::FromStr};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, tasks::IoTaskPool};
 use flexbuffers::FlexbufferSerializer;
 
 use crate::{camera::spawn_camera, carnage::*, cuscuta_resources::{self, ClientId}, network::*, player::*, room_gen::*};
@@ -27,7 +27,7 @@ pub fn client_setup(
     // let socket = SocketAddrV4::new(Ipv4Addr::new(sendable[0], sendable[1],sendable[2],sendable[3]), split_u16);
     
     
-    
+    //let _task = IoTaskPool::get_or_init(something());
     // spawn the starting room & next room
     spawn_start_room(&mut commands, &asset_server, &mut room_manager);
 
