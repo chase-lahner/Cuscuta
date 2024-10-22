@@ -3,12 +3,10 @@ use crate::player::*;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
-use std::mem;
 use std::io::Write;
 use std::net::UdpSocket;
-use std::{collections::HashMap, net::SocketAddr};
 
-#[derive(Resource)]
+#[derive(Resource, Component)]
 pub struct UDP {
     pub socket: UdpSocket,
 }
@@ -72,33 +70,12 @@ pub fn serialize_player(
     socket.socket.send_to(&packet, cuscuta_resources::SERVER_ADR).unwrap();
 } 
 
-
-/* once we have our packeet, we must use it to update
- * the player specified */
- pub fn update_player_state(
-    /* fake query, passed from above system */
-    mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    buf: &[u8],
-) { 
-    let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
-    let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
-    for (mut velo, mut transform, network_id) in players.iter_mut(){
-        if network_id.id == player_struct.id{
-            transform.translation.x = player_struct.transform_x;
-            transform.translation.y = player_struct.transform_y;
-            velo.velocity.x = player_struct.velocity_x;
-            velo.velocity.y = player_struct.velocity_y;
-        }
-    }
-}
-
-
 pub fn append_opcode(
     slice: &[u8],
     opcode: &[u8],
 ) -> Vec<u8> {
     let mut vec: Vec<u8> = Vec::with_capacity(slice.len() + 1);
     vec.write(slice).unwrap();
-    vec.write(opcode);
+    vec.write(opcode).unwrap();
     vec
 }

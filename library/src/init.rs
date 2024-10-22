@@ -3,7 +3,7 @@ use std::net::UdpSocket;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 
-use crate::{camera::spawn_camera, carnage::*, cuscuta_resources::{self, FlexSerializer}, network::*, player::*, room_gen::*};
+use crate::{camera::spawn_camera, carnage::*, cuscuta_resources::{self, ClientId, FlexSerializer}, network::*, player::*, room_gen::*};
 
 
 pub fn client_setup(
@@ -18,17 +18,15 @@ pub fn client_setup(
     /* initializes our networking socket */
     let socket = UdpSocket::bind("localhost:5000").unwrap();
     commands.insert_resource(UDP {socket: socket});
-    commands.insert_resource(FlexSerializer{serializer:flexbuffers::FlexbufferSerializer::new()});
-    
-
+    commands.insert_resource(ClientId{id:0});
     // spawn camera
     spawn_camera(&mut commands, &asset_server);
 
     client_spawn_carnage_bar(&mut commands, &asset_server);
     /* spawn pot to play with */
     client_spawn_pot(&mut commands, &asset_server);
-    // spawn player
-    client_spawn_player(&mut commands, &asset_server, &mut texture_atlases);
+    // spawn player, id 0 because it will be set later on
+    client_spawn_user_player(&mut commands, &asset_server, &mut texture_atlases, 0);
 }
 
 

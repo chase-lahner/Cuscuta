@@ -28,6 +28,9 @@ pub const ACCELERATION_RATE: f32 = 4800.;
 pub const SPRINT_MULTIPLIER: f32 = 2.0;
 pub const CROUCH_MULTIPLIER: f32 = 0.5;
 
+pub const PLAYER_SPRITE_COL: u32 = 4;
+pub const PLAYER_SPRITE_ROW: u32 = 8;
+
 pub const ENEMY_SPEED: f32 = 0.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
 
@@ -75,6 +78,14 @@ pub struct Door;
 pub struct Health{
     pub max: f32,
     pub current: f32
+}
+impl Health {
+    pub fn new() -> Self {
+        Self {
+            max: 100.,
+            current: 100.
+        }
+    }
 }
 
 #[derive(Resource)]

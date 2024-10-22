@@ -1,6 +1,8 @@
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
 use bevy::prelude::*;
 
-use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network, room_gen::*};
+use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network::{self, PlayerPacket}, room_gen::*};
 
 #[derive(Component)]
 pub struct Player;// wow! it is he!
@@ -8,21 +10,52 @@ pub struct Player;// wow! it is he!
 #[derive(Component)]
 pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
+    pub addr: SocketAddr
+}
+impl NetworkId {
+    pub fn new() -> Self {
+        Self {
+            id: 0,
+            /* stupid fake NULL(not really) ass address. dont use this. is set when connection established */
+            addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080)
+        }
+    }
 }
 
 #[derive(Component)]
 pub struct Crouch{
     pub crouching: bool
 }
+impl Crouch {
+    pub fn new() -> Self {
+        Self {
+            crouching: false
+        }
+    }
+}
 
 #[derive(Component)]
 pub struct Sprint{
     pub sprinting:bool
 }
+impl Sprint {
+    pub fn new() -> Self {
+        Self {
+            sprinting: false
+        }
+    }
+}
 /* global boolean to not re-attack */
 #[derive(Component)]
 pub struct Attack{
     pub attacking: bool
+}
+impl Attack {
+    pub fn new() -> Self {
+        Self {
+            attacking: false
+        }
+    }
 }
 
 
@@ -43,13 +76,14 @@ pub struct ClientPlayerBundle{
 
 #[derive(Bundle)]
 pub struct ServerPlayerBundle{
-    velo: Velocity,
-    id: NetworkId,
-    player: Player,
-    health: Health,
-    crouching: Crouch,
-    sprinting: Sprint,
-    attacking: Attack
+    pub velo: Velocity,
+    pub transform: Transform,
+    pub id: NetworkId,
+    pub player: Player,
+    pub health: Health,
+    pub crouching: Crouch,
+    pub sprinting: Sprint,
+    pub attacking: Attack
 }
 
 pub fn player_attack(
@@ -124,15 +158,16 @@ pub fn player_attack(
     }
 }
 
-/* Spawns in player, uses PlayerBundle for some consistency*/
-pub fn client_spawn_player(
+/* Spawns in user player, uses PlayerBundle for some consistency*/
+pub fn client_spawn_user_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    id: u8
 ) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
-        UVec2::splat(TILE_SIZE), 4, 8, None, None);
+        UVec2::splat(TILE_SIZE), PLAYER_SPRITE_COL, PLAYER_SPRITE_ROW, None, None);
     let player_layout_len = player_layout.textures.len();
     let player_layout_handle = texture_atlases.add(player_layout);
 
@@ -151,7 +186,9 @@ pub fn client_spawn_player(
         animation_frames: AnimationFrameCount(player_layout_len),
         velo: Velocity::new(),
         id:NetworkId {
-        id: 0
+        id: 0,
+        /* stupid fake NULL ass address. dont use this. is set when connection established */
+        addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080)
         },
         player: Player,
         health: Health{
@@ -164,18 +201,50 @@ pub fn client_spawn_player(
 });
 }
 
-/* spawns in a player entity for server. No Gui */
-pub fn server_spawn_player(
+pub fn client_spawn_other_player(
     commands: &mut Commands,
-    id: u8
-){
-    commands.spawn((
-        Velocity::new(),
-        NetworkId{
-            id: id
+    asset_server: &Res<AssetServer>,
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    player: PlayerPacket,
+    source_ip: SocketAddr
+) {
+    let player_sheet_handle = asset_server.load("player/4x8_player.png");
+    let player_layout = TextureAtlasLayout::from_grid(
+        UVec2::splat(TILE_SIZE), PLAYER_SPRITE_COL, PLAYER_SPRITE_ROW, None, None);
+    let player_layout_len = player_layout.textures.len();
+    let player_layout_handle = texture_atlases.add(player_layout);
+
+    // spawn player at origin
+    commands.spawn(ClientPlayerBundle{
+        sprite: SpriteBundle {
+            texture: player_sheet_handle,
+            transform: Transform::from_xyz(player.transform_x, player.transform_y, 900.),
+            ..default()
         },
-        Player,   
-    ));
+        atlas: TextureAtlas {
+            layout: player_layout_handle,
+            index: 0,
+        },
+        animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+        animation_frames: AnimationFrameCount(player_layout_len),
+        velo: Velocity::new(),
+        id:NetworkId{
+            id: player.id,
+            addr: source_ip
+        },
+        player: Player,
+        health: Health::new(),
+        crouching: Crouch{crouching:false},
+        sprinting: Sprint{sprinting:false},
+        attacking: Attack{attacking:false}
+});
+}
+
+
+fn server_spawn_player(
+
+) {
+
 }
 
 /* Checks for player interacting with game world.
