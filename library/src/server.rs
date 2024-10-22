@@ -1,11 +1,10 @@
 use std::net::{SocketAddr, UdpSocket};
 
-use bevy::{prelude::*, tasks::IoTaskPool};
-use flexbuffers::FlexbufferSerializer;
+use bevy::prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, FlexSerializer, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
+use crate::{cuscuta_resources::{self, AddressList, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
 
 /* Upon request, sends an id to client */
 pub fn send_id(
@@ -56,7 +55,6 @@ pub fn listen(
         _ => info!("read packet!")
     }
     let (amt, src) = packet.unwrap();
-    info!("Read!");
     
     /* when we serialize, we throw our opcode on the end, so we know how to
     * de-serialize... jank? maybe.  */
@@ -65,9 +63,7 @@ pub fn listen(
     /* trim trailing 0s */
     let t_buf = &buf[..amt-1];
 
-    
-    info!("{:?}",buf);
-    info!("opcode::{}",&opcode);
+
     match opcode{
         cuscuta_resources::GET_PLAYER_ID_CODE => {
             info!("sending id to client");

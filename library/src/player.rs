@@ -457,7 +457,7 @@ pub fn update_player_position(
 ) {
     let mut hit_door = false;
     let mut player_transform = Vec3::ZERO;
-    let door_type: Option<DoorType> = Option::None;
+    let mut door_type: Option<DoorType> = Option::None;
 
     // Player movement
     for ((mut pt, mut pv, id)) in player_query.iter_mut() {
@@ -525,7 +525,10 @@ pub fn update_player_position(
         // Store the player's position for later use
         player_transform = pt.translation;
 
-        let (hit_door, door_type) = handle_movement_and_enemy_collisions(&mut pt, change, &mut enemies, &mut room_manager, &door_query);
+        let baban = handle_movement_and_enemy_collisions(&mut pt, change, &mut enemies, &mut room_manager, &door_query);
+        hit_door = baban.0;
+        door_type = baban.1;
+        
     }
     // If a door was hit, handle the transition
     if hit_door {

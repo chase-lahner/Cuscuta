@@ -39,6 +39,10 @@ pub fn spawn_camera(
                 margin: UiRect{top: Val::VMin(0.), left: Val::VMax(0.),..default()},
                 ..default()
             },
+            transform: Transform{
+                translation: Vec3::new(0.,0.,900.),
+                ..default()
+            },
             ..default()
         },
         UiImage::new(asset_server.load("ui/ui_bar.png"))
