@@ -1,6 +1,8 @@
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
 use bevy::prelude::*;
 
-use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network, room_gen::*};
+use crate::{carnage::CarnageBar, collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network::{self, PlayerPacket}, room_gen::*};
 
 #[derive(Component)]
 pub struct Player;// wow! it is he!
@@ -8,21 +10,64 @@ pub struct Player;// wow! it is he!
 #[derive(Component)]
 pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
+    pub addr: SocketAddr
+}
+impl NetworkId {
+    pub fn new() -> Self {
+        Self {
+            id: 0,
+            /* stupid fake NULL(not really) ass address. dont use this. is set when connection established */
+            addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080)
+        }
+    }
 }
 
 #[derive(Component)]
 pub struct Crouch{
     pub crouching: bool
 }
+impl Crouch {
+    pub fn new() -> Self {
+        Self {
+            crouching: false
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct Roll{
+    pub rolling: bool
+}
+impl Roll{
+    pub fn new() -> Self{
+        Self{
+            rolling:false
+        }
+    }
+}
 
 #[derive(Component)]
 pub struct Sprint{
     pub sprinting:bool
 }
+impl Sprint {
+    pub fn new() -> Self {
+        Self {
+            sprinting: false
+        }
+    }
+}
 /* global boolean to not re-attack */
 #[derive(Component)]
 pub struct Attack{
     pub attacking: bool
+}
+impl Attack {
+    pub fn new() -> Self {
+        Self {
+            attacking: false
+        }
+    }
 }
 
 
@@ -37,19 +82,22 @@ pub struct ClientPlayerBundle{
     player: Player,
     health: Health,
     crouching: Crouch,
+    rolling: Roll,
     sprinting: Sprint,
     attacking: Attack,
 }
 
 #[derive(Bundle)]
 pub struct ServerPlayerBundle{
-    velo: Velocity,
-    id: NetworkId,
-    player: Player,
-    health: Health,
-    crouching: Crouch,
-    sprinting: Sprint,
-    attacking: Attack
+    pub velo: Velocity,
+    pub transform: Transform,
+    pub id: NetworkId,
+    pub player: Player,
+    pub health: Health,
+    pub crouching: Crouch,
+    pub rolling: Roll,
+    pub sprinting: Sprint,
+    pub attacking: Attack
 }
 
 pub fn player_attack(
@@ -80,6 +128,7 @@ pub fn player_attack(
 
      if input.just_pressed(MouseButton::Left)
      {
+        
         attack.attacking = true; //set attacking to true to override movement animations
         
         // deciding initial frame for swing (so not partial animation)
@@ -124,15 +173,34 @@ pub fn player_attack(
     }
 }
 
-/* Spawns in player, uses PlayerBundle for some consistency*/
-pub fn client_spawn_player(
+
+pub fn player_attack_enemy(
+    mut commands: Commands,
+    mut player: Query<(&Transform,&mut Attack), With<Player>,>,
+    enemies: Query<(Entity, &mut Transform), (With<Enemy>, Without<Player>)>
+) {
+    let (ptransform, pattack) = player.single_mut();
+    if pattack.attacking == false{return;}
+    let player_aabb = collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
+
+    for (ent, enemy_transform) in enemies.iter() {
+        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&enemy_aabb) {
+            commands.entity(ent).despawn();
+        }
+    }
+}
+
+/* Spawns in user player, uses PlayerBundle for some consistency*/
+pub fn client_spawn_user_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    id: u8
 ) {
-    let player_sheet_handle = asset_server.load("player/4x8_player.png");
+    let player_sheet_handle = asset_server.load("player/4x12_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
-        UVec2::splat(TILE_SIZE), 4, 8, None, None);
+        UVec2::splat(TILE_SIZE), PLAYER_SPRITE_COL, PLAYER_SPRITE_ROW, None, None);
     let player_layout_len = player_layout.textures.len();
     let player_layout_handle = texture_atlases.add(player_layout);
 
@@ -151,7 +219,9 @@ pub fn client_spawn_player(
         animation_frames: AnimationFrameCount(player_layout_len),
         velo: Velocity::new(),
         id:NetworkId {
-        id: 0
+        id: 0,
+        /* stupid fake NULL ass address. dont use this. is set when connection established */
+        addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080)
         },
         player: Player,
         health: Health{
@@ -159,23 +229,50 @@ pub fn client_spawn_player(
             current: 100.
         },
         crouching: Crouch{crouching:false},
+        rolling: Roll{rolling:false},
         sprinting: Sprint{sprinting:false},
         attacking: Attack{attacking:false}
 });
 }
 
-/* spawns in a player entity for server. No Gui */
-pub fn server_spawn_player(
+pub fn client_spawn_other_player(
     commands: &mut Commands,
-    id: u8
-){
-    commands.spawn((
-        Velocity::new(),
-        NetworkId{
-            id: id
+    asset_server: &Res<AssetServer>,
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    player: PlayerPacket,
+    source_ip: SocketAddr
+) {
+    let player_sheet_handle = asset_server.load("player/4x8_player.png");
+    let player_layout = TextureAtlasLayout::from_grid(
+        UVec2::splat(TILE_SIZE), PLAYER_SPRITE_COL, PLAYER_SPRITE_ROW, None, None);
+    let player_layout_len = player_layout.textures.len();
+    let player_layout_handle = texture_atlases.add(player_layout);
+
+    // spawn player at origin
+    commands.spawn(ClientPlayerBundle{
+        sprite: SpriteBundle {
+            texture: player_sheet_handle,
+            transform: Transform::from_xyz(player.transform_x, player.transform_y, 900.),
+            ..default()
         },
-        Player,   
-    ));
+        rolling: Roll::new(),
+        atlas: TextureAtlas {
+            layout: player_layout_handle,
+            index: 0,
+        },
+        animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+        animation_frames: AnimationFrameCount(player_layout_len),
+        velo: Velocity::new(),
+        id:NetworkId{
+            id: player.id,
+            addr: source_ip
+        },
+        player: Player,
+        health: Health::new(),
+        crouching: Crouch{crouching:false},
+        sprinting: Sprint{sprinting:false},
+        attacking: Attack{attacking:false}
+});
 }
 
 /* Checks for player interacting with game world.
@@ -206,7 +303,7 @@ pub fn player_interact(
         && pot.touch == 0
     {
         pot.touch += 1;
-
+        //TODO 
     }
 
 
@@ -214,84 +311,97 @@ pub fn player_interact(
 
 pub fn player_input(
     mut commands: Commands,
-    mut player: Query<( &mut Velocity, &mut Crouch, &mut Sprint), (With<Player>, Without<Background>)>,
+    mut player: Query<( &mut Velocity, &mut Crouch, &mut Roll, &mut Sprint, &NetworkId), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-
+    client_id: Res<ClientId>,
 ) {
-    let (mut player_velocity, mut crouch_query, mut sprint_query) = player.single_mut();
-    /* should be copy of player for us to apply input to */
-    let mut deltav = player_velocity.velocity;
+    for (mut player_velocity, mut crouch_query, mut roll_query, mut sprint_query, player_id) in player.iter_mut(){
+        if player_id.id == client_id.id{
+            /* should be copy of player for us to apply input to */
+            let mut deltav = player_velocity.velocity;
 
 
-    /* first check if we sprint or crouch for gievn frame */
-    let sprint = sprint_query.as_mut();
-    let sprint_multiplier = if input.pressed(KeyCode::ShiftLeft) {
-        sprint.sprinting = true;
-        SPRINT_MULTIPLIER
-    } else {
-        sprint.sprinting = false;
-        1.0
-    };
+            /* first check if we sprint or crouch for gievn frame */
+            let sprint = sprint_query.as_mut();
+            let sprint_multiplier = if input.pressed(KeyCode::ShiftLeft) {
+                sprint.sprinting = true;
+                SPRINT_MULTIPLIER
+            } else {
+                sprint.sprinting = false;
+                1.0
+            };
 
-    /* check if crouched */
-    let crouch = crouch_query.as_mut();
-    let crouch_multiplier = if input.pressed(KeyCode::KeyC){
-        crouch.crouching = true;
-        CROUCH_MULTIPLIER
-    } else {
-        crouch.crouching = false;
-        1.0
-    };
+            /* check if crouched */
+            let crouch = crouch_query.as_mut();
+            let crouch_multiplier = if input.pressed(KeyCode::KeyC){
+                crouch.crouching = true;
+                CROUCH_MULTIPLIER
+            } else {
+                crouch.crouching = false;
+                1.0
+            };
 
-    /* We have a fixed acceleration rate per time t, this
-     * lets us know how long it has been sine we updated,
-     * allowing us for smooth movement even when frames
-     * fluctuate */
-    let deltat = time.delta_seconds();
-    /* base acceleration * time gives standard movement. 
-     * crouch and sprint either halv, double, or cancel each other out*/
-    let acceleration = ACCELERATION_RATE * deltat * crouch_multiplier * sprint_multiplier;
-    let current_max = PLAYER_SPEED * crouch_multiplier * sprint_multiplier;
+            /* check if rolling */
+            let roll = roll_query.as_mut();
+            if input.pressed(KeyCode::KeyR){
+                roll.rolling = true;
+            }
+
+            /* We have a fixed acceleration rate per time t, this
+            * lets us know how long it has been sine we updated,
+            * allowing us for smooth movement even when frames
+            * fluctuate */
+            let deltat = time.delta_seconds();
+            /* base acceleration * time gives standard movement. 
+            * crouch and sprint either halv, double, or cancel each other out*/
+            let acceleration = ACCELERATION_RATE * deltat * crouch_multiplier * sprint_multiplier;
+            let current_max = PLAYER_SPEED * crouch_multiplier * sprint_multiplier;
 
 
 
-    /* Take in keypresses and translate to velocity change
-     * We have a max speeed of max_speed based off of crouch/sprint, 
-     * and each frame are going to accelerate towards that, via acceleration */
+            /* Take in keypresses and translate to velocity change
+            * We have a max speeed of max_speed based off of crouch/sprint, 
+            * and each frame are going to accelerate towards that, via acceleration */
 
-    /* God. im about to make it all 8 cardinals so we dont speed
-     * up on the diagonals TODODODODODODODODO */
-    if input.pressed(KeyCode::KeyA){
-        deltav.x -= acceleration;
+            /* God. im about to make it all 8 cardinals so we dont speed
+            * up on the diagonals TODODODODODODODODO */
+            if input.pressed(KeyCode::KeyA){
+                deltav.x -= acceleration;
+            }
+            if input.pressed(KeyCode::KeyD) {
+                deltav.x += acceleration;
+            }
+            if input.pressed(KeyCode::KeyW) {
+                deltav.y += acceleration;
+            }
+            if input.pressed(KeyCode::KeyS) {
+                deltav.y -= acceleration;
+            }
+
+            /* We now must update the player using the information we just got */
+
+            /* now we chek if we are going to fast. This doessss include
+            * a sqrt... if someone could figure without would be loverly */
+            let mut adjusted_speed = deltav.length();
+            
+            if adjusted_speed > current_max{
+                /* here we are. moving too fast. Honestly, I don't
+                * think that we should clamp, we may have just crouched.
+                * We should decelerate by a given rate, our acceleration rate! s
+                * not using the adjusted, dont want if crouch slow slowdown yk */
+                adjusted_speed -= ACCELERATION_RATE;
+                deltav.clamp_length_max(adjusted_speed);
+            }
+
+            /* final set */
+            player_velocity.velocity = deltav;
+
+
+
+        }
     }
-    if input.pressed(KeyCode::KeyD) {
-        deltav.x += acceleration;
-    }
-    if input.pressed(KeyCode::KeyW) {
-        deltav.y += acceleration;
-    }
-    if input.pressed(KeyCode::KeyS) {
-        deltav.y -= acceleration;
-    }
-
-    /* We now must update the player using the information we just got */
-
-   /* now we chek if we are going to fast. This doessss include
-    * a sqrt... if someone could figure without would be loverly */
-    let mut adjusted_speed = deltav.length();
     
-    if adjusted_speed > current_max{
-        /* here we are. moving too fast. Honestly, I don't
-         * think that we should clamp, we may have just crouched.
-         * We should decelerate by a given rate, our acceleration rate! s
-         * not using the adjusted, dont want if crouch slow slowdown yk */
-        adjusted_speed -= ACCELERATION_RATE;
-        deltav.clamp_length_max(adjusted_speed);
-    }
-
-    /* final set */
-    player_velocity.velocity = deltav;
     
 }
 
@@ -340,40 +450,47 @@ pub fn update_player_position(
     if let Ok((mut pt, mut pv)) = player_query.get_single_mut() {
         let mut deltav = Vec2::splat(0.);
 
-        // INPUT HANDLING
-        if input.pressed(KeyCode::KeyA) {
-            deltav.x -= 1.;
-        }
-        if input.pressed(KeyCode::KeyD) {
-            deltav.x += 1.;
-        }
-        if input.pressed(KeyCode::KeyW) {
-            deltav.y += 1.;
-        }
-        if input.pressed(KeyCode::KeyS) {
-            deltav.y -= 1.;
-        }
+    // INPUT HANDLING
+    if input.pressed(KeyCode::KeyA) {
+        deltav.x -= 1.;
+    }
+    if input.pressed(KeyCode::KeyD) {
+        deltav.x += 1.;
+    }
+    if input.pressed(KeyCode::KeyW) {
+        deltav.y += 1.;
+    }
+    if input.pressed(KeyCode::KeyS) {
+        deltav.y -= 1.;
+    }
 
-        let deltat = time.delta_seconds();
-        let acc = ACCELERATION_RATE * deltat;
+    let deltat = time.delta_seconds();
+    let acc = ACCELERATION_RATE * deltat;
 
-        // sprint - check if shift is pressed
-        let speed_multiplier = if input.pressed(KeyCode::ShiftLeft) {
-            SPRINT_MULTIPLIER
-        } else {
-            1.0
-        };
+    // sprint - check if shift is pressed
+    let speed_multiplier = if input.pressed(KeyCode::ShiftLeft) {
+        SPRINT_MULTIPLIER
+    } else {
+        1.0
+    };
 
-        // set new max speed
-        let max_speed = PLAYER_SPEED * speed_multiplier;
+    // set new max speed
+    let max_speed = PLAYER_SPEED * speed_multiplier;
 
-        pv.velocity = if deltav.length() > 0. {
-            (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed)
-        } else if pv.velocity.length() > acc {
-            pv.velocity + (pv.velocity.normalize_or_zero() * -acc)
-        } else {
-            Vec2::splat(0.)
-        };
+    /* check if rolling */
+    /*let roll = roll_query.as_mut();
+    if input.pressed(KeyCode::KeyR){
+        roll.rolling = true;
+    }*/
+
+    pv.velocity = if deltav.length() > 0. {
+        (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed)
+    } else if pv.velocity.length() > acc {
+        pv.velocity + (pv.velocity.normalize_or_zero() * -acc)
+    } else {
+        Vec2::splat(0.)
+    };
+
 
         let change = pv.velocity * deltat;
         let (room_width, room_height) = room_manager.current_room_size();
@@ -503,7 +620,8 @@ pub fn animate_player(
             &mut TextureAtlas,
             &mut AnimationTimer,
             &AnimationFrameCount,
-            &Attack
+            &Attack,
+            &Roll
         ),
         With<Player>,
     >,
@@ -514,8 +632,9 @@ pub fn animate_player(
      * 24 - 27 = right
      * 28 - 31 = left
      * ratlas. heh. get it.*/
-    let (v, mut ratlas, mut timer, _frame_count, attack) = player.single_mut();
+    let (v, mut ratlas, mut timer, _frame_count, attack, roll) = player.single_mut();
     if attack.attacking == true{return;}//checking if attack animations are running
+    if roll.rolling == true{return;}//checking if roll animations are running
     //if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 
@@ -539,4 +658,71 @@ pub fn animate_player(
             }
         }
     //}
+}
+
+pub fn player_roll(
+    time: Res<Time>,
+    input: Res<ButtonInput<KeyCode>>,
+    mut player: Query<
+        (
+            &Velocity,
+            &mut TextureAtlas,
+            &mut AnimationTimer,
+            &AnimationFrameCount,
+            &Attack,
+            &mut Roll
+        ),
+        With<Player>,
+    >,
+) {
+    /* In texture atlas for ratatta:
+     * 36 - 39 = up
+     * 32- 35 = down
+     * 44 - 47 = right
+     * 40 - 43 = left
+     * ratlas. heh. get it.*/
+     let (v, mut ratlas, mut timer, _frame_count, attack, mut roll) = player.single_mut();
+     let abx = v.velocity.x.abs();
+     let aby = v.velocity.y.abs();
+
+    if attack.attacking == true{return;} //do not roll if swinging
+
+    if input.pressed(KeyCode::KeyR){
+        roll.rolling = true;
+        if abx > aby {
+            if v.velocity.x >= 0.{ratlas.index = 44;}
+            else if v.velocity.x < 0. {ratlas.index = 40;}
+        }
+        else {
+            if v.velocity.y >= 0.{ratlas.index = 36;}
+            else if v.velocity.y < 0. {ratlas.index = 32;}
+        }
+        timer.reset();
+    }
+
+    if roll.rolling == true
+    {
+        timer.tick(time.delta());
+
+        if abx > aby {
+            if v.velocity.x >= 0.{
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 44;}
+                if ratlas.index == 47{roll.rolling = false; ratlas.index = 24} //allow for movement anims after last swing frame
+            }
+            else if v.velocity.x < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 40;}
+                if ratlas.index == 43{roll.rolling = false; ratlas.index = 28} //allow for movement anims after last swing frame
+            }
+        }
+        else {
+            if v.velocity.y >= 0.{
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 36;}
+                if ratlas.index == 39{roll.rolling = false; ratlas.index = 16} //allow for movement anims after last swing frame
+            }
+            else if v.velocity.y < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 32;}
+                if ratlas.index == 35{roll.rolling = false; ratlas.index = 20} //allow for movement anims after last swing frame
+            }
+        }
+    }
 }
