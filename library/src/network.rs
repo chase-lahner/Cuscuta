@@ -1,13 +1,14 @@
-use crate::cuscuta_resources::{self, Velocity};
+use crate::cuscuta_resources::{self, FlexSerializer, Velocity, PLAYER_DATA};
 use crate::player::*;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::net::UdpSocket;
 use std::{collections::HashMap, net::SocketAddr};
 use std::io;
 
-#[derive(Resource)]
+#[derive(Resource, Component)]
 pub struct UDP {
     pub socket: UdpSocket,
 }
@@ -21,37 +22,20 @@ pub struct BufSerializer {
     pub serializer: FlexbufferSerializer,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct UDPHeader {
-    pub opcode: u8,
-    pub id: u8,
-}
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PlayerPacket{
-    pub head: UDPHeader,
+    pub id: u8,
     pub transform_x: f32,
     pub transform_y: f32,
     pub velocity_x: f32,
     pub velocity_y: f32,
 }
 
-
-pub fn send_movement_info(
-    socket: Res<UDP>, 
-    player: Query<&Transform, With<Player>>
-) {
-    let pt = player.single();
-    let x = pt.translation.x;
-    let y = pt.translation.y;
-    let x_int = unsafe { any_as_u8_slice(&x) };
-    let y_int = unsafe { any_as_u8_slice(&y) };
-    let buf: [u8; 2] = [x_int[0], y_int[0]];
-    //print!("{:?}", &buf);
-
-    socket.socket.send_to(&buf, "localhost:5001").unwrap();
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct IdPacket{
+    pub id: u8
 }
-
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     // will slice anything into u8 array !! https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8
@@ -67,40 +51,39 @@ pub unsafe fn u8_to_f32(input_arr: &[u8]) -> (&[u8], &[f32], &[u8]) {
  * we can then send across the wire to be deserialized once it arrives */
 pub fn serialize_player(
     player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
-    socket : Res<UDP>
+    socket : Res<UDP>,
+    mut serializer: ResMut<FlexSerializer>,
 )
 {
     /* Deconstruct out Query. SHould be client side so we can do single */
     let (t, v, i) = player.single();
-    let mut serializer = flexbuffers::FlexbufferSerializer::new();
-    let header = UDPHeader {opcode: 1, id: i.id};
     let outgoing_state = PlayerPacket {
-        head: header, 
+        id: i.id,
         transform_x: t.translation.x,
         transform_y: t.translation.y,
         velocity_x: v.velocity.x,
         velocity_y: v.velocity.y,
     };
 
-    outgoing_state.serialize(&mut serializer).unwrap();
+    outgoing_state.serialize(&mut serializer.serializer).unwrap();
 
-    let r  = flexbuffers::Reader::get_root(serializer.view()).unwrap();
-   
-    socket.socket.send_to(serializer.view(), cuscuta_resources::SERVER_ADR).unwrap();
+    /* slices are gross and ugl and i need +1 sooooo vec back to slice ig */
+    let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
+    let packet_vec  = append_opcode(serializer.serializer.view(), opcode);
+    let packet: &[u8] = &(&packet_vec);
+
+    /* beam him up scotty */
+    socket.socket.send_to(&packet, cuscuta_resources::SERVER_ADR).unwrap();
 } 
 
-
-
-pub fn server_assign_id(socket_addr : SocketAddr, mut player_hash : HashMap<String, u8>, n_p: &mut u8) -> u8{
-    let arg_ip = socket_addr.ip();
-    let ip_string = arg_ip.to_string();
-    let player_id: u8 = 255 - *n_p;
-
-    *n_p += 1;
-
-    player_hash.insert(ip_string, player_id);
-
-    player_id
+pub fn append_opcode(
+    slice: &[u8],
+    opcode: &[u8],
+) -> Vec<u8> {
+    let mut vec: Vec<u8> = Vec::with_capacity(slice.len() + 1);
+    vec.write(slice).unwrap();
+    vec.write(opcode).unwrap();
+    vec
 }
 
 pub fn get_ip_addr() -> String {

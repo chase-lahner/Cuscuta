@@ -3,6 +3,7 @@
  * I hope this dead_code isn't package wide... */
 #![allow(dead_code)]
 use bevy::prelude::*;
+use flexbuffers::FlexbufferSerializer;
 use serde::Serialize;
 
 
@@ -11,8 +12,10 @@ use serde::Serialize;
 
 
 
-pub const SERVER_ADR: &str = "10.4.81.214:5001"; //136.142.159.86:5001
+pub const SERVER_ADR: &str = "10.0.0.60:5001"; //136.142.159.86:5001
 pub const GET_PLAYER_ID_CODE: u8 = 255;
+pub const PLAYER_DATA: u8 = 254;
+/* end opcode!! */
 
 pub const TITLE: &str = "Cuscuta Demo";// window title
 pub const WIN_W: f32 = 1280.;// window width
@@ -22,6 +25,9 @@ pub const PLAYER_SPEED: f32 = 480.;
 pub const ACCELERATION_RATE: f32 = 4800.; 
 pub const SPRINT_MULTIPLIER: f32 = 2.0;
 pub const CROUCH_MULTIPLIER: f32 = 0.5;
+
+pub const PLAYER_SPRITE_COL: u32 = 4;
+pub const PLAYER_SPRITE_ROW: u32 = 16;
 
 pub const ENEMY_SPEED: f32 = 160.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
@@ -68,6 +74,31 @@ pub struct Health{
     pub max: f32,
     pub current: f32
 }
+impl Health {
+    pub fn new() -> Self {
+        Self {
+            max: 100.,
+            current: 100.
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct PlayerCount{
+    pub count: u8
+}
+
+#[derive(Resource)]
+pub struct FlexSerializer{
+    pub serializer: FlexbufferSerializer
+}
+
+#[derive(Resource)]
+pub struct ClientId{
+    pub id: u8
+}
+
+
 
 #[derive(Component, Serialize)]
 pub struct Velocity {
