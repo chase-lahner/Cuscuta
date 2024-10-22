@@ -8,6 +8,8 @@ use crate::{cuscuta_resources::*, player::*, collision::*};
 #[derive(Component)]
 pub struct Enemy {
     pub direction: Vec2,
+    pub timer: Timer,
+    pub axis: i32,
 } 
 
 /* Should soon be deprecated. Need to base
@@ -30,6 +32,8 @@ pub fn spawn_enemies(
             },
             Enemy {
                 direction: Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                timer: Timer::from_seconds(3.0, TimerMode::Repeating),
+                axis: 1
             },
         ));
     }
@@ -41,19 +45,21 @@ pub fn server_spawn_enemy(
     let mut rng = rand::thread_rng();
     commands.spawn((
         Enemy{
-            direction: Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize()
+            direction: Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+            timer: Timer::from_seconds(5.0, TimerMode::Repeating),
+            axis: 1,
         },
     ));
 }
 
 pub fn enemy_movement(
-    mut enemy_query: Query<(&mut Transform, &Enemy)>,
+    mut enemy_query: Query<(&mut Transform, &mut Enemy)>,
     mut player_query: Query<(&mut Transform, &Player, &mut Health), (With<Player>, Without<Enemy>)>,
     time: Res<Time>
 ) {
     //let mut desire: [Vec3; NUMBER_OF_ENEMIES as usize] = Default::default();
     //let mut index = 0;
-    for (mut transform, _enemy) in enemy_query.iter_mut() {
+    for (mut transform, mut _enemy) in enemy_query.iter_mut() {
         
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
@@ -79,16 +85,24 @@ pub fn enemy_movement(
                 let direction_to_player = player_transform.translation - transform.translation;
                 let normalized_direction = direction_to_player.normalize();
                 //let opp_direction = Vec3::new(normalized_direction.x * -1., normalized_direction.y * -1., normalized_direction.z);
-                pt.translation += normalized_direction * 64.;
+                pt.translation.x += normalized_direction.x * 64.;
+                pt.translation.y += normalized_direction.y * 64.;
                 player_transform.translation = pt.translation;
             }
 
         }
-
+        _enemy.timer.tick(time.delta());
         // if none in range, check for next enemy
         if longest == 0.0{
         //    desire[index] = Vec3::new(0.,0.,0.);
         //    index = index + 1;
+            
+            if _enemy.timer.finished(){
+                _enemy.axis = _enemy.axis * -1;
+            }
+            let normalized_direction = Vec3::new(1. * _enemy.axis as f32, 0. * _enemy.axis as f32, 0.);
+            transform.translation.x += normalized_direction.x * ENEMY_SPEED/2. * time.delta_seconds();
+            transform.translation.y += normalized_direction.y * ENEMY_SPEED/2. * time.delta_seconds();
             continue;
         }
         
@@ -110,7 +124,9 @@ pub fn enemy_movement(
             }
         }  **/  
 
-        transform.translation += normalized_direction * ENEMY_SPEED * time.delta_seconds();
+        //transform.translation += normalized_direction * ENEMY_SPEED * time.delta_seconds();
+        transform.translation.x += normalized_direction.x * ENEMY_SPEED * time.delta_seconds();
+        transform.translation.y += normalized_direction.y * ENEMY_SPEED * time.delta_seconds();
 
     }
 }
