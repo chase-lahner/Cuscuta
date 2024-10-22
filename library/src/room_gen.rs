@@ -156,7 +156,7 @@ impl RoomManager {
         new_height: usize
     ) {
         // Find the bounds of the current room
-        println!("Z FUCKER: {}", z_index);
+        println!("Z: {}", z_index);
         
         if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_x = (left_x + right_x) / 2;
@@ -203,6 +203,62 @@ impl RoomManager {
     
         } else {
             println!("Error: BOTTOM Could not find bounds for the current room with z_index {}", z_index);
+        }
+    }
+
+    pub fn add_room_to_map_from_left_door(
+        &mut self, 
+        z_index: i32, 
+        new_z_index: i32, 
+        new_width: usize, 
+        new_height: usize
+    ) {
+        // Find the bounds of the current room
+        if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
+            let old_y = (top_y + bottom_y) / 2;
+            let old_x = left_x;
+            println!("width: {}", new_width);
+            println!("height: {}", new_height);
+            let start_y = old_y - (new_height / 2);
+            let start_x = old_x - new_width;
+
+            // Loop through the dimensions of the room and place the z_index in the grid
+            for x in start_x..(start_x + new_width) {
+                for y in start_y..(start_y + new_height) {
+                    self.room_map[x][y] = new_z_index;
+                }
+            }
+    
+        } else {
+            println!("Error: LEFT Could not find bounds for the current room with z_index {}", z_index);
+        }
+    }
+
+    pub fn add_room_to_map_from_right_door(
+        &mut self, 
+        z_index: i32, 
+        new_z_index: i32, 
+        new_width: usize, 
+        new_height: usize
+    ) {
+        // Find the bounds of the current room
+        if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
+            let old_y = (top_y + bottom_y) / 2;
+            let old_x = right_x + 1;
+            println!("width: {}", new_width);
+            println!("height: {}", new_height);
+            let start_y = old_y - (new_height / 2);
+            let start_x = old_x;
+
+            // Loop through the dimensions of the room and place the z_index in the grid
+            for x in start_x..(start_x + new_width) {
+                for y in start_y..(start_y + new_height) {
+                    self.room_map[x][y] = new_z_index;
+                }
+            }
+    
+        } else {
+            println!("Error: RIGHT Could not find bounds for the current room with z_index {}", z_index);
         }
     }
 
@@ -679,13 +735,58 @@ pub fn transition_map(
     // Adjust the player's position based on the door they entered
     match door_type {
         DoorType::Right => {
-            // pass in left door
+            // get new z index
+            let new_z_index = room_manager.get_global_z_index() - 2.0;
+
+            let current_z = room_manager.get_current_z_index();
+            let global_z = room_manager.get_global_z_index();
+
+            // add new room to map relative to current room top door
+            room_manager.add_room_to_map_from_right_door(
+                current_z as i32,
+                new_z_index as i32,
+                room_width as usize / TILE_SIZE as usize,
+                room_height as usize / TILE_SIZE as usize,
+            );
+
+            // generate the room with random bounds
+            generate_random_room_with_bounds(
+                commands,
+                &asset_server,
+                room_manager,
+                room_width as usize / TILE_SIZE as usize,
+                room_height as usize / TILE_SIZE as usize,
+            );
+            // pass in right door
             //generate_random_room(commands, &asset_server, room_manager);
 
-            // Spawn the player a little away from the left door to avoid getting stuck
+            // Spawn the player a little away from the right door
             pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
         },
         DoorType::Left => {
+
+            // get new z index
+            let new_z_index = room_manager.get_global_z_index() - 2.0;
+
+            let current_z = room_manager.get_current_z_index();
+            let global_z = room_manager.get_global_z_index();
+
+            // add new room to map relative to current room top door
+            room_manager.add_room_to_map_from_left_door(
+                current_z as i32,
+                new_z_index as i32,
+                room_width as usize / TILE_SIZE as usize,
+                room_height as usize / TILE_SIZE as usize,
+            );
+
+            // generate the room with random bounds
+            generate_random_room_with_bounds(
+                commands,
+                &asset_server,
+                room_manager,
+                room_width as usize / TILE_SIZE as usize,
+                room_height as usize / TILE_SIZE as usize,
+            );
             // pass in right door
             //generate_random_room(commands, &asset_server, room_manager);
 
