@@ -5,19 +5,21 @@ use flexbuffers::FlexbufferSerializer;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, FlexSerializer, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
+use crate::{cuscuta_resources::{self, AddressList, FlexSerializer, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
 
 /* Upon request, sends an id to client */
 pub fn send_id(
     source_addr : SocketAddr,
     server_socket: &UdpSocket, 
     n_p: &mut PlayerCount,
-    mut commands: Commands
+    mut commands: Commands,
+    mut addresses: ResMut<AddressList>
 ) {
     /* assign id, update player count */
     let player_id: u8 = 255 - n_p.count;
     n_p.count += 1;
     commands.spawn(NetworkId{id:player_id,addr: source_addr});
+    addresses.list.push(source_addr);
 
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
     /* lil baby struct to serialize */
@@ -40,18 +42,21 @@ pub fn listen(
     mut commands: Commands,
     mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     mut n_p: ResMut<PlayerCount>,
+    mut addresses: ResMut<AddressList>
+
 ) {
     info!("Listening!!");
 
-    // let task_pool = IoTaskPool::get();
-    // let task = task_pool.spawn(async move {
-
-    // })
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
-    let (amt, src) = udp.socket.recv_from(&mut buf).unwrap();
+    // pseudo poll. nonblocking, gives ERR on no read tho
+    let packet = udp.socket.recv_from(&mut buf);
+    match packet{
+        Err(e)=> return,
+        _ => info!("read packet!")
+    }
+    let (amt, src) = packet.unwrap();
     info!("Read!");
-    let mut serializer = flexbuffers::FlexbufferSerializer::new();
     
     /* when we serialize, we throw our opcode on the end, so we know how to
     * de-serialize... jank? maybe.  */
@@ -66,7 +71,7 @@ pub fn listen(
     match opcode{
         cuscuta_resources::GET_PLAYER_ID_CODE => {
             info!("sending id to client");
-            send_id(src, &udp.socket, n_p.as_mut(), commands)},
+            send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
         cuscuta_resources::PLAYER_DATA =>
             update_player_state(src, players, t_buf, commands),
         _ => 
@@ -120,27 +125,31 @@ fn update_player_state(
  pub fn send_player(
     player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
     socket : Res<UDP>,
+    mut addresses: ResMut<AddressList>
 )
 {
     /* Deconstruct out Query. SHould be client side so we can do single */
     for (t, v, i)  in player.iter(){
-        let outgoing_state = PlayerPacket { 
-            id: i.id,
-            transform_x: t.translation.x,
-            transform_y: t.translation.y,
-            velocity_x: v.velocity.x,
-            velocity_y: v.velocity.y,
-        };
-    
-        let mut serializer = flexbuffers::FlexbufferSerializer::new();
-        outgoing_state.serialize(&mut serializer).unwrap();
-        
-        let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
-        let packet_vec  = append_opcode(serializer.view(), opcode);
-        let packet: &[u8] = &(&packet_vec);
+        for address in addresses.list.iter(){
+            if *address != i.addr{
+                let outgoing_state = PlayerPacket { 
+                    id: i.id,
+                    transform_x: t.translation.x,
+                    transform_y: t.translation.y,
+                    velocity_x: v.velocity.x,
+                    velocity_y: v.velocity.y,
+                };
+            
+                let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                outgoing_state.serialize(&mut serializer).unwrap();
+                
+                let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
+                let packet_vec  = append_opcode(serializer.view(), opcode);
+                let packet: &[u8] = &(&packet_vec);
 
-        info!("length of player packet:{:?}", packet);
-        socket.socket.send_to(&packet, i.addr).unwrap();
+                socket.socket.send_to(&packet, address).unwrap();
+            }
+        }
     }
 }
 
