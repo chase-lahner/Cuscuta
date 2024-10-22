@@ -35,6 +35,18 @@ impl Crouch {
 }
 
 #[derive(Component)]
+pub struct Roll{
+    pub rolling: bool
+}
+impl Roll{
+    pub fn new() -> Self{
+        Self{
+            rolling:false
+        }
+    }
+}
+
+#[derive(Component)]
 pub struct Sprint{
     pub sprinting:bool
 }
@@ -70,6 +82,7 @@ pub struct ClientPlayerBundle{
     player: Player,
     health: Health,
     crouching: Crouch,
+    rolling: Roll,
     sprinting: Sprint,
     attacking: Attack,
 }
@@ -82,6 +95,7 @@ pub struct ServerPlayerBundle{
     pub player: Player,
     pub health: Health,
     pub crouching: Crouch,
+    pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack
 }
@@ -114,6 +128,7 @@ pub fn player_attack(
 
      if input.just_pressed(MouseButton::Left)
      {
+        
         attack.attacking = true; //set attacking to true to override movement animations
         
         // deciding initial frame for swing (so not partial animation)
@@ -158,6 +173,40 @@ pub fn player_attack(
     }
 }
 
+pub fn player_attack_enemy(
+    mut commands: Commands,
+    mut player: Query<(&Transform,&mut Attack), With<Player>,>,
+    enemies: Query<(Entity, &mut Transform), (With<Enemy>, Without<Player>)>
+) {
+    let (ptransform, pattack) = player.single_mut();
+    if pattack.attacking == false{return;}
+    let player_aabb = collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
+
+    for (ent, enemy_transform) in enemies.iter() {
+        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&enemy_aabb) {
+            commands.entity(ent).despawn();
+        }
+    }
+}
+
+pub fn player_attack_enemy(
+    mut commands: Commands,
+    mut player: Query<(&Transform,&mut Attack), With<Player>,>,
+    enemies: Query<(Entity, &mut Transform), (With<Enemy>, Without<Player>)>
+) {
+    let (ptransform, pattack) = player.single_mut();
+    if pattack.attacking == false{return;}
+    let player_aabb = collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
+
+    for (ent, enemy_transform) in enemies.iter() {
+        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&enemy_aabb) {
+            commands.entity(ent).despawn();
+        }
+    }
+}
+
 /* Spawns in user player, uses PlayerBundle for some consistency*/
 pub fn client_spawn_user_player(
     commands: &mut Commands,
@@ -165,7 +214,7 @@ pub fn client_spawn_user_player(
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     id: u8
 ) {
-    let player_sheet_handle = asset_server.load("player/4x8_player.png");
+    let player_sheet_handle = asset_server.load("player/4x12_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
         UVec2::splat(TILE_SIZE), PLAYER_SPRITE_COL, PLAYER_SPRITE_ROW, None, None);
     let player_layout_len = player_layout.textures.len();
@@ -196,6 +245,7 @@ pub fn client_spawn_user_player(
             current: 100.
         },
         crouching: Crouch{crouching:false},
+        rolling: Roll{rolling:false},
         sprinting: Sprint{sprinting:false},
         attacking: Attack{attacking:false}
 });
@@ -221,6 +271,7 @@ pub fn client_spawn_other_player(
             transform: Transform::from_xyz(player.transform_x, player.transform_y, 900.),
             ..default()
         },
+        rolling: Roll::new(),
         atlas: TextureAtlas {
             layout: player_layout_handle,
             index: 0,
@@ -238,13 +289,6 @@ pub fn client_spawn_other_player(
         sprinting: Sprint{sprinting:false},
         attacking: Attack{attacking:false}
 });
-}
-
-
-fn server_spawn_player(
-
-) {
-
 }
 
 /* Checks for player interacting with game world.
@@ -283,15 +327,12 @@ pub fn player_interact(
 
 pub fn player_input(
     mut commands: Commands,
-    mut players: Query<( &mut Velocity, &mut Crouch, &mut Sprint), (With<Player>, Without<Background>)>,
+    mut player: Query<( &mut Velocity, &mut Crouch, &mut Roll, &mut Sprint), (With<Player>, Without<Background>)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 
 ) {
-    
-    // TODODODODODODODO
-    /* GRAB CLIENTID FROM RES AND CHECK AGAINST PLAYER Wahhhhhhhh */
-    let (mut player_velocity, mut crouch_query, mut sprint_query) = players.single_mut();
+    let (mut player_velocity, mut crouch_query, mut roll_query, mut sprint_query) = player.single_mut();
     /* should be copy of player for us to apply input to */
     let mut deltav = player_velocity.velocity;
 
@@ -315,6 +356,12 @@ pub fn player_input(
         crouch.crouching = false;
         1.0
     };
+
+    /* check if rolling */
+    let roll = roll_query.as_mut();
+    if input.pressed(KeyCode::KeyR){
+        roll.rolling = true;
+    }
 
     /* We have a fixed acceleration rate per time t, this
      * lets us know how long it has been sine we updated,
@@ -394,20 +441,23 @@ pub fn update_player_position(
 
 /* hopefully deprecated soon ^^ new one ^^
  * lil too much going on here, must be broke down */
-pub fn move_player(
+ pub fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>)>,
-    mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
-    mut room: Query<&mut Transform, (Without<Player>, Without<Enemy>)>,
+    mut player_query: Query<(&mut Transform, &mut Velocity), (With<Player>, Without<Background>, Without<Door>)>,
+    mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
+    mut door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>, 
     mut room_manager: ResMut<RoomManager>,
-    mut _commands: Commands, 
-    _asset_server: Res<AssetServer>, 
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>, 
     room_query: Query<Entity, With<Room>>, 
 ) {
+    let mut hit_door = false;
+    let mut player_transform = Vec3::ZERO;
 
-    let (mut pt, mut pv) = player.single_mut();
-    let mut deltav = Vec2::splat(0.);
+    // Player movement
+    if let Ok((mut pt, mut pv)) = player_query.get_single_mut() {
+        let mut deltav = Vec2::splat(0.);
 
     // INPUT HANDLING
     if input.pressed(KeyCode::KeyA) {
@@ -436,6 +486,11 @@ pub fn move_player(
     // set new max speed
     let max_speed = PLAYER_SPEED * speed_multiplier;
 
+    /* check if rolling */
+    /*let roll = roll_query.as_mut();
+    if input.pressed(KeyCode::KeyR){
+        roll.rolling = true;
+    }*/
 
     pv.velocity = if deltav.length() > 0. {
         (pv.velocity + (deltav.normalize_or_zero() * acc)).clamp_length_max(max_speed)
@@ -446,37 +501,32 @@ pub fn move_player(
     };
 
 
-    let change = pv.velocity * deltat;
+        let change = pv.velocity * deltat;
+        let (room_width, room_height) = room_manager.current_room_size();
 
-    let mut hit_door: bool = false;
+        // Calculate new player position and clamp within room boundaries
+        let new_pos_x = (pt.translation.x + change.x)
+            .clamp(-room_width / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
+                room_width / 2.0 - TILE_SIZE as f32 - TILE_SIZE as f32 / 2.0);
+        let new_pos_y = (pt.translation.y + change.y)
+            .clamp(-room_height / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
+                room_height / 2.0 - TILE_SIZE as f32 - (TILE_SIZE / 2) as f32 / 2.0);
 
-    let (room_width, room_height) = room_manager.current_room_size();
+        pt.translation.x = new_pos_x;
+        pt.translation.y = new_pos_y;
 
-    // Calculate new player position and clamp within room boundaries
-    let new_pos_x = (pt.translation.x + change.x)
-        .clamp(-room_width / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
-         room_width / 2.0 - TILE_SIZE as f32 - TILE_SIZE as f32 / 2.0);
-    let new_pos_y = (pt.translation.y + change.y)
-        .clamp(-room_height / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
-             room_height / 2.0 - TILE_SIZE as f32 - (TILE_SIZE / 2) as f32 / 2.0);
+        // Store the player's position for later use
+        player_transform = pt.translation;
 
-    pt.translation.x = new_pos_x;
-    pt.translation.y = new_pos_y;
+        let (hit_door, door_type) = handle_movement_and_enemy_collisions(&mut pt, change, &mut enemies, &mut room_manager, &door_query);
 
-
-    // take care of horizontal and vertical movement + enemy collision check
-    handle_movement_and_enemy_collisions(
-        &mut pt, 
-        change, 
-        &mut hit_door, 
-        &mut enemies,
-        &mut room_manager, 
-    );
-
-
-    // if we hit a door
-    if hit_door {
-        transition_map(&mut _commands, &_asset_server, &mut room_manager, room_query, &mut pt); // Pass room_query as argument
+       // If a door was hit, handle the transition
+        if hit_door {
+            if let Some(door_type) = door_type {
+            // Pass the door type to transition_map
+            transition_map(&mut commands, &asset_server, &mut room_manager, room_query, door_query, &mut player_query.single_mut().0, door_type);
+            }
+        }
     }
 }
 
@@ -484,10 +534,13 @@ pub fn move_player(
 pub fn handle_movement_and_enemy_collisions(
     pt: &mut Transform,
     change: Vec2,
-    hit_door: &mut bool,
-    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>, 
+    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>, 
     room_manager: &mut RoomManager,
-) {
+    door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>, 
+) -> (bool, Option<DoorType>) {
+    let mut hit_door = false;  
+    let mut door_type = None;  
+
     // Calculate new player position
     let new_pos = pt.translation + Vec3::new(change.x, change.y, 0.0);
     let player_aabb = collision::Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
@@ -501,8 +554,20 @@ pub fn handle_movement_and_enemy_collisions(
      //println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
 
     // Handle collisions and movement within the grid
-    handle_movement(pt, Vec3::new(change.x, 0., 0.), room_manager, hit_door, enemies);
-    handle_movement(pt, Vec3::new(0., change.y, 0.), room_manager, hit_door, enemies);
+    handle_movement(pt, Vec3::new(change.x, 0., 0.), room_manager, enemies, &door_query);
+    handle_movement(pt, Vec3::new(0., change.y, 0.), room_manager, enemies, &door_query);
+
+    for (door_transform, door) in door_query.iter() {
+        let door_aabb = Aabb::new(door_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&door_aabb) {
+            hit_door = true;
+            door_type = Some(door.door_type);
+            break;
+        }
+    }
+
+    // Return the hit_door state and door type
+    (hit_door, door_type)
 }
 
 
@@ -510,9 +575,9 @@ pub fn handle_movement(
     pt: &mut Transform,
     change: Vec3,
     room_manager: &mut RoomManager,
-    hit_door: &mut bool,
-    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>)>,
-) {
+    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>, 
+    door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>, 
+) -> Option<DoorType> {
     let new_pos = pt.translation + change;
     let player_aabb = collision::Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
 
@@ -528,7 +593,7 @@ pub fn handle_movement(
         let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
         if player_aabb.intersects(&enemy_aabb) {
             // handle enemy collision here (if necessary)
-            return;
+            return None;
         }
     }
 
@@ -544,8 +609,16 @@ pub fn handle_movement(
 
     // check for door transition
     if topleft == 2 || topright == 2 || bottomleft == 2 || bottomright == 2 {
-        *hit_door = true;
+        // If door is hit, return the door type
+        for (door_transform, door) in door_query.iter() {
+            let door_aabb = Aabb::new(door_transform.translation, Vec2::splat(TILE_SIZE as f32));
+            if player_aabb.intersects(&door_aabb) {
+                return Some(door.door_type);  // Return the type of door hit
+            }
+        }
     }
+
+    None // No door was hit
 }
 
 pub fn animate_player(
@@ -556,7 +629,8 @@ pub fn animate_player(
             &mut TextureAtlas,
             &mut AnimationTimer,
             &AnimationFrameCount,
-            &Attack
+            &Attack,
+            &Roll
         ),
         With<Player>,
     >,
@@ -567,8 +641,9 @@ pub fn animate_player(
      * 24 - 27 = right
      * 28 - 31 = left
      * ratlas. heh. get it.*/
-    let (v, mut ratlas, mut timer, _frame_count, attack) = player.single_mut();
+    let (v, mut ratlas, mut timer, _frame_count, attack, roll) = player.single_mut();
     if attack.attacking == true{return;}//checking if attack animations are running
+    if roll.rolling == true{return;}//checking if roll animations are running
     //if v.velocity.cmpne(Vec2::ZERO).any() {
         timer.tick(time.delta());
 
@@ -592,4 +667,71 @@ pub fn animate_player(
             }
         }
     //}
+}
+
+pub fn player_roll(
+    time: Res<Time>,
+    input: Res<ButtonInput<KeyCode>>,
+    mut player: Query<
+        (
+            &Velocity,
+            &mut TextureAtlas,
+            &mut AnimationTimer,
+            &AnimationFrameCount,
+            &Attack,
+            &mut Roll
+        ),
+        With<Player>,
+    >,
+) {
+    /* In texture atlas for ratatta:
+     * 36 - 39 = up
+     * 32- 35 = down
+     * 44 - 47 = right
+     * 40 - 43 = left
+     * ratlas. heh. get it.*/
+     let (v, mut ratlas, mut timer, _frame_count, attack, mut roll) = player.single_mut();
+     let abx = v.velocity.x.abs();
+     let aby = v.velocity.y.abs();
+
+    if attack.attacking == true{return;} //do not roll if swinging
+
+    if input.pressed(KeyCode::KeyR){
+        roll.rolling = true;
+        if abx > aby {
+            if v.velocity.x >= 0.{ratlas.index = 44;}
+            else if v.velocity.x < 0. {ratlas.index = 40;}
+        }
+        else {
+            if v.velocity.y >= 0.{ratlas.index = 36;}
+            else if v.velocity.y < 0. {ratlas.index = 32;}
+        }
+        timer.reset();
+    }
+
+    if roll.rolling == true
+    {
+        timer.tick(time.delta());
+
+        if abx > aby {
+            if v.velocity.x >= 0.{
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 44;}
+                if ratlas.index == 47{roll.rolling = false; ratlas.index = 24} //allow for movement anims after last swing frame
+            }
+            else if v.velocity.x < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 40;}
+                if ratlas.index == 43{roll.rolling = false; ratlas.index = 28} //allow for movement anims after last swing frame
+            }
+        }
+        else {
+            if v.velocity.y >= 0.{
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 36;}
+                if ratlas.index == 39{roll.rolling = false; ratlas.index = 16} //allow for movement anims after last swing frame
+            }
+            else if v.velocity.y < 0. {
+                if timer.finished(){ratlas.index = ((ratlas.index + 1) % 4) + 32;}
+                if ratlas.index == 35{roll.rolling = false; ratlas.index = 20} //allow for movement anims after last swing frame
+            }
+        }
+    }
 }

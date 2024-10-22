@@ -5,7 +5,7 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{ Deserialize, Serialize};
 use library::*;
 use bevy::prelude::*;
-
+use network::get_ip_addr;
 
 /* Rate at which we will be sending/recieving packets */
 const TICKS_PER_SECOND: f64 = 60.;
@@ -24,7 +24,9 @@ fn main() {
 
 fn old_main() -> std::io::Result<()>{
     /* binding to our little mailbox */
-    let socket = UdpSocket::bind("localhost:5001").unwrap();
+    let raw_ip_str = get_ip_addr();
+    let trimmed_ip_str = raw_ip_str.trim(); 
+    let socket = UdpSocket::bind(trimmed_ip_str).unwrap(); // "localhost:5001"
     let mut num_players: u8 = 0; // TODO: decrement when disconnect, idk its like connectionless so we need to send a packet saying to dec when we disconnect 
     let mut player_hash: HashMap<String, u8> = HashMap::new();
     let mut s = flexbuffers::FlexbufferSerializer::new();
@@ -60,7 +62,7 @@ fn old_main() -> std::io::Result<()>{
 
 //     to_send.serialize(  &mut *s ).unwrap();
 
-//     socket.send_to(s.view(), "localhost:5000").unwrap();
+   // socket.send_to(s.view(), socket_addr).unwrap(); // localhost:5000
 
 //     println!("SENT!");
 
