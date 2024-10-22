@@ -12,6 +12,7 @@ use serde::Serialize;
 
 
 
+
 pub const SERVER_ADR: &str = "127.0.0.1:5001"; //136.142.159.86:5001
 pub const GET_PLAYER_ID_CODE: u8 = 255;
 pub const PLAYER_DATA: u8 = 254;
