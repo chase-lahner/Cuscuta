@@ -5,10 +5,16 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::net::UdpSocket;
+use std::{collections::HashMap, net::SocketAddr};
+use std::io;
 
 #[derive(Resource, Component)]
 pub struct UDP {
     pub socket: UdpSocket,
+}
+
+pub struct UserInputAddr { 
+    pub user_string: String,
 }
 
 #[derive(Resource)]
@@ -78,4 +84,13 @@ pub fn append_opcode(
     vec.write(slice).unwrap();
     vec.write(opcode).unwrap();
     vec
+}
+
+pub fn get_ip_addr() -> String {
+    print!("Enter the IP Address  + enter then port number + enter you would like your socket to bind to: \n");
+    let mut buffer = String::new();
+    let _ = io::stdin().read_line(&mut buffer); // read from stdin
+
+    buffer // return buffer
+
 }

@@ -12,9 +12,7 @@ use serde::Serialize;
 
 
 
-pub const SERVER_ADR: &str = "localhost:5001";
-
-/* opcode!! */
+pub const SERVER_ADR: &str = "10.0.0.60:5001"; //136.142.159.86:5001
 pub const GET_PLAYER_ID_CODE: u8 = 255;
 pub const PLAYER_DATA: u8 = 254;
 /* end opcode!! */
@@ -29,9 +27,9 @@ pub const SPRINT_MULTIPLIER: f32 = 2.0;
 pub const CROUCH_MULTIPLIER: f32 = 0.5;
 
 pub const PLAYER_SPRITE_COL: u32 = 4;
-pub const PLAYER_SPRITE_ROW: u32 = 8;
+pub const PLAYER_SPRITE_ROW: u32 = 16;
 
-pub const ENEMY_SPEED: f32 = 0.;
+pub const ENEMY_SPEED: f32 = 160.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
 
 pub const TILE_SIZE: u32 = 32; 
@@ -70,9 +68,6 @@ pub struct Pot{
 
 #[derive(Component)]
 pub struct Wall;
-
-#[derive(Component)]
-pub struct Door;
 
 #[derive(Component)]
 pub struct Health{
@@ -122,4 +117,3 @@ impl From<Vec2> for Velocity {
         Self { velocity }
     }
 }
-

@@ -1,11 +1,11 @@
 use std::net::{SocketAddr, UdpSocket};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, tasks::IoTaskPool};
 use flexbuffers::FlexbufferSerializer;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, FlexSerializer, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, network, player::{Attack, Crouch, NetworkId, Player, ServerPlayerBundle, Sprint}};
+use crate::{cuscuta_resources::{self, FlexSerializer, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
 
 /* Upon request, sends an id to client */
 pub fn send_id(
@@ -42,6 +42,11 @@ pub fn listen(
     mut n_p: ResMut<PlayerCount>,
 ) {
     info!("Listening!!");
+
+    // let task_pool = IoTaskPool::get();
+    // let task = task_pool.spawn(async move {
+
+    // })
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
     let (amt, src) = udp.socket.recv_from(&mut buf).unwrap();
@@ -102,6 +107,7 @@ fn update_player_state(
                 addr: src},
             player: Player,   
             health: Health::new(),
+            rolling: Roll::new(),
             crouching: Crouch::new(),
             sprinting: Sprint::new(),
             attacking: Attack::new(),
