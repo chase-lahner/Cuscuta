@@ -372,6 +372,7 @@ pub fn spawn_start_room(
     // offset for spawning tiles
     let mut x_offset = -max_x + ((TILE_SIZE / 2) as f32);
     let mut y_offset = -max_y + ((TILE_SIZE / 2) as f32);
+    
 
     // spawn floors & walls
     while x_offset < max_x {
@@ -440,6 +441,25 @@ pub fn spawn_start_room(
 
         y_offset = -max_y + ((TILE_SIZE / 2) as f32);
         x_offset += TILE_SIZE as f32;
+    }
+
+    // Spawn a vertical wall in the center of the map with height of 10
+    let wall_height = 10;
+    let wall_x = TILE_SIZE as f32 * 2.0; // Move the wall 2 squares to the right
+    let mut wall_y = -(TILE_SIZE as f32 * (wall_height as f32 / 2.0)); 
+
+
+    for _ in 0..wall_height {
+        commands.spawn((
+            SpriteBundle {
+                texture: north_wall_texture_handle.clone(),
+                transform: Transform::from_xyz(wall_x, wall_y, z_index),
+                ..default()
+            },
+            Wall,
+            Room,
+        ));
+        wall_y += TILE_SIZE as f32; // Move up by one tile each iteration
     }
 
     generate_doors(
