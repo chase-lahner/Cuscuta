@@ -111,13 +111,13 @@ pub fn listen(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut id: ResMut<ClientId>
 ) {
-    info!("Listening!!!");
+    //info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
     let packet = udp.socket.recv_from(&mut buf);
     match packet{
         Err(e)=> return,
-        _ => info!("read packet!")
+        _ =>  () //info!("read packet!")
     }
     let (amt, src) = packet.unwrap();
     /* opcode is last byte of anything we send */

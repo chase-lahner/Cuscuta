@@ -878,14 +878,29 @@ pub fn translate_coords_to_grid(aabb: &Aabb, room_manager: &mut RoomManager) -> 
 
 pub fn client_spawn_pot(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>
+    asset_server: &Res<AssetServer>,
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
 ){
-    let pot_handle = asset_server.load("tiles/pot.png");
+    let pot_handle = asset_server.load("tiles\\1x2_pot.png");
+    let pot_layout = TextureAtlasLayout::from_grid(
+        UVec2::splat(TILE_SIZE),
+         1,
+         2,
+        None,
+        None
+    );
+    let pot_layout_len = pot_layout.textures.len();
+    let pot_layout_handle = texture_atlases.add(pot_layout);
+    info!("spawning pot");
     commands.spawn((
         SpriteBundle{
             texture: pot_handle,
             transform: Transform::from_xyz(200.,200.,1.),
             ..default()
+        },
+        TextureAtlas {
+            layout: pot_layout_handle,
+            index:0,
         },
         Pot{
             touch: 0
