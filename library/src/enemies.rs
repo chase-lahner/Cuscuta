@@ -55,6 +55,7 @@ pub fn server_spawn_enemy(
 pub fn enemy_movement(
     mut enemy_query: Query<(&mut Transform, &mut Enemy)>,
     mut player_query: Query<(&mut Transform, &Player, &mut Health), (With<Player>, Without<Enemy>)>,
+    wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<Enemy>)>, 
     time: Res<Time>
 ) {
     //let mut desire: [Vec3; NUMBER_OF_ENEMIES as usize] = Default::default();
@@ -64,16 +65,36 @@ pub fn enemy_movement(
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
         //let playerto: Player;
-        let mut longest: f32 = 0.0;
+        let mut longest: f32 = 99999999999.0;
         for (mut pt, p, mut ph) in player_query.iter_mut(){
             let xdis = (pt.translation.x - transform.translation.x).abs() * (pt.translation.x - transform.translation.x).abs();
-            let ydis = (pt.translation.x - transform.translation.x).abs() * (pt.translation.x - transform.translation.x).abs();
+            let ydis = (pt.translation.y - transform.translation.y).abs() * (pt.translation.y - transform.translation.y).abs();
             if ydis + xdis < ENEMY_SPOT_DISTANCE * ENEMY_SPOT_DISTANCE {
-                if ydis + xdis > longest {
+                
+                let mut blocked = false;
+
+                //line of sight
+                for a in 0..20 {
+                    let dec = (a as f32)/20.;
+                    let xnew = transform.translation.x + dec * (pt.translation.x - transform.translation.x);
+                    let ynew = transform.translation.y + dec * (pt.translation.y - transform.translation.y);
+                    let pointaabb = Aabb::new(Vec3::new(xnew, ynew, 0.), Vec2::splat(1.));
+                    for (wt, w) in wall_query.iter() {
+                        if wt.translation.z == pt.translation.z || wt.translation.z == pt.translation.z - 0.1 {
+                            let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
+                            if pointaabb.losintersect(&wallaabb){
+                                blocked = true;
+                            }
+                        }
+                    }
+                }     
+                if blocked == true{continue;}
+
+                if ydis + xdis < longest {
                 longest = ydis + xdis;
                 player_transform = *pt;
-                //playerto = *p;
-            }}
+                }
+            }
 
             // handling if enemy has hit player
             let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
@@ -92,10 +113,7 @@ pub fn enemy_movement(
         }
         _enemy.timer.tick(time.delta());
         // if none in range, check for next enemy
-        if longest == 0.0{
-        //    desire[index] = Vec3::new(0.,0.,0.);
-        //    index = index + 1;
-            
+        if longest == 99999999999.0{       
             if _enemy.timer.finished(){
                 _enemy.axis = _enemy.axis * -1;
             }
@@ -108,9 +126,6 @@ pub fn enemy_movement(
         // finding direction to move
         let direction_to_player = player_transform.translation - transform.translation;
         let normalized_direction = direction_to_player.normalize();
-
-        //desire[index] = normalized_direction;
-        //index = index + 1;
 
 
     // making sure enemies do not collide with one another
