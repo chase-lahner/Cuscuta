@@ -14,7 +14,7 @@ use serde::Serialize;
 
 
 pub const TICKS_PER_SECOND: f64 = 60.;
-pub const SERVER_ADR: &str = "10.0.0.60:5002"; //136.142.159.86:5001
+pub const SERVER_ADR: &str = "127.0.0.1:5001"; //136.142.159.86:5001
 
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;

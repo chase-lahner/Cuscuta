@@ -58,21 +58,20 @@ pub fn enemy_movement(
     wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<Enemy>)>, 
     time: Res<Time>
 ) {
-    //let mut desire: [Vec3; NUMBER_OF_ENEMIES as usize] = Default::default();
-    //let mut index = 0;
+    // for every enemy
     for (mut transform, mut _enemy) in enemy_query.iter_mut() {
         
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
-        //let playerto: Player;
+        // checking which player is closest
         let mut longest: f32 = 99999999999.0;
+        // for every player
         for (mut pt, p, mut ph) in player_query.iter_mut(){
             let xdis = (pt.translation.x - transform.translation.x).abs() * (pt.translation.x - transform.translation.x).abs();
             let ydis = (pt.translation.y - transform.translation.y).abs() * (pt.translation.y - transform.translation.y).abs();
             if ydis + xdis < ENEMY_SPOT_DISTANCE * ENEMY_SPOT_DISTANCE {
                 
                 let mut blocked = false;
-
                 //line of sight
                 for a in 0..20 {
                     let dec = (a as f32)/20.;
@@ -118,6 +117,22 @@ pub fn enemy_movement(
                 _enemy.axis = _enemy.axis * -1;
             }
             let normalized_direction = Vec3::new(1. * _enemy.axis as f32, 0. * _enemy.axis as f32, 0.);
+
+            //collision detection
+            let mut collide = false;
+            let xtemp = transform.translation.x + normalized_direction.x * ENEMY_SPEED/2. * time.delta_seconds();
+            let ytemp = transform.translation.y + normalized_direction.y * ENEMY_SPEED/2. * time.delta_seconds();
+            let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
+            for (wt, w) in wall_query.iter() {
+                //if wt.translation.z == player_transform.translation.z || wt.translation.z == player_transform.translation.z - 0.1 {
+                    let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
+                    if tempaabb.intersects(&wallaabb){
+                        collide = true;
+                    }
+                //}
+            }
+            if collide == true{continue;}
+
             transform.translation.x += normalized_direction.x * ENEMY_SPEED/2. * time.delta_seconds();
             transform.translation.y += normalized_direction.y * ENEMY_SPEED/2. * time.delta_seconds();
             continue;
@@ -137,6 +152,22 @@ pub fn enemy_movement(
                 continue;
             }
         }  **/  
+
+        //wall collision detection
+        let mut collide = false;
+        let xtemp = transform.translation.x + normalized_direction.x * ENEMY_SPEED * time.delta_seconds();
+        let ytemp = transform.translation.y + normalized_direction.y * ENEMY_SPEED * time.delta_seconds();
+        let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
+        for (wt, w) in wall_query.iter() {
+            //if wt.translation.z == player_transform.translation.z || wt.translation.z == player_transform.translation.z - 0.1 {
+                let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
+                if tempaabb.intersects(&wallaabb){
+                    collide = true;
+                }
+            //}
+        }
+        if collide == true{continue;}
+
 
         //transform.translation += normalized_direction * ENEMY_SPEED * time.delta_seconds();
         transform.translation.x += normalized_direction.x * ENEMY_SPEED * time.delta_seconds();
