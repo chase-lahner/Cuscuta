@@ -495,6 +495,12 @@ pub fn update_player_position(
         let change = pv.velocity * deltat;
         let (room_width, room_height) = room_manager.current_room_size();
 
+        let mut help = false;
+        if !help{
+            //println!("--HELP-- Room Width: {} Room Height: {}",room_width,room_height);
+            help = true;
+        }
+
         // Calculate new player position and clamp within room boundaries
         let new_pos_x = (pt.translation.x + change.x)
             .clamp(-room_width / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,

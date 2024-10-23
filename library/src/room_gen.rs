@@ -53,6 +53,8 @@ impl RoomArray {
         }
         None
     }
+
+    
 }
 
 #[derive(Component)]
@@ -104,7 +106,7 @@ impl RoomManager {
     }
 
      // Getter for current Z index
-     pub fn get_current_z_index(&self) -> f32 {
+    pub fn get_current_z_index(&self) -> f32 {
         self.current_z_index
     }
 
@@ -145,8 +147,8 @@ impl RoomManager {
                 self.room_map[x][y] = z_index;
             }
         }
-
     }
+
 
     pub fn add_room_to_map_from_top_door(
         &mut self, 
@@ -287,6 +289,19 @@ impl RoomManager {
         }
     }
 
+    pub fn get_room_value(&self, x: usize, y: usize) -> Option<i32> {
+        // Check if indices are within bounds
+        if x < self.room_map.len() && y < self.room_map[x].len() {
+            Some(self.room_map[x][y])
+        } else {
+            None // Return None if indices are out of bounds
+        }
+    }
+
+    pub fn set_current_z_index(&mut self, new_z_index: f32) {
+        self.current_z_index = new_z_index;
+    }
+
     // Print the 200x200 grid for debugging
     pub fn print_room_map(&self) {
         for row in &self.room_map {
@@ -314,11 +329,19 @@ impl RoomManager {
     
     // Get the size of the current room (width, height)
     pub fn current_room_size(&self) -> (f32, f32) {
-        self.room_sizes[self.current_room]
+        let current_player_z = self.get_current_z_index();
+        if let Some(room) = self.room_array.get_room_from_storage(current_player_z) {
+            let width = room.width as f32 * TILE_SIZE as f32;
+            let height = room.height as f32 * TILE_SIZE as f32;
+            return (width, height);
+        }else{
+            self.room_sizes[self.current_room]
+        }
     }
 
     pub fn current_room_max(&self) -> (f32, f32) {
         self.max_sizes[self.current_room]
+
     }
 }
 
@@ -725,6 +748,61 @@ pub fn generate_random_room_with_bounds(
     }
 }
 
+pub fn regenerate_existing_room(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>,
+    room_manager: &mut RoomManager,
+    width: usize,
+    height: usize,
+    z_for_regen: f32,
+) {
+    // Manually calculate the room width and height in pixels
+    let room_width = width as f32 * TILE_SIZE as f32;
+    let room_height = height as f32 * TILE_SIZE as f32;
+    let max_x = room_width / 2.0;
+    let max_y = room_height / 2.0;
+
+    // Get z-index for this room
+    let next_z_index = z_for_regen as f32;
+
+    let current_z_index = z_for_regen;
+    room_manager.set_current_z_index(current_z_index);
+
+    // global
+    let global_z_index = room_manager.get_global_z_index();
+
+    // Add the room to the room manager
+    //room_manager.add_room(width, height, room_width, room_height);
+
+    // Generate walls and floors
+    generate_walls_and_floors(
+        commands,
+        asset_server,
+        room_width,
+        room_height,
+        max_x,
+        max_y,
+        next_z_index,
+    );
+
+    // Generate doors
+    generate_doors(
+        commands,
+        asset_server,
+        room_manager,
+        max_x,
+        max_y,
+        next_z_index,
+    );
+
+    // **NEW**: Find and print the room bounds after generating the room
+    if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_for_regen as i32) {
+        println!("Generating OLD ROOM: Left: {}, Right: {}, Top: {}, Bottom: {}, z_index: {}", left_x, right_x, top_y, bottom_y, z_for_regen);
+    } else {
+        println!("Error: Could not find bounds for the newly generated room. {}", global_z_index);
+    }
+}
+
 pub fn transition_map(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -735,10 +813,27 @@ pub fn transition_map(
     door_type: DoorType, 
 ) {
     // Despawn old room
+    let mut right_x_out = 0;
+    let mut left_x_out = 0;
+    let mut top_y_out = 0;
+    let mut bottom_y_out = 0;
+
+    
     for entity in room_query.iter_mut() {
         commands.entity(entity).despawn();
     }
+    let z_in = room_manager.get_current_z_index();
+    if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_in as i32) {
+        right_x_out = right_x;
+        left_x_out = left_x;
+        top_y_out = top_y;
+        bottom_y_out = bottom_y;
+        println!("DETECTED room bounds: Left: {}, Right: {}, Top: {}, Bottom: {}, z_index: {}", left_x, right_x, top_y, bottom_y, z_in);
+    } else {
+        println!("Error: Could not find bounds for the newly generated room. {}", z_in);
+    }
 
+    
 
     let max_x = room_manager.current_room_max().0;
     let max_y = room_manager.current_room_max().1;
@@ -750,118 +845,256 @@ pub fn transition_map(
     match door_type {
         DoorType::Right => {
             // get new z index
-            let new_z_index = room_manager.get_global_z_index() - 2.0;
+            let x_to_check = right_x_out + 1;
+            let y_to_check =(top_y_out + bottom_y_out) / 2;
+            let room_val = room_manager.get_room_value(x_to_check,y_to_check);
+            println!("Room_Val {:?}", room_val);
+            if(room_val == Some(1)){
+                let new_z_index = room_manager.get_global_z_index() - 2.0;
 
-            let current_z = room_manager.get_current_z_index();
-            let global_z = room_manager.get_global_z_index();
+                let current_z = room_manager.get_current_z_index();
+                let global_z = room_manager.get_global_z_index();
 
-            // add new room to map relative to current room top door
-            room_manager.add_room_to_map_from_right_door(
-                current_z as i32,
-                new_z_index as i32,
-                room_width as usize / TILE_SIZE as usize,
-                room_height as usize / TILE_SIZE as usize,
-            );
+                // add new room to map relative to current room top door
+                room_manager.add_room_to_map_from_right_door(
+                    current_z as i32,
+                    new_z_index as i32,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
+                );
 
-            // generate the room with random bounds
-            generate_random_room_with_bounds(
-                commands,
-                &asset_server,
-                room_manager,
-                room_width as usize / TILE_SIZE as usize,
-                room_height as usize / TILE_SIZE as usize,
-            );
-            // pass in right door
-            //generate_random_room(commands, &asset_server, room_manager);
+                // generate the room with random bounds
+                generate_random_room_with_bounds(
+                    commands,
+                    &asset_server,
+                    room_manager,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
+                );
+                // pass in right door
+                //generate_random_room(commands, &asset_server, room_manager);
 
-            // Spawn the player a little away from the right door
-            pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                // Spawn the player a little away from the right door
+                pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+            }else{
+                if let Some(room_val_unwrapped) = room_val {
+                    // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
+                    if let Some(room_dimensions) = room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32) {
+                        let width = room_dimensions.width;
+                        let height = room_dimensions.height;
+                        //println!("Room width: {}, height: {}", width, height);
+                        //generate room with set bounds
+
+                        regenerate_existing_room(
+                            commands,
+                            &asset_server,
+                            room_manager,
+                            width as usize,
+                            height as usize,
+                            room_val_unwrapped as f32,
+                        );
+                        pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
+                        println!("PLAYER Z: {}",room_val_unwrapped);
+                    } else {
+                        println!("Error: Room not found in storage.");
+                    }
+                } else {
+                    println!("Error: room_val is None, cannot retrieve room dimensions.");
+                }
+                // room_manager.room_array.get_room_from_storage(room_val);
+            }
         },
         DoorType::Left => {
 
-            // get new z index
-            let new_z_index = room_manager.get_global_z_index() - 2.0;
+            let x_to_check = left_x_out - 1;
+            let y_to_check =(top_y_out + bottom_y_out) / 2;
+            let room_val = room_manager.get_room_value(x_to_check,y_to_check);
+            println!("Room_Val {:?}", room_val);
+            if(room_val == Some(1)){
+                let new_z_index = room_manager.get_global_z_index() - 2.0;
 
-            let current_z = room_manager.get_current_z_index();
-            let global_z = room_manager.get_global_z_index();
+                let current_z = room_manager.get_current_z_index();
+                let global_z = room_manager.get_global_z_index();
 
-            // add new room to map relative to current room top door
-            room_manager.add_room_to_map_from_left_door(
-                current_z as i32,
-                new_z_index as i32,
-                room_width as usize / TILE_SIZE as usize,
-                room_height as usize / TILE_SIZE as usize,
-            );
+                // add new room to map relative to current room top door
+                room_manager.add_room_to_map_from_left_door(
+                    current_z as i32,
+                    new_z_index as i32,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
+                );
 
-            // generate the room with random bounds
-            generate_random_room_with_bounds(
-                commands,
-                &asset_server,
-                room_manager,
-                room_width as usize / TILE_SIZE as usize,
-                room_height as usize / TILE_SIZE as usize,
-            );
-            // pass in right door
-            //generate_random_room(commands, &asset_server, room_manager);
+                // generate the room with random bounds
+                generate_random_room_with_bounds(
+                    commands,
+                    &asset_server,
+                    room_manager,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
+                );
+                // pass in right door
+                //generate_random_room(commands, &asset_server, room_manager);
+
+                // Spawn the player a little away from the right door
+                pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+            }else{
+                if let Some(room_val_unwrapped) = room_val {
+                    // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
+                    if let Some(room_dimensions) = room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32) {
+                        let width = room_dimensions.width;
+                        let height = room_dimensions.height;
+                        //println!("Room width: {}, height: {}", width, height);
+                        //generate room with set bounds
+
+                        regenerate_existing_room(
+                            commands,
+                            &asset_server,
+                            room_manager,
+                            width as usize,
+                            height as usize,
+                            room_val_unwrapped as f32,
+                        );
+                        pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                        println!("PLAYER Z: {}",room_val_unwrapped);
+                    } else {
+                        println!("Error: Room not found in storage.");
+                    }
+                } else {
+                    println!("Error: room_val is None, cannot retrieve room dimensions.");
+                }
+                // room_manager.room_array.get_room_from_storage(room_val);
+            }
 
             // Spawn the player a little away from the right door
-            pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+            
         },
         DoorType::Top => {
-            // get new z index
-            let new_z_index = room_manager.get_global_z_index() - 2.0;
+            let x_to_check = (left_x_out + right_x_out) / 2;
+            let y_to_check = top_y_out - 1;
+            let room_val = room_manager.get_room_value(x_to_check,y_to_check);
+            println!("Room_Val {:?}", room_val);
+            if(room_val == Some(1)){
+                let new_z_index = room_manager.get_global_z_index() - 2.0;
 
-            let current_z = room_manager.get_current_z_index();
-            let global_z = room_manager.get_global_z_index();
+                let current_z = room_manager.get_current_z_index();
+                let global_z = room_manager.get_global_z_index();
 
-            // add new room to map relative to current room top door
-            room_manager.add_room_to_map_from_top_door(
-                current_z as i32,
-                new_z_index as i32,
-                room_width as usize / TILE_SIZE as usize,
-                room_height as usize / TILE_SIZE as usize,
-            );
+                // add new room to map relative to current room top door
+                room_manager.add_room_to_map_from_top_door(
+                    current_z as i32,
+                    new_z_index as i32,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
+                );
 
-            // generate the room with random bounds
-            generate_random_room_with_bounds(
-                commands,
-                &asset_server,
-                room_manager,
-                room_width as usize / TILE_SIZE as usize,
-                room_height as usize / TILE_SIZE as usize,
-            );
+                // generate the room with random bounds
+                generate_random_room_with_bounds(
+                    commands,
+                    &asset_server,
+                    room_manager,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
+                );
+                // pass in right door
+                //generate_random_room(commands, &asset_server, room_manager);
+
+                // Spawn the player a little away from the right door
+                pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+            }else{
+                if let Some(room_val_unwrapped) = room_val {
+                    // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
+                    if let Some(room_dimensions) = room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32) {
+                        let width = room_dimensions.width;
+                        let height = room_dimensions.height;
+                        //println!("Room width: {}, height: {}", width, height);
+                        //generate room with set bounds
+
+                        regenerate_existing_room(
+                            commands,
+                            &asset_server,
+                            room_manager,
+                            width as usize,
+                            height as usize,
+                            room_val_unwrapped as f32,
+                        );
+                        pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        println!("PLAYER Z: {}",room_val_unwrapped);
+                    } else {
+                        println!("Error: Room not found in storage.");
+                    }
+                } else {
+                    println!("Error: room_val is None, cannot retrieve room dimensions.");
+                }
+                // room_manager.room_array.get_room_from_storage(room_val);
+            }
 
             // Spawn the player a little below the top door
-            pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+            //pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
 
 
         },
         DoorType::Bottom => { 
-            // get new z index
-            let new_z_index = room_manager.get_global_z_index() - 2.0;
+            let x_to_check = (left_x_out + right_x_out) / 2;
+            let y_to_check = bottom_y_out + 1;
+            let room_val = room_manager.get_room_value(x_to_check,y_to_check);
+            println!("Room_Val {:?}", room_val);
+            if(room_val == Some(1)){
+                let new_z_index = room_manager.get_global_z_index() - 2.0;
 
-            let current_z = room_manager.get_current_z_index();
-            let global_z = room_manager.get_global_z_index();
+                let current_z = room_manager.get_current_z_index();
+                let global_z = room_manager.get_global_z_index();
 
-            // add new room to map relative to current room top door
-            room_manager.add_room_to_map_from_bottom_door(
-                current_z as i32,
-                new_z_index as i32,
-                room_width as usize / TILE_SIZE as usize,
-                room_height as usize / TILE_SIZE as usize,
-            );
+                // add new room to map relative to current room top door
+                room_manager.add_room_to_map_from_bottom_door(
+                    current_z as i32,
+                    new_z_index as i32,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
+                );
 
-            // generate the room with random bounds
-            generate_random_room_with_bounds(
-                commands,
-                &asset_server,
-                room_manager,
-                room_width as usize / TILE_SIZE as usize,
-                room_height as usize / TILE_SIZE as usize,
-            );
+                // generate the room with random bounds
+                generate_random_room_with_bounds(
+                    commands,
+                    &asset_server,
+                    room_manager,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
+                );
+                // pass in right door
+                //generate_random_room(commands, &asset_server, room_manager);
+
+                // Spawn the player a little away from the right door
+                pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+            }else{
+                if let Some(room_val_unwrapped) = room_val {
+                    // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
+                    if let Some(room_dimensions) = room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32) {
+                        let width = room_dimensions.width;
+                        let height = room_dimensions.height;
+                        //println!("Room width: {}, height: {}", width, height);
+                        //generate room with set bounds
+
+                        regenerate_existing_room(
+                            commands,
+                            &asset_server,
+                            room_manager,
+                            width as usize,
+                            height as usize,
+                            room_val_unwrapped as f32,
+                        );
+                        pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        println!("PLAYER Z: {}",room_val_unwrapped);
+                    } else {
+                        println!("Error: Room not found in storage.");
+                    }
+                } else {
+                    println!("Error: room_val is None, cannot retrieve room dimensions.");
+                }
+                // room_manager.room_array.get_room_from_storage(room_val);
+            }
 
             // Spawn the player a little above the bottom door
-            pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+            //pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
         },
     }
 }
