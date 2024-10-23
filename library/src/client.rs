@@ -152,6 +152,7 @@ fn update_player_state(
     let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
     let mut found = false;
     for (mut velo, mut transform, network_id) in players.iter_mut(){
+        info!("REc: {}  Actual:: {}", player_struct.id, network_id.id);
         if network_id.id == player_struct.id{
             transform.translation.x = player_struct.transform_x;
             transform.translation.y = player_struct.transform_y;
@@ -161,6 +162,7 @@ fn update_player_state(
         }
     }
     if !found{
+        info!("new player!");
         client_spawn_other_player(&mut commands, asset_server, texture_atlases,player_struct, source_ip);
     }
 }

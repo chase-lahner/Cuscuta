@@ -18,10 +18,9 @@ fn main() {
     .add_systems(Startup, init::server_setup)
     .add_systems(FixedUpdate, (
         server::listen, 
-        ///player::update_player_position.after(server::listen),
+        //player::update_player_position.after(server::listen),
         server::send_player
     ))
-    .add_systems(FixedUpdate, server::send_player)
     .run();
 }
 

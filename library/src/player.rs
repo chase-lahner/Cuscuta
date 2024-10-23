@@ -529,8 +529,14 @@ pub fn move_player(
             1.0
         };
 
+        let crouch_multiplier = if input.pressed(KeyCode::KeyC){
+            CROUCH_MULTIPLIER
+        } else {
+            1.0
+        };
+
         // set new max speed
-        let max_speed = PLAYER_SPEED * speed_multiplier;
+        let max_speed = PLAYER_SPEED * speed_multiplier * crouch_multiplier;
 
         /* check if rolling */
         /*let roll = roll_query.as_mut();

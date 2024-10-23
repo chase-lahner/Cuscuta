@@ -39,6 +39,5 @@ fn main() {
             (client::send_player,
             client::listen
         ))
-        //  player::player_interact)
         .run();
 }
