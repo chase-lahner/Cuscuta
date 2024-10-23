@@ -117,7 +117,7 @@ pub fn listen(
     let packet = udp.socket.recv_from(&mut buf);
     match packet{
         Err(e)=> return,
-        _ =>  () //info!("read packet!")
+        _ =>  info!("read packet!")
     }
     let (amt, src) = packet.unwrap();
     /* opcode is last byte of anything we send */
