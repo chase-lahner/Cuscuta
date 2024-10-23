@@ -3,7 +3,7 @@ use std::{net::{ Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs, UdpSocket}, 
 use bevy::{prelude::*, tasks::IoTaskPool};
 use flexbuffers::FlexbufferSerializer;
 
-use crate::{camera::spawn_camera, carnage::*, cuscuta_resources::{self, AddressList, ClientId}, network::*, player::*, room_gen::*};
+use crate::{camera::spawn_camera, carnage::client_spawn_ui, cuscuta_resources::{self, AddressList, ClientId}, network::*, player::*, room_gen::*};
 
 pub fn ip_setup(
     mut commands: Commands
@@ -41,7 +41,7 @@ pub fn client_setup(
     // spawn camera
     spawn_camera(&mut commands, &asset_server);
 
-    client_spawn_carnage_bar(&mut commands, &asset_server);
+    client_spawn_ui(&mut commands, &asset_server);
     /* spawn pot to play with */
     client_spawn_pot(&mut commands, &asset_server, &mut texture_atlases);
     // spawn player, id 0 because it will be set later on

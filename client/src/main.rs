@@ -31,6 +31,8 @@ fn main() {
             player::player_roll.after(player::animate_player),
             camera::move_camera.after(player::animate_player),
             player::player_attack_enemy.after(player::player_attack),
+            carnage::update_ui_elements
+          
             player::player_interact
         )) 
         /* networking shtuff. comment out if needed */

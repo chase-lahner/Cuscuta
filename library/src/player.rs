@@ -252,21 +252,15 @@ pub fn client_spawn_user_player(
         animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
         animation_frames: AnimationFrameCount(player_layout_len),
         velo: Velocity::new(),
-        id: NetworkId {
-            id: 0,
-            /* stupid fake NULL ass address. dont use this. is set when connection established */
-            addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
-        },
+        id:NetworkId::new(),
         player: Player,
-        health: Health {
-            max: 100.,
-            current: 100.,
-        },
-        crouching: Crouch { crouching: false },
-        rolling: Roll { rolling: false },
-        sprinting: Sprint { sprinting: false },
-        attacking: Attack { attacking: false },
-    });
+        health: Health::new(),
+        crouching: Crouch{crouching:false},
+        rolling: Roll{rolling:false},
+        sprinting: Sprint{sprinting:false},
+        attacking: Attack{attacking:false}
+});
+
 }
 
 pub fn client_spawn_other_player(
@@ -498,6 +492,7 @@ pub fn move_player(
     asset_server: Res<AssetServer>,
     room_query: Query<Entity, With<Room>>,
     client_id: Res<ClientId>,
+    mut carnage: Query<&mut CarnageBar>,
 ) {
     let mut hit_door = false;
     let mut player_transform = Vec3::ZERO;
@@ -582,6 +577,8 @@ pub fn move_player(
     }
     // If a door was hit, handle the transition
     if hit_door {
+        let mut carnage_bar = carnage.single_mut();
+        carnage_bar.stealth += 10.;
         if let Some(door_type) = door_type {
             // Pass the door type to transition_map
             transition_map(
