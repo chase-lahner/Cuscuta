@@ -156,7 +156,7 @@ impl RoomManager {
         new_height: usize
     ) {
         // Find the bounds of the current room
-        println!("Z FUCKER: {}", z_index);
+        println!("Z: {}", z_index);
         
         if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_x = (left_x + right_x) / 2;
@@ -203,6 +203,62 @@ impl RoomManager {
     
         } else {
             println!("Error: BOTTOM Could not find bounds for the current room with z_index {}", z_index);
+        }
+    }
+
+    pub fn add_room_to_map_from_left_door(
+        &mut self, 
+        z_index: i32, 
+        new_z_index: i32, 
+        new_width: usize, 
+        new_height: usize
+    ) {
+        // Find the bounds of the current room
+        if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
+            let old_y = (top_y + bottom_y) / 2;
+            let old_x = left_x;
+            println!("width: {}", new_width);
+            println!("height: {}", new_height);
+            let start_y = old_y - (new_height / 2);
+            let start_x = old_x - new_width;
+
+            // Loop through the dimensions of the room and place the z_index in the grid
+            for x in start_x..(start_x + new_width) {
+                for y in start_y..(start_y + new_height) {
+                    self.room_map[x][y] = new_z_index;
+                }
+            }
+    
+        } else {
+            println!("Error: LEFT Could not find bounds for the current room with z_index {}", z_index);
+        }
+    }
+
+    pub fn add_room_to_map_from_right_door(
+        &mut self, 
+        z_index: i32, 
+        new_z_index: i32, 
+        new_width: usize, 
+        new_height: usize
+    ) {
+        // Find the bounds of the current room
+        if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
+            let old_y = (top_y + bottom_y) / 2;
+            let old_x = right_x + 1;
+            println!("width: {}", new_width);
+            println!("height: {}", new_height);
+            let start_y = old_y - (new_height / 2);
+            let start_x = old_x;
+
+            // Loop through the dimensions of the room and place the z_index in the grid
+            for x in start_x..(start_x + new_width) {
+                for y in start_y..(start_y + new_height) {
+                    self.room_map[x][y] = new_z_index;
+                }
+            }
+    
+        } else {
+            println!("Error: RIGHT Could not find bounds for the current room with z_index {}", z_index);
         }
     }
 
@@ -522,84 +578,98 @@ fn generate_doors(
     z_index: f32,
 ) {
     let door_handle = asset_server.load("tiles/walls/black_void.png");
+    if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
+        if (left_x as i32 - 80 > 0){
+            
+            // Left door
+            let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
+            let door_left_y = TILE_SIZE as f32 / 2.0;
+            commands.spawn((
+                SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
+                    ..default()
+                },
+                Door {
+                    next: Some(room_manager.global_z_index),
+                    door_type: DoorType::Left,
+                },
+                Room,
+            ));
 
-    // Right door
-    let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
-    let door_y = TILE_SIZE as f32 / 2.0;  
-    commands.spawn((
-        SpriteBundle {
-            texture: door_handle.clone(),
-            transform: Transform::from_xyz(door_x, door_y, z_index + 0.1),
-            ..default()
-        },
-        Door {
-            next: Some(room_manager.global_z_index),
-            door_type: DoorType::Right,
-        },
-        Room,
-    ));
-    
-    let xcoord_right = ((max_x * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
-    let ycoord_right = (door_y + max_y) as usize;
-    set_collide(room_manager, xcoord_right, ycoord_right, 2);
+            let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
+            let ycoord_left = (door_left_y + max_y) as usize;
+            set_collide(room_manager, xcoord_left, ycoord_left, 2);
+        }
 
+        if (right_x as i32 + 80 < 400){
 
-    // Left door
-    let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
-    let door_left_y = TILE_SIZE as f32 / 2.0;
-    commands.spawn((
-        SpriteBundle {
-            texture: door_handle.clone(),
-            transform: Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
-            ..default()
-        },
-        Door {
-            next: Some(room_manager.global_z_index),
-            door_type: DoorType::Left,
-        },
-        Room,
-    ));
-    let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
-    let ycoord_left = (door_left_y + max_y) as usize;
-    set_collide(room_manager, xcoord_left, ycoord_left, 2);
+            // Right door
+            let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
+            let door_y = TILE_SIZE as f32 / 2.0;  
+            commands.spawn((
+                SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(door_x, door_y, z_index + 0.1),
+                    ..default()
+                },
+                Door {
+                    next: Some(room_manager.global_z_index),
+                    door_type: DoorType::Right,
+                },
+                Room,
+            ));
+            
+            let xcoord_right = ((max_x * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
+            let ycoord_right = (door_y + max_y) as usize;
+            set_collide(room_manager, xcoord_right, ycoord_right, 2);
 
-    // Top door
-    let door_top_x = TILE_SIZE as f32 / 2.0;
-    let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
-    commands.spawn((
-        SpriteBundle {
-            texture: door_handle.clone(),
-            transform: Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
-            ..default()
-        },
-        Door {
-            next: Some(room_manager.global_z_index),
-            door_type: DoorType::Top,
-        },
-        Room,
-    ));
-    let xcoord_top = (door_top_x + max_x) as usize;
-    let ycoord_top = ((max_y * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
-    set_collide(room_manager, xcoord_top, ycoord_top, 2);
+        }
 
-    // Bottom door
-    let door_bottom_x = TILE_SIZE as f32 / 2.0;
-    let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
-    commands.spawn((
-        SpriteBundle {
-            texture: door_handle.clone(),
-            transform: Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
-            ..default()
-        },
-        Door {
-            next: Some(room_manager.global_z_index),
-            door_type: DoorType::Bottom,
-        },
-        Room,
-    ));
-    let xcoord_bottom = (door_bottom_x + max_x) as usize;
-    let ycoord_bottom = ((-max_y * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
-    set_collide(room_manager, xcoord_bottom, ycoord_bottom, 2);
+        if (top_y as i32 - 80 > 0){
+            // Top door
+            let door_top_x = TILE_SIZE as f32 / 2.0;
+            let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
+            commands.spawn((
+                SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
+                    ..default()
+                },
+                Door {
+                    next: Some(room_manager.global_z_index),
+                    door_type: DoorType::Top,
+                },
+                Room,
+            ));
+
+            let xcoord_top = (door_top_x + max_x) as usize;
+            let ycoord_top = ((max_y * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
+            set_collide(room_manager, xcoord_top, ycoord_top, 2);
+
+        }
+
+        if (bottom_y as i32 + 80 < 400){
+            // Bottom door
+            let door_bottom_x = TILE_SIZE as f32 / 2.0;
+            let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
+            commands.spawn((
+                SpriteBundle {
+                    texture: door_handle.clone(),
+                    transform: Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
+                    ..default()
+                },
+                Door {
+                    next: Some(room_manager.global_z_index),
+                    door_type: DoorType::Bottom,
+                },
+                Room,
+            ));
+            let xcoord_bottom = (door_bottom_x + max_x) as usize;
+            let ycoord_bottom = ((-max_y * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
+            set_collide(room_manager, xcoord_bottom, ycoord_bottom, 2);
+        }
+    }
 }
 
 pub fn generate_random_room_with_bounds(
@@ -679,13 +749,58 @@ pub fn transition_map(
     // Adjust the player's position based on the door they entered
     match door_type {
         DoorType::Right => {
-            // pass in left door
+            // get new z index
+            let new_z_index = room_manager.get_global_z_index() - 2.0;
+
+            let current_z = room_manager.get_current_z_index();
+            let global_z = room_manager.get_global_z_index();
+
+            // add new room to map relative to current room top door
+            room_manager.add_room_to_map_from_right_door(
+                current_z as i32,
+                new_z_index as i32,
+                room_width as usize / TILE_SIZE as usize,
+                room_height as usize / TILE_SIZE as usize,
+            );
+
+            // generate the room with random bounds
+            generate_random_room_with_bounds(
+                commands,
+                &asset_server,
+                room_manager,
+                room_width as usize / TILE_SIZE as usize,
+                room_height as usize / TILE_SIZE as usize,
+            );
+            // pass in right door
             //generate_random_room(commands, &asset_server, room_manager);
 
-            // Spawn the player a little away from the left door to avoid getting stuck
+            // Spawn the player a little away from the right door
             pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
         },
         DoorType::Left => {
+
+            // get new z index
+            let new_z_index = room_manager.get_global_z_index() - 2.0;
+
+            let current_z = room_manager.get_current_z_index();
+            let global_z = room_manager.get_global_z_index();
+
+            // add new room to map relative to current room top door
+            room_manager.add_room_to_map_from_left_door(
+                current_z as i32,
+                new_z_index as i32,
+                room_width as usize / TILE_SIZE as usize,
+                room_height as usize / TILE_SIZE as usize,
+            );
+
+            // generate the room with random bounds
+            generate_random_room_with_bounds(
+                commands,
+                &asset_server,
+                room_manager,
+                room_width as usize / TILE_SIZE as usize,
+                room_height as usize / TILE_SIZE as usize,
+            );
             // pass in right door
             //generate_random_room(commands, &asset_server, room_manager);
 
@@ -777,14 +892,29 @@ pub fn translate_coords_to_grid(aabb: &Aabb, room_manager: &mut RoomManager) -> 
 
 pub fn client_spawn_pot(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>
+    asset_server: &Res<AssetServer>,
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
 ){
-    let pot_handle = asset_server.load("tiles/pot.png");
+    let pot_handle = asset_server.load("tiles\\1x2_pot.png");
+    let pot_layout = TextureAtlasLayout::from_grid(
+        UVec2::splat(TILE_SIZE),
+         1,
+         2,
+        None,
+        None
+    );
+    let pot_layout_len = pot_layout.textures.len();
+    let pot_layout_handle = texture_atlases.add(pot_layout);
+    info!("spawning pot");
     commands.spawn((
         SpriteBundle{
             texture: pot_handle,
             transform: Transform::from_xyz(200.,200.,1.),
             ..default()
+        },
+        TextureAtlas {
+            layout: pot_layout_handle,
+            index:0,
         },
         Pot{
             touch: 0
