@@ -33,7 +33,7 @@ pub const CROUCH_MULTIPLIER: f32 = 0.25;
 pub const PLAYER_SPRITE_COL: u32 = 4;
 pub const PLAYER_SPRITE_ROW: u32 = 16;
 
-pub const ENEMY_SPEED: f32 = 0.;
+pub const ENEMY_SPEED: f32 = 160.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
 pub const ENEMY_SPOT_DISTANCE: f32 = 192.;
 
