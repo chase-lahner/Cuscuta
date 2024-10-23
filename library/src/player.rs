@@ -447,6 +447,7 @@ pub fn update_player_position(
     asset_server: Res<AssetServer>, 
     room_query: Query<Entity, With<Room>>, 
     client_id: Res<ClientId>,
+    mut carnage: Query<&mut CarnageBar>,
 ) {
     let mut hit_door = false;
     let mut player_transform = Vec3::ZERO;
@@ -525,6 +526,8 @@ pub fn update_player_position(
     }
     // If a door was hit, handle the transition
     if hit_door {
+        let mut carnage_bar = carnage.single_mut();
+        carnage_bar.stealth += 10.;
         if let Some(door_type) = door_type {
         // Pass the door type to transition_map
         transition_map(&mut commands, &asset_server, &mut room_manager, room_query, door_query, &mut player_query.single_mut().0, door_type);

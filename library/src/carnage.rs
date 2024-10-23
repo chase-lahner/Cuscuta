@@ -51,7 +51,7 @@ pub fn client_spawn_ui(
                 width: Val::Px(1.),
                 height: Val::Px(32.),
                 margin: UiRect {
-                    top: Val::VMin(2.5), left: Val::VMax(CARNAGE_BAR_RIGHT),
+                    top: Val::VMin(2.5), left: Val::VMax(CARNAGE_BAR_MIDDLE),
                     .. default()
                 },
                 ..default()
@@ -129,12 +129,11 @@ pub fn update_ui_elements(
     let mut red = red_q.single_mut();
     let mut healthy = health_bar.single_mut();
 
-    red.width = Val::Px(carnage.carnage * 2. * TILE_SIZE as f32);
-    green.width = Val::Px(carnage.stealth * 2. * TILE_SIZE as f32);
+    red.width = Val::Px(carnage.carnage * 2. );
+    green.width = Val::Px(carnage.stealth * 2. );
     for (health, id) in player_q.iter(){
         if id.id == client_id.id{
             healthy.width = Val::Px(health.current)
         }
     }
 }
-
