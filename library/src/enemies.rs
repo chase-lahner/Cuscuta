@@ -79,12 +79,12 @@ pub fn enemy_movement(
                     let ynew = transform.translation.y + dec * (pt.translation.y - transform.translation.y);
                     let pointaabb = Aabb::new(Vec3::new(xnew, ynew, 0.), Vec2::splat(1.));
                     for (wt, w) in wall_query.iter() {
-                        if wt.translation.z == pt.translation.z || wt.translation.z == pt.translation.z - 0.1 {
+                        //if wt.translation.z == pt.translation.z || wt.translation.z == pt.translation.z - 0.1 {
                             let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
                             if pointaabb.losintersect(&wallaabb){
                                 blocked = true;
                             }
-                        }
+                        //}
                     }
                 }     
                 if blocked == true{continue;}
