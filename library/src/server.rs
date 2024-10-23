@@ -120,8 +120,7 @@ fn update_player_state(
     player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
     socket : Res<UDP>,
     addresses: ResMut<AddressList>
-)
-{
+) {
     /* Deconstruct out Query. SHould be client side so we can do single */
     for (t, v, i)  in player.iter(){
         for address in addresses.list.iter(){
@@ -149,5 +148,6 @@ fn update_player_state(
         }
     }
 }
+}}
 
 fn something(){}
