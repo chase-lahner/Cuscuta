@@ -529,8 +529,14 @@ pub fn move_player(
             1.0
         };
 
+        let crouch_multiplier = if input.pressed(KeyCode::KeyC){
+            CROUCH_MULTIPLIER
+        } else {
+            1.0
+        };
+
         // set new max speed
-        let max_speed = PLAYER_SPEED * speed_multiplier;
+        let max_speed = PLAYER_SPEED * speed_multiplier * crouch_multiplier;
 
         /* check if rolling */
         /*let roll = roll_query.as_mut();
@@ -548,6 +554,12 @@ pub fn move_player(
 
         let change = pv.velocity * deltat;
         let (room_width, room_height) = room_manager.current_room_size();
+
+        let mut help = false;
+        if !help{
+            //println!("--HELP-- Room Width: {} Room Height: {}",room_width,room_height);
+            help = true;
+        }
 
         // Calculate new player position and clamp within room boundaries
         let new_pos_x = (pt.translation.x + change.x).clamp(

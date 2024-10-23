@@ -18,6 +18,7 @@ pub fn send_id(
     let player_id: u8 = 255 - n_p.count;
     n_p.count += 1;
     addresses.list.push(source_addr);
+    commands.spawn(NetworkId{id:player_id, addr:source_addr});
 
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
     /* lil baby struct to serialize */
@@ -43,14 +44,13 @@ pub fn listen(
     mut addresses: ResMut<AddressList>
 
 ) {
-    info!("Listening!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
     // pseudo poll. nonblocking, gives ERR on no read tho
     let packet = udp.socket.recv_from(&mut buf);
     match packet{
         Err(e)=> return,
-        _ =>  info!("read packet!"),
+        _ => info!("read packet!")
     }
     let (amt, src) = packet.unwrap();
     
@@ -123,8 +123,8 @@ fn update_player_state(
 ) {
     /* Deconstruct out Query. SHould be client side so we can do single */
     for (t, v, i)  in player.iter(){
-        for address in addresses.list.iter(){
-            if *address != i.addr && (v.velocity.x != 0. || v.velocity.y != 0.){
+        for addressi in addresses.list.iter(){
+            if *addressi != i.addr && (v.velocity.x != 0. || v.velocity.y != 0.){
                 let outgoing_state = PlayerPacket { 
                     id: i.id,
                     transform_x: t.translation.x,
@@ -140,14 +140,15 @@ fn update_player_state(
                 let packet_vec  = append_opcode(serializer.view(), opcode);
                 let packet: &[u8] = &(&packet_vec);
 
-        info!("length of player packet:{:?}", packet);
-        for address in &addresses.list{
-            if *address != i.addr{
-            socket.socket.send_to(&packet, i.addr).unwrap();
+                for address in &addresses.list{
+                    if *address != i.addr{
+                        info!("{}: id:{}",address, outgoing_state.id);
+                    socket.socket.send_to(&packet, address).unwrap();
+                    }
+                }
             }
         }
     }
 }
-}}
 
 fn something(){}
