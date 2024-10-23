@@ -42,6 +42,18 @@ impl Aabb {
             && self.min.y < other.max.y
             && self.max.y > other.min.y
     }
+
+    pub fn losintersect(&self, other: &Aabb) -> bool {
+        self.min.x < other.max.x
+        && self.max.x > other.min.x
+        && self.min.y < other.max.y
+        && self.max.y > other.min.y
+        ||
+        self.min.x > other.min.x
+        && self.max.x < other.max.x
+        && self.min.y > other.min.y
+        && self.max.y < other.max.y
+    }
 }
 pub fn aabb_collision(player_aabb: &Aabb, enemy_aabb: &Aabb) -> bool {
     player_aabb.intersects(&enemy_aabb)
