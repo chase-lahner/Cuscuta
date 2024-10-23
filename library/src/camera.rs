@@ -15,6 +15,7 @@ pub fn move_camera(
             let mut ct = camera.single_mut();
             // Retrieve the dynamically calculated max_x and max_y from RoomManager
             let (max_x, max_y) = room_manager.current_room_max();
+        
 
 
     // Retrieve the dynamically calculated max_x and max_y from RoomManager
@@ -27,10 +28,10 @@ pub fn move_camera(
     let max_x = width/2.0;
     let max_y = height/2.0;
 
-    ct.translation.x = pt.translation.x.clamp(-max_x + (WIN_W / 2.), max_x - (WIN_W / 2.));
-    ct.translation.y = pt.translation.y.clamp(-max_y + (WIN_H / 2.), max_y - (WIN_H / 2.) + (3. * (TILE_SIZE as f32)));
+    ct.translation.x = transform.translation.x.clamp(-max_x + (WIN_W / 2.), max_x - (WIN_W / 2.));
+    ct.translation.y = transform.translation.y.clamp(-max_y + (WIN_H / 2.), max_y - (WIN_H / 2.) + (3. * (TILE_SIZE as f32)));
 
-}
+}}}
 
 pub fn spawn_camera(
     commands: &mut Commands,
