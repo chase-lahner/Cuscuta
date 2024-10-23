@@ -2,17 +2,16 @@
  * use `mod constants;` to grab.
  * I hope this dead_code isn't package wide... */
 #![allow(dead_code)]
+use std::net::SocketAddr;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 use serde::Serialize;
 
 
+pub const TICKS_PER_SECOND: f64 = 60.;
+pub const SERVER_ADR: &str = "127.0.0.1:5001"; //136.142.159.86:5001
 
 
-
-
-
-pub const SERVER_ADR: &str = "10.0.0.189:5001"; //136.142.159.86:5001
 pub const GET_PLAYER_ID_CODE: u8 = 255;
 pub const PLAYER_DATA: u8 = 254;
 /* end opcode!! */
@@ -24,13 +23,14 @@ pub const WIN_H: f32 = 720.;// window height
 pub const PLAYER_SPEED: f32 = 480.; 
 pub const ACCELERATION_RATE: f32 = 4800.; 
 pub const SPRINT_MULTIPLIER: f32 = 2.0;
-pub const CROUCH_MULTIPLIER: f32 = 0.5;
+pub const CROUCH_MULTIPLIER: f32 = 0.25;
 
 pub const PLAYER_SPRITE_COL: u32 = 4;
 pub const PLAYER_SPRITE_ROW: u32 = 16;
 
-pub const ENEMY_SPEED: f32 = 160.;
+pub const ENEMY_SPEED: f32 = 0.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
+pub const ENEMY_SPOT_DISTANCE: f32 = 192.;
 
 pub const TILE_SIZE: u32 = 32; 
 
@@ -96,6 +96,18 @@ pub struct FlexSerializer{
 #[derive(Resource)]
 pub struct ClientId{
     pub id: u8
+}
+
+#[derive(Resource)]
+pub struct AddressList{
+    pub list: Vec<SocketAddr>,
+}
+impl AddressList{
+    pub fn new() -> Self{
+        Self{
+            list: Vec::new()
+        }
+    }
 }
 
 

@@ -24,9 +24,6 @@ pub fn recv_id(
     network_id.addr = source_addr;
     id.id = ds_struct.id;
 
-    /* assign it to the game world */
-    commands.insert_resource(ClientId{id:ds_struct.id});
-
     info!("ASSIGNED ID: {:?}", network_id.id);
 }
 
@@ -81,7 +78,7 @@ pub fn id_request(
 {
     /* Deconstruct out Query. SHould be client side so we can do single */
     for (t, v, i)  in player.iter(){
-        if i.id == client_id.id{
+        if i.id == client_id.id && (v.velocity.x != 0. || v.velocity.y != 0.){
             let outgoing_state = PlayerPacket { 
                 id: client_id.id,
                 transform_x: t.translation.x,
@@ -114,11 +111,15 @@ pub fn listen(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut id: ResMut<ClientId>
 ) {
-    info!("Listening!!!");
+    //info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
-    let (amt, src) = udp.socket.recv_from(&mut buf).unwrap();
-    info!("actually read");
+    let packet = udp.socket.recv_from(&mut buf);
+    match packet{
+        Err(e)=> return,
+        _ =>  () //info!("read packet!")
+    }
+    let (amt, src) = packet.unwrap();
     /* opcode is last byte of anything we send */
     let opcode = buf[amt-1];
 
@@ -151,6 +152,7 @@ fn update_player_state(
     let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
     let mut found = false;
     for (mut velo, mut transform, network_id) in players.iter_mut(){
+        info!("REc: {}  Actual:: {}", player_struct.id, network_id.id);
         if network_id.id == player_struct.id{
             transform.translation.x = player_struct.transform_x;
             transform.translation.y = player_struct.transform_y;
@@ -160,6 +162,7 @@ fn update_player_state(
         }
     }
     if !found{
+        info!("new player!");
         client_spawn_other_player(&mut commands, asset_server, texture_atlases,player_struct, source_ip);
     }
 }
