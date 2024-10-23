@@ -895,7 +895,7 @@ pub fn client_spawn_pot(
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
 ){
-    let pot_handle = asset_server.load("tiles\\1x2_pot.png");
+    let pot_handle = asset_server.load("tiles/1x2_pot.png");
     let pot_layout = TextureAtlasLayout::from_grid(
         UVec2::splat(TILE_SIZE),
          1,

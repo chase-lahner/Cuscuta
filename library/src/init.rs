@@ -26,17 +26,15 @@ pub fn client_setup(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
     mut room_manager: ResMut<RoomManager>,
 ) {
-    // let socket = SocketAddrV4::new(Ipv4Addr::new(sendable[0], sendable[1],sendable[2],sendable[3]), split_u16);
-    
-    
-    //let _task = IoTaskPool::get_or_init(something());
+    //let socket = SocketAddrV4::new(Ipv4Addr::new(sendable[0], sendable[1],sendable[2],sendable[3]), split_u16);
+
+
     // spawn the starting room & next room
     spawn_start_room(&mut commands, &asset_server, &mut room_manager);
 
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */
     commands.insert_resource(ClientId{id:0});
-    
 
     // spawn camera
     spawn_camera(&mut commands, &asset_server);

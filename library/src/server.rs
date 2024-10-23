@@ -17,7 +17,6 @@ pub fn send_id(
     /* assign id, update player count */
     let player_id: u8 = 255 - n_p.count;
     n_p.count += 1;
-    commands.spawn(NetworkId{id:player_id,addr: source_addr});
     addresses.list.push(source_addr);
 
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
@@ -45,7 +44,6 @@ pub fn listen(
 
 ) {
     info!("Listening!!");
-
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
     // pseudo poll. nonblocking, gives ERR on no read tho
@@ -121,9 +119,8 @@ fn update_player_state(
  pub fn send_player(
     player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
     socket : Res<UDP>,
-    mut addresses: ResMut<AddressList>
-)
-{
+    addresses: ResMut<AddressList>
+) {
     /* Deconstruct out Query. SHould be client side so we can do single */
     for (t, v, i)  in player.iter(){
         for address in addresses.list.iter(){
@@ -143,10 +140,14 @@ fn update_player_state(
                 let packet_vec  = append_opcode(serializer.view(), opcode);
                 let packet: &[u8] = &(&packet_vec);
 
-                socket.socket.send_to(&packet, address).unwrap();
+        info!("length of player packet:{:?}", packet);
+        for address in &addresses.list{
+            if *address != i.addr{
+            socket.socket.send_to(&packet, i.addr).unwrap();
             }
         }
     }
 }
+}}
 
 fn something(){}
