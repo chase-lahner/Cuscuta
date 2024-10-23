@@ -373,6 +373,9 @@ pub fn spawn_start_room(
     // get current room z index
     let z_index = room_manager.current_room_z_index();
 
+    // ADD THIS TO FIX SPAWN ROOM
+    room_manager.room_array.add_room_to_storage(z_index as f32, random_width as usize, random_height as usize);
+
     // add start room to map at a random position
     room_manager.add_start_room_to_map(z_index as i32, random_width as usize, random_height as usize);
 
@@ -832,16 +835,16 @@ pub fn transition_map(
     pt: &mut Transform,
     door_type: DoorType, 
 ) {
-    // Despawn old room
     let mut right_x_out = 0;
     let mut left_x_out = 0;
     let mut top_y_out = 0;
     let mut bottom_y_out = 0;
 
-    
+    // Despawn old room
     for entity in room_query.iter_mut() {
         commands.entity(entity).despawn();
     }
+    
     let z_in = room_manager.get_current_z_index();
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_in as i32) {
         right_x_out = right_x;
