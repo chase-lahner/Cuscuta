@@ -9,7 +9,7 @@ use serde::Serialize;
 
 
 pub const TICKS_PER_SECOND: f64 = 60.;
-pub const SERVER_ADR: &str = "127.0.0.1:5001"; //136.142.159.86:5001
+pub const SERVER_ADR: &str = "10.0.0.60:5001"; //136.142.159.86:5001
 
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;
@@ -28,7 +28,7 @@ pub const CROUCH_MULTIPLIER: f32 = 0.25;
 pub const PLAYER_SPRITE_COL: u32 = 4;
 pub const PLAYER_SPRITE_ROW: u32 = 16;
 
-pub const ENEMY_SPEED: f32 = 0.;
+pub const ENEMY_SPEED: f32 = 160.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
 pub const ENEMY_SPOT_DISTANCE: f32 = 192.;
 
