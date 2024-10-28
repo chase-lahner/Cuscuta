@@ -22,8 +22,8 @@ pub fn spawn_enemies(
     let mut rng = rand::thread_rng();
 
     for _ in 0..NUMBER_OF_ENEMIES {
-        let random_x: f32 = rng.gen_range(-MAX_X..MAX_X);
-        let random_y: f32 = rng.gen_range(-MAX_Y..MAX_Y);
+        let random_x: f32 = rng.gen_range((-MAX_X + 64.)..(MAX_X - 64.));
+        let random_y: f32 = rng.gen_range((-MAX_Y + 64.)..(MAX_Y - 64.));
 
         commands.spawn((
             SpriteBundle {

@@ -1,0 +1,10 @@
+1. Use enums for serialization [NETWORKING]
+2. Clean up networking code  [NETWORK]
+    - general fn? Using types?
+    - comment
+3. Black bar behind carnage [ANYONE]
+    - look @ carnage.rs for ui stuff (lowk want to rename that to ui stuff lol)
+4. Move game logic to server [NETWORK]
+    - This will be rough
+    - Research must be done
+5. make whole thing big cargo [ANYONE]

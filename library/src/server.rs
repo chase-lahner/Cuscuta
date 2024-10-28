@@ -55,7 +55,7 @@ pub fn listen(
     let (amt, src) = packet.unwrap();
     
     /* when we serialize, we throw our opcode on the end, so we know how to
-    * de-serialize... jank? maybe.  */
+     * de-serialize... jank? maybe.  */
     let opcode = buf[amt -1];
     
     /* trim trailing 0s */
