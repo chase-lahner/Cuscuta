@@ -7,7 +7,7 @@ use crate::{
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{self, PlayerPacket},
+    network::PlayerPacket,
     room_gen::*,
 };
 
@@ -225,7 +225,7 @@ pub fn client_spawn_user_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    id: u8,
+    _id: u8,
 ) {
     let player_sheet_handle = asset_server.load("player/4x12_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
@@ -345,7 +345,7 @@ pub fn player_interact(
                 info!("you got touched");
                 pot.touch += 1;
 
-                if(pot.touch == 1)
+                if pot.touch == 1
                 {
                     pot_atlas.index = pot_atlas.index+1;
                 }
@@ -444,7 +444,7 @@ pub fn player_input(
                  * We should decelerate by a given rate, our acceleration rate! s
                  * not using the adjusted, dont want if crouch slow slowdown yk */
                 adjusted_speed -= ACCELERATION_RATE;
-                deltav.clamp_length_max(adjusted_speed);
+                let _boo = deltav.clamp_length_max(adjusted_speed);
             }
 
             /* final set */
@@ -461,11 +461,11 @@ pub fn update_player_position(
 ) {
     /* We use delta time to determine ur velocity earlier, so we really want to use it again here?
      * It gives second since update, not since we got input... */
-    for (mut transform, mut velocity) in players.iter_mut() {
+    for (mut transform, velocity) in players.iter_mut() {
         transform.translation.x += velocity.velocity.x * time.delta_seconds();
         transform.translation.y += velocity.velocity.y * time.delta_seconds();
 
-        let mut hit_door = false;
+        let mut _hit_door = false;
         // take care of horizontal and vertical movement + enemy collision check
         // TODODODODODODODODODODODO
 
@@ -486,7 +486,7 @@ pub fn move_player(
         (With<Player>, Without<Background>, Without<Door>),
     >,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
-    mut door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
     mut room_manager: ResMut<RoomManager>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -495,11 +495,11 @@ pub fn move_player(
     mut carnage: Query<&mut CarnageBar>,
 ) {
     let mut hit_door = false;
-    let mut player_transform = Vec3::ZERO;
+    let mut _player_transform = Vec3::ZERO;
     let mut door_type: Option<DoorType> = Option::None;
 
     // Player movement
-    for ((mut pt, mut pv, id)) in player_query.iter_mut() {
+    for (mut pt, mut pv, id) in player_query.iter_mut() {
         if id.id != client_id.id {
             continue;
         }
@@ -555,11 +555,11 @@ pub fn move_player(
         let change = pv.velocity * deltat;
         let (room_width, room_height) = room_manager.current_room_size();
 
-        let mut help = false;
-        if !help{
-            //println!("--HELP-- Room Width: {} Room Height: {}",room_width,room_height);
-            help = true;
-        }
+        // let mut help = false;
+        // if !help{
+        //     //println!("--HELP-- Room Width: {} Room Height: {}",room_width,room_height);
+        //     help = true;
+        // }
 
         // Calculate new player position and clamp within room boundaries
         let new_pos_x = (pt.translation.x + change.x).clamp(
@@ -575,7 +575,7 @@ pub fn move_player(
         pt.translation.y = new_pos_y;
 
         // Store the player's position for later use
-        player_transform = pt.translation;
+        _player_transform = pt.translation;
 
         let baban = handle_movement_and_enemy_collisions(
             &mut pt,
@@ -625,8 +625,8 @@ pub fn handle_movement_and_enemy_collisions(
         translate_coords_to_grid(&player_aabb, room_manager);
 
     // Translate player position to grid indices
-    let grid_x = (new_pos.x / TILE_SIZE as f32).floor();
-    let grid_y = (new_pos.y / TILE_SIZE as f32).floor();
+    let _grid_x = (new_pos.x / TILE_SIZE as f32).floor();
+    let _grid_y = (new_pos.y / TILE_SIZE as f32).floor();
     //println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
 
     // Handle collisions and movement within the grid
