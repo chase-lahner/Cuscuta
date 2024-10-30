@@ -3,21 +3,21 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::network::{append_opcode, IdPacket, PlayerPacket, UDP};
+use crate::network::{append_opcode, IdPacket, PlayerPacket, SendablePacket, UDP};
 use crate::cuscuta_resources::*;
 use crate::player::*;
 
 pub fn recv_id(
     source_addr: SocketAddr,
     network_id: &mut NetworkId,
-    packet: &[u8],
+    ds_struct: IdPacket,
     mut commands: Commands,
     mut id: ResMut<ClientId>
 ) {
     info!("Recieving ID");
     /* de-serialize the struct IdHeader which contains our id */
-    let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
-    let ds_struct = IdPacket::deserialize( deserializer).unwrap();
+    // let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
+    // let ds_struct = IdPacket::deserialize( deserializer).unwrap();
 
     /* assign it to the player */
     network_id.id = ds_struct.id;
@@ -41,9 +41,11 @@ pub fn id_request(
      * 
      * still need something to shove over tho */
     let i = player.single();
-    let to_send = IdPacket {
+    let id_packet = IdPacket {
         id: i.id,
     };
+
+    let to_send: SendablePacket = SendablePacket::IdPacket(id_packet);
 
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
     /* Serializes, which makes a nice lil u8 array for us */
@@ -54,16 +56,18 @@ pub fn id_request(
      * like this to be a fn, but with how you need CONSTANT 
      * to declare array on top of different struct sizes
      * i didn't feel like mallocating anything */
-    let opcode: &[u8] = std::slice::from_ref(&GET_PLAYER_ID_CODE);
-    let packet_vec  = append_opcode(serializer.view(), opcode);
-    let packet: &[u8] = &(&packet_vec);
+    // let opcode: &[u8] = std::slice::from_ref(&GET_PLAYER_ID_CODE);
+    // let packet_vec  = append_opcode(serializer.view(), opcode);
+    // let packet: &[u8] = &(&packet_vec);
+
+    let packet: &[u8] = serializer.view();
 
 
 
     /* beam me up scotty */
     socket
         .socket
-        .send_to(&packet, SERVER_ADR)
+        .send_to(packet, SERVER_ADR)
         .unwrap();
 
 }
@@ -87,11 +91,15 @@ pub fn id_request(
                 velocity_y: v.velocity.y,
             };
             let mut serializer = flexbuffers::FlexbufferSerializer::new();
-            outgoing_state.serialize(&mut serializer).unwrap();
+
+            let to_send: SendablePacket = SendablePacket::PlayerPacket(outgoing_state);
+            to_send.serialize(&mut serializer).unwrap();
             
-            let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
-            let packet_vec  = append_opcode(serializer.view(), opcode);
-            let packet: &[u8] = &(&packet_vec);
+            // let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
+            // let packet_vec  = append_opcode(serializer.view(), opcode);
+            // let packet: &[u8] = &(&packet_vec);
+
+            let packet: &[u8] = serializer.view();
 
             
             socket.socket.send_to(&packet, SERVER_ADR).unwrap();
@@ -117,24 +125,38 @@ pub fn listen(
     let packet = udp.socket.recv_from(&mut buf);
     match packet{
         Err(e)=> return,
-        _ =>  () //info!("read packet!")
+        _ =>  info!("read packet!")
     }
     let (amt, src) = packet.unwrap();
     /* opcode is last byte of anything we send */
-    let opcode = buf[amt-1];
+    // let opcode = buf[amt-1];
 
     /* trim trailing 0s and opcode*/
-    let mut packet = &buf[..amt-1];
+    let packet = &buf[..amt];
 
 
-    match opcode{
-        GET_PLAYER_ID_CODE => 
-            recv_id(src, player.single_mut().2.as_mut(), packet, commands, id),
-        PLAYER_DATA =>
-            update_player_state(player, packet, commands, &asset_server, &mut texture_atlases, src),
-        _ => something()//TOTO
+    let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
+    let player_struct: SendablePacket = SendablePacket::deserialize(deserializer).unwrap();
 
-    };
+    match player_struct{
+
+        SendablePacket::IdPacket(id_packet) => {
+            recv_id(src, player.single_mut().2.as_mut(), id_packet, commands, id);
+        }
+        SendablePacket::PlayerPacket(player_packet)=> {
+            update_player_state(player, player_packet, commands, &asset_server, &mut texture_atlases, src);
+
+        }
+    }
+
+    // match opcode{
+    //     GET_PLAYER_ID_CODE => 
+    //         recv_id(src, player.single_mut().2.as_mut(), packet, commands, id),
+    //     PLAYER_DATA =>
+    //         update_player_state(player, packet, commands, &asset_server, &mut texture_atlases, src),
+    //     _ => something()//TOTO
+
+    // };
 }
 
 /* once we have our packeet, we must use it to update
@@ -142,14 +164,14 @@ pub fn listen(
 fn update_player_state(
     /* fake query, passed from above system */
     mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    buf: &[u8],
+    player_struct: PlayerPacket,
     mut commands: Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     source_ip: SocketAddr
 ) { 
-    let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
-    let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
+    // let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
+    // let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
     let mut found = false;
     for (mut velo, mut transform, network_id) in players.iter_mut(){
         info!("REc: {}  Actual:: {}", player_struct.id, network_id.id);

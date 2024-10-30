@@ -22,17 +22,20 @@ pub fn send_id(
 
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
     /* lil baby struct to serialize */
-    let to_send = IdPacket{ id: player_id};
+    let id_packet = IdPacket{ id: player_id};
+    let to_send = SendablePacket::IdPacket(id_packet);
     to_send.serialize(  &mut serializer ).unwrap();
 
     /* once serialized, we throw our opcode on the end */
-    let opcode: &[u8] = std::slice::from_ref(&GET_PLAYER_ID_CODE);
-    let packet_vec  = append_opcode(serializer.view(), opcode);
-    let packet: &[u8] = &(&packet_vec);
+    // let opcode: &[u8] = std::slice::from_ref(&GET_PLAYER_ID_CODE);
+    // let packet_vec  = append_opcode(serializer.view(), opcode);
+    // let packet: &[u8] = &(&packet_vec);
+
+    let packet: &[u8] = serializer.view();
 
 
     /* Send it on over! */
-    server_socket.send_to(&packet, source_addr).unwrap();
+    server_socket.send_to(packet, source_addr).unwrap(); // maybe &packet
 }
 
 /* Server side listener for packets,  */
@@ -56,22 +59,37 @@ pub fn listen(
     
     /* when we serialize, we throw our opcode on the end, so we know how to
      * de-serialize... jank? maybe.  */
-    let opcode = buf[amt -1];
+   // let opcode = buf[amt -1];
     
     /* trim trailing 0s */
-    let t_buf = &buf[..amt-1];
+    let t_buf = &buf[..amt]; // / -1
 
+    let deserializer = flexbuffers::Reader::get_root(t_buf).unwrap();
+    let player_struct: SendablePacket = SendablePacket::deserialize(deserializer).unwrap();
 
-    match opcode{
-        cuscuta_resources::GET_PLAYER_ID_CODE => {
+    match player_struct {
+        SendablePacket::IdPacket(id_packet) => {
             info!("sending id to client");
             send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
-        cuscuta_resources::PLAYER_DATA =>
-            update_player_state(src, players, t_buf, commands),
-        _ => 
-            something()//TOTO
+        SendablePacket::PlayerPacket(player_packet) => {
+            update_player_state(src, players, player_packet, commands);
 
-    };
+        }
+    }
+
+    
+
+
+    // match opcode{
+    //     cuscuta_resources::GET_PLAYER_ID_CODE => {
+    //         info!("sending id to client");
+    //         send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
+    //     cuscuta_resources::PLAYER_DATA =>
+    //         update_player_state(src, players, t_buf, commands),
+    //     _ => 
+    //         something()//TOTO
+
+    // };
 }
 
 /* once we have our packeet, we must use it to update
@@ -80,11 +98,11 @@ fn update_player_state(
     src: SocketAddr,
     /* fake query, passed from above system */
     mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    buf: &[u8],
+    player_struct: PlayerPacket,
     mut commands: Commands,
 ) { 
-    let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
-    let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
+    // let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
+    // let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
     let mut found = false;
     for (mut velo, mut transform, network_id) in players.iter_mut(){
         if network_id.id == player_struct.id{
@@ -134,15 +152,18 @@ fn update_player_state(
                 };
             
                 let mut serializer = flexbuffers::FlexbufferSerializer::new();
-                outgoing_state.serialize(&mut serializer).unwrap();
+                let to_send: SendablePacket = SendablePacket::PlayerPacket(outgoing_state);
+                to_send.serialize(&mut serializer).unwrap();
                 
-                let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
-                let packet_vec  = append_opcode(serializer.view(), opcode);
-                let packet: &[u8] = &(&packet_vec);
+                // let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
+                // let packet_vec  = append_opcode(serializer.view(), opcode);
+                // let packet: &[u8] = &(&packet_vec);
+
+                let packet: &[u8] = serializer.view();
 
                 for address in &addresses.list{
                     if *address != i.addr{
-                        info!("{}: id:{}",address, outgoing_state.id);
+                        // info!("{}: id:{}",address, outgoing_state.id);
                     socket.socket.send_to(&packet, address).unwrap();
                     }
                 }
