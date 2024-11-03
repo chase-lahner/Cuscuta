@@ -33,6 +33,11 @@ pub struct PlayerPacket{
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct NewPlayerPacket{
+   pub client_bundle: ServerPlayerBundle
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct IdPacket{
     pub id: u8
 }
@@ -40,7 +45,8 @@ pub struct IdPacket{
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub enum SendablePacket{
     PlayerPacket(PlayerPacket),
-    IdPacket(IdPacket)
+    IdPacket(IdPacket),
+    NewPlayerPacket(NewPlayerPacket)
 }
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {

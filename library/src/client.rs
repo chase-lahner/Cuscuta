@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::network::{append_opcode, IdPacket, PlayerPacket, SendablePacket, UDP};
+use crate::network::{append_opcode, IdPacket, PlayerPacket, SendablePacket, UDP, NewPlayerPacket};
 use crate::cuscuta_resources::*;
 use crate::player::*;
 
@@ -75,24 +75,27 @@ pub fn id_request(
 /* Transforms current player state into u8 array that
  * we can then send across the wire to be deserialized once it arrives */
  pub fn send_player(
-    player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
+    player : Query<(&Velocity, &Transform, &NetworkId, &Player, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
     socket : Res<UDP>,
     client_id: Res<ClientId>,
 )
 {
     /* Deconstruct out Query. SHould be client side so we can do single */
-    for (t, v, i)  in player.iter(){
+    for (v, t, i, p, h, c, r, s, a)  in player.iter(){
         if i.id == client_id.id && (v.velocity.x != 0. || v.velocity.y != 0.){
-            let outgoing_state = PlayerPacket { 
-                id: client_id.id,
-                transform_x: t.translation.x,
-                transform_y: t.translation.y,
-                velocity_x: v.velocity.x,
-                velocity_y: v.velocity.y,
+            let outgoing_state = ServerPlayerBundle { 
+                velo: *v,
+                transform: *t,
+                player: *p,
+                health: *h,
+                crouching: *c,
+                rolling: *r,
+                sprinting: *s,
+                attacking: *a,
+                id: *i
             };
             let mut serializer = flexbuffers::FlexbufferSerializer::new();
-
-            let to_send: SendablePacket = SendablePacket::PlayerPacket(outgoing_state);
+            let to_send: SendablePacket = SendablePacket::NewPlayerPacket(NewPlayerPacket {client_bundle: outgoing_state});
             to_send.serialize(&mut serializer).unwrap();
             
             // let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
@@ -114,7 +117,8 @@ pub fn listen(
      * maybe event or stage??? */
     udp: Res<UDP>,
     mut commands: Commands,
-    mut player: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
+    // mut player: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
+    mut players_new: Query<(&mut Velocity, &mut Transform, &mut Player, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), With<Player>>,
     mut asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut id: ResMut<ClientId>
@@ -139,13 +143,18 @@ pub fn listen(
     let player_struct: SendablePacket = SendablePacket::deserialize(deserializer).unwrap();
 
     match player_struct{
+        
 
         SendablePacket::IdPacket(id_packet) => {
-            recv_id(src, player.single_mut().2.as_mut(), id_packet, commands, id);
+            recv_id(src, players_new.single_mut().8.as_mut(), id_packet, commands, id);
         }
         SendablePacket::PlayerPacket(player_packet)=> {
-            update_player_state(player, player_packet, commands, &asset_server, &mut texture_atlases, src);
+            // update_player_state(player, player_packet, commands, &asset_server, &mut texture_atlases, src);
 
+        }
+        SendablePacket::NewPlayerPacket(player_packet) => {
+            info!("Matching Player Struct");
+            update_player_state_new(players_new, player_packet, commands, &asset_server, &mut texture_atlases, src);
         }
     }
 
@@ -186,6 +195,43 @@ fn update_player_state(
     if !found{
         info!("new player!");
         client_spawn_other_player(&mut commands, asset_server, texture_atlases,player_struct, source_ip);
+    }
+}
+
+fn update_player_state_new(
+    mut players: Query<(&mut Velocity, &mut Transform, &mut Player, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), With<Player>>,
+    player_struct: NewPlayerPacket,
+    mut commands: Commands,
+    asset_server: &Res<AssetServer>,
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    source_ip: SocketAddr
+){
+    let mut found = false;
+    for(mut velocity, mut transform,mut player,mut health, mut crouch, mut roll, mut sprint, mut attack, mut network_id) in players.iter_mut(){
+        if network_id.id == player_struct.client_bundle.id.id{
+           // *transform = player_struct.client_bundle.transform;
+            transform.translation.x = player_struct.client_bundle.transform.translation.x;
+            transform.translation.y = player_struct.client_bundle.transform.translation.y;
+            velocity.velocity.x = player_struct.client_bundle.velo.velocity.x;
+            velocity.velocity.y = player_struct.client_bundle.velo.velocity.y;
+            health.current = player_struct.client_bundle.health.current;
+            crouch.crouching = player_struct.client_bundle.crouching.crouching;
+            roll.rolling = player_struct.client_bundle.rolling.rolling;
+            sprint.sprinting = player_struct.client_bundle.sprinting.sprinting;
+            attack.attacking = player_struct.client_bundle.attacking.attacking;
+           // *velocity = player_struct.client_bundle.velo;
+            // *health = player_struct.client_bundle.health;
+            // *crouch = player_struct.client_bundle.crouching;
+            // *roll = player_struct.client_bundle.rolling;
+            // *sprint = player_struct.client_bundle.sprinting;
+            // *attack = player_struct.client_bundle.attacking;
+            found = true;
+        }
+    }
+    if !found {
+        info!("new player!");
+        let v = player_struct.client_bundle.velo;
+        client_spawn_other_player_new(&mut commands, asset_server, texture_atlases, player_struct, source_ip);
     }
 }
 

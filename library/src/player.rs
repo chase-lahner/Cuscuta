@@ -1,20 +1,21 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     carnage::CarnageBar,
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{self, PlayerPacket},
+    network::{self, PlayerPacket, NewPlayerPacket},
     room_gen::*,
 };
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Player; // wow! it is he!
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
     pub addr: SocketAddr,
@@ -29,7 +30,7 @@ impl NetworkId {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Crouch {
     pub crouching: bool,
 }
@@ -39,7 +40,7 @@ impl Crouch {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Roll {
     pub rolling: bool,
 }
@@ -49,7 +50,7 @@ impl Roll {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Sprint {
     pub sprinting: bool,
 }
@@ -59,7 +60,7 @@ impl Sprint {
     }
 }
 /* global boolean to not re-attack */
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Attack {
     pub attacking: bool,
 }
@@ -85,7 +86,7 @@ pub struct ClientPlayerBundle {
     attacking: Attack,
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Serialize, Deserialize, PartialEq, Debug)]
 pub struct ServerPlayerBundle {
     pub velo: Velocity,
     pub transform: Transform,
@@ -259,7 +260,48 @@ pub fn client_spawn_user_player(
         rolling: Roll{rolling:false},
         sprinting: Sprint{sprinting:false},
         attacking: Attack{attacking:false}
-});
+    });
+}
+
+pub fn client_spawn_other_player_new(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    player: NewPlayerPacket,
+    source_ip:SocketAddr,
+){
+    let player_sheet_handle = asset_server.load("player/4x8_player.png");
+    let player_layout = TextureAtlasLayout::from_grid(
+        UVec2::splat(TILE_SIZE),
+        PLAYER_SPRITE_COL,
+        PLAYER_SPRITE_ROW,
+        None,
+        None,
+    );
+    let player_layout_len = player_layout.textures.len();
+    let player_layout_handle = texture_atlases.add(player_layout);
+    // spawn player at origin
+    commands.spawn(ClientPlayerBundle {
+        sprite: SpriteBundle { 
+            texture: player_sheet_handle,
+            transform: player.client_bundle.transform,
+            ..default()
+        },
+        rolling: player.client_bundle.rolling,
+        atlas: TextureAtlas {
+            layout: player_layout_handle,
+            index: 0,
+        },
+        animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+        animation_frames: AnimationFrameCount(player_layout_len),
+        velo: player.client_bundle.velo,
+        id:player.client_bundle.id,
+        player: Player,
+        health: player.client_bundle.health,
+        crouching: player.client_bundle.crouching,
+        sprinting: player.client_bundle.sprinting,
+        attacking: player.client_bundle.attacking,
+    });
 
 }
 
