@@ -5,6 +5,8 @@ use crate::cuscuta_resources::*;
 use crate::player::*;
 use crate::enemies::*;
 
+#[derive(Component)]
+pub struct Potion;
 
 // dimensions for remebering rooms array
 #[derive(Debug, Clone)] 
@@ -345,6 +347,40 @@ impl RoomManager {
     }
 }
 
+pub fn spawn_potions_in_room(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    room_manager: &RoomManager,
+    num_potions: usize,
+) {
+    let potion_texture_handle = asset_server.load("items/potion.png");
+
+    // Get room boundaries
+    let (room_width, room_height) = room_manager.current_room_size();
+    let max_x = room_width / 2.0;
+    let max_y = room_height / 2.0;
+    let z_index = room_manager.current_room_z_index();
+
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..num_potions {
+        // Randomize position within room boundaries
+        let x_position = rng.gen_range(-max_x + TILE_SIZE as f32..max_x - TILE_SIZE as f32);
+        let y_position = rng.gen_range(-max_y + TILE_SIZE as f32..max_y - TILE_SIZE as f32);
+
+        // Spawn the potion
+        commands.spawn((
+            SpriteBundle {
+                texture: potion_texture_handle.clone(),
+                transform: Transform::from_xyz(x_position, y_position, z_index + 0.1),
+                ..default()
+            },
+            Potion,
+        ));
+    }
+}
+
+
 #[derive(Component)]
 pub struct Room;
 
@@ -354,7 +390,6 @@ pub fn spawn_start_room(
     room_manager: &mut RoomManager,
 ) {
     let mut rng = rand::thread_rng();
-
     // generate random integers between 50 and 250, * 32
     let random_width = rng.gen_range(40..=40);
     let random_height = rng.gen_range(40..=40);
@@ -496,6 +531,9 @@ pub fn spawn_start_room(
         max_y,
         z_index,
     );
+
+    spawn_potions_in_room(commands, asset_server, &room_manager, 2);
+
 }
 
 
