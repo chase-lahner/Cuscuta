@@ -112,7 +112,7 @@ impl AddressList{
 
 
 
-#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+#[derive(Component, Serialize, Clone)]
 pub struct Velocity {
     pub velocity: Vec2,
 }
