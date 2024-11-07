@@ -31,7 +31,7 @@ pub struct PlayerPacket{
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct NewPlayerPacket{
     pub id: u8,
-    pub key: char,
+    pub key: KeyCode,
     pub room: u8,
 }
 
