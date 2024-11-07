@@ -3,6 +3,7 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 use std::net::UdpSocket;
 use std::io;
+use crate::player::ServerPlayerBundle;
 
 #[derive(Resource, Component)]
 pub struct UDP {

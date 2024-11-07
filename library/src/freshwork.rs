@@ -17,8 +17,8 @@ pub fn update_player(
 ){
     for (time, mut velocity, mut transform, queue) in players.iter_mut() {
         let curr_time = time.time;
-        let mut curr_velo = velocity.into();
-        let mut curr_transform = transform.into();
+        let mut curr_velo = velocity.into_inner();
+        let mut curr_transform = transform.into_inner();
         for(input_time, key) in &queue.q{
             if time.time > input_time.time {
                 //queue.q.remove(index)

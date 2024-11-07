@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::network::{append_opcode, IdPacket, PlayerPacket, SendablePacket, UDP, NewPlayerPacket};
+use crate::network::{ IdPacket, PlayerPacket, SendablePacket, UDP, NewPlayerPacket};
 use crate::cuscuta_resources::*;
 use crate::player::*;
 
