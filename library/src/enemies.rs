@@ -70,6 +70,7 @@ pub fn enemy_movement(
         let mut longest: f32 = 99999999999.0;
         // for every player
         for (mut pt, p, mut ph) in player_query.iter_mut(){
+            // find hypotenuse to get distance to player
             let xdis = (pt.translation.x - transform.translation.x).abs() * (pt.translation.x - transform.translation.x).abs();
             let ydis = (pt.translation.y - transform.translation.y).abs() * (pt.translation.y - transform.translation.y).abs();
             if ydis + xdis < ENEMY_SPOT_DISTANCE * ENEMY_SPOT_DISTANCE {
@@ -77,11 +78,13 @@ pub fn enemy_movement(
                 let mut blocked = false;
                 //line of sight
                 for a in 0..20 {
+                    //linear interpolation using mini hitboxes along line
                     let dec = (a as f32)/20.;
                     let xnew = transform.translation.x + dec * (pt.translation.x - transform.translation.x);
                     let ynew = transform.translation.y + dec * (pt.translation.y - transform.translation.y);
                     let pointaabb = Aabb::new(Vec3::new(xnew, ynew, 0.), Vec2::splat(1.));
                     for (wt, w) in wall_query.iter() {
+                        //checking if any line hitbox collides with any wall
                         //if wt.translation.z == pt.translation.z || wt.translation.z == pt.translation.z - 0.1 {
                             let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
                             if pointaabb.losintersect(&wallaabb){
@@ -92,6 +95,7 @@ pub fn enemy_movement(
                 }     
                 if blocked == true{continue;}
 
+                // making sure enemy chases closest enemy
                 if ydis + xdis < longest {
                 longest = ydis + xdis;
                 player_transform = *pt;
@@ -104,6 +108,7 @@ pub fn enemy_movement(
             if enemy_aabb.intersects(&player_aabb){
                 ph.current -= 5.;
 
+                // knockback applied to player
                 let direction_to_player = player_transform.translation - transform.translation;
                 let normalized_direction = direction_to_player.normalize();
                 //let opp_direction = Vec3::new(normalized_direction.x * -1., normalized_direction.y * -1., normalized_direction.z);
@@ -117,6 +122,7 @@ pub fn enemy_movement(
         // if none in range, patrol and move to next enemy
         if longest == 99999999999.0{       
             
+            // change direction every so often
             if _enemy.timer.finished(){
                 _enemy.axis = _enemy.axis * -1;
             }
@@ -126,6 +132,7 @@ pub fn enemy_movement(
             if _enemy.lastseen.x != 99999. {
                 let direction_to_player = _enemy.lastseen - transform.translation;
                 normalized_direction = direction_to_player.normalize();
+                // once the enemy gets close enough to position, go back to patrolling (to avoid getting stuck on a corner)
                 if (_enemy.lastseen.x - transform.translation.x).abs() < 20. || (_enemy.lastseen.y - transform.translation.y).abs() < 20.{
                     _enemy.lastseen.x = 99999.
                 }
@@ -140,6 +147,8 @@ pub fn enemy_movement(
             let mut xmul: f32 = 1.;
             let mut ymul: f32 = 1.;
             let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
+           
+           // wall collision handling
             for (wt, w) in wall_query.iter() {
                 //if wt.translation.z == player_transform.translation.z || wt.translation.z == player_transform.translation.z - 0.1 {
                     let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
@@ -190,6 +199,7 @@ pub fn enemy_movement(
         let mut xmul: f32 = 1.;
         let mut ymul: f32 = 1.;
         let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
+        //wall collision handling
         for (wt, w) in wall_query.iter() {
             //if wt.translation.z == player_transform.translation.z || wt.translation.z == player_transform.translation.z - 0.1 {
                 let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
