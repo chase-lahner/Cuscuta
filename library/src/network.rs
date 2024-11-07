@@ -1,8 +1,11 @@
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
-use std::net::UdpSocket;
+use std::{net::UdpSocket, time};
 use std::io;
+use crate::freshwork::Timestamp;
+use crate::player::ServerPlayerBundle;
+use std::time::{Instant, Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Resource, Component)]
 pub struct UDP {
@@ -27,6 +30,23 @@ pub struct PlayerPacket{
     pub velocity_x: f32,
     pub velocity_y: f32,
 }
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct InputPacket{
+    header: Header,
+    key_pressed: KeyCode,
+}
+
+impl InputPacket{
+    pub fn new( header: Header, keycode: KeyCode) -> Self {
+        Self { header: header , key_pressed: keycode }
+    }
+    // SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NewPlayerPacket{
+   pub client_bundle: ServerPlayerBundle
+}
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct NewPlayerPacket{
@@ -37,18 +57,31 @@ pub struct NewPlayerPacket{
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct IdPacket{
-    pub id: u8
+    pub id: u8,
+}
+#[derive(Serialize,Deserialize, PartialEq, Debug)]
+pub struct Header{
+    pub network_id: u8,
+    pub sequence_num: u64,
+    pub timestamp: u128
+
+}
+#[derive(Serialize,Deserialize,PartialEq,Debug)]
+pub struct TimeIdPacket {
+    pub header: Header
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize)]
 pub enum SendablePacket{
     PlayerPacket(PlayerPacket),
-    IdPacket(IdPacket)
+    IdPacket(IdPacket),
+    NewPlayerPacket(NewPlayerPacket)
 }
 
-pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    // will slice anything into u8 array !! https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8
-    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array 
+    
+    ::core::slice::from_raw_parts((p as *const T) as *const u8,
+     ::core::mem::size_of::<T>())
 }
 
 pub unsafe fn u8_to_f32(input_arr: &[u8]) -> (&[u8], &[f32], &[u8]) {
