@@ -2,8 +2,9 @@ use std::net::SocketAddr;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use bevy::input::keyboard::KeyboardInput;
 
-use crate::network::{ IdPacket, PlayerPacket, SendablePacket, UDP};
+use crate::network::{ IdPacket, NewPlayerPacket, PlayerPacket, SendablePacket, UDP};
 use crate::cuscuta_resources::*;
 use crate::player::*;
 
@@ -78,21 +79,20 @@ pub fn id_request(
     player : Query<(&Transform, &Velocity, &NetworkId ), With<Player>>,
     socket : Res<UDP>,
     client_id: Res<ClientId>,
+    mut keyb: EventReader<KeyboardInput>,
 )
 {
     /* Deconstruct out Query. SHould be client side so we can do single */
     for (t, v, i)  in player.iter(){
         if i.id == client_id.id && (v.velocity.x != 0. || v.velocity.y != 0.){
-            let outgoing_state = PlayerPacket { 
+            let outgoing_state = NewPlayerPacket { 
                 id: client_id.id,
-                transform_x: t.translation.x,
-                transform_y: t.translation.y,
-                velocity_x: v.velocity.x,
-                velocity_y: v.velocity.y,
+                key: keyb.read().into_iter(),
+                room: 1,
             };
             let mut serializer = flexbuffers::FlexbufferSerializer::new();
 
-            let to_send: SendablePacket = SendablePacket::PlayerPacket(outgoing_state);
+            let to_send: SendablePacket = SendablePacket::NewPlayerPacket(outgoing_state);
             to_send.serialize(&mut serializer).unwrap();
             
             // let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
