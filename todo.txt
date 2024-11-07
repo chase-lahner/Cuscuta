@@ -1,0 +1,12 @@
+1. Clean up networking code  [NETWORK]
+    - general fn? Using types?
+    - comment
+    1a. Make listens get ALL in queue it can in timestep
+    1b. Use enums for serialization 
+    1c. Move game logic to server [NETWORK]
+        - This will be rough
+        - Research must be done
+
+2. Black bar behind carnage [ANYONE]
+    - look @ carnage.rs for ui stuff (lowk want to rename that to ui stuff lol)
+3. make whole thing big cargo [ANYONE]

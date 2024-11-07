@@ -7,7 +7,7 @@ use crate::player::{NetworkId, Player};
 
 /* stupud to do math like this but basically window is  */
 const CARNAGE_BAR_LEFT: f32 = 15./40. * 100.;
-const CARNAGE_BAR_RIGHT: f32 = 25./40. * 100.;
+const _CARNAGE_BAR_RIGHT: f32 = 25./40. * 100.;
 const CARNAGE_BAR_MIDDLE: f32 = 20./40. * 100.;
 
 
@@ -44,7 +44,7 @@ pub fn client_spawn_ui(
         UiImage::new(asset_server.load("ui/carnage_bar_border.png")),
         CarnageBar{stealth: 0., carnage: 0.}
     ));
-
+    /* 'carnage' aspect of bar */
     commands.spawn(
         (NodeBundle{
             style: Style {
@@ -62,6 +62,7 @@ pub fn client_spawn_ui(
         UiImage::solid_color(Color::from(RED)),
         Red,
     ));
+    /* 'stealth' side of carnage bar */
     commands.spawn(
         (NodeBundle{
             style: Style {
@@ -79,6 +80,21 @@ pub fn client_spawn_ui(
         UiImage::solid_color(Color::from(SEA_GREEN)),
         Green,
     ));
+    /* carnage bar underlay */
+    commands.spawn(
+        (NodeBundle{
+            style: Style {
+                width: Val::Px(320.0),
+                height: Val::Px(TILE_SIZE as f32),
+                margin: UiRect{ top: Val::VMin(2.5), left: Val::VMax(CARNAGE_BAR_LEFT),..default()},
+                ..default()
+            },
+            z_index: ZIndex::Global(3),
+            ..default()
+        },
+        UiImage::solid_color(Color::from(BLACK)),
+    ));
+    /* health bar spawn */
     commands.spawn(
         (NodeBundle{
             style: Style {
@@ -96,6 +112,7 @@ pub fn client_spawn_ui(
         UiImage::solid_color(Color::from(MAROON)),
         Health::new(),
     ));
+    /* Health underlay */
     commands.spawn(
         (NodeBundle{
             style: Style {

@@ -160,7 +160,7 @@ impl RoomManager {
         // Find the bounds of the current room
         println!("Z: {}", z_index);
         
-        if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
+        if let Some((left_x, right_x, top_y, _bottom_y)) = self.find_room_bounds(z_index) {
             let old_x = (left_x + right_x) / 2;
             let old_y = top_y;
             println!("width: {}", new_width);
@@ -189,7 +189,7 @@ impl RoomManager {
         new_height: usize
     ) {
         // Find the bounds of the current room
-        if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
+        if let Some((left_x, right_x, _top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_x = (left_x + right_x) / 2;
             let old_y = bottom_y + 1;
 
@@ -216,7 +216,7 @@ impl RoomManager {
         new_height: usize
     ) {
         // Find the bounds of the current room
-        if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
+        if let Some((left_x, _right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_y = (top_y + bottom_y) / 2;
             let old_x = left_x;
             println!("width: {}", new_width);
@@ -244,7 +244,7 @@ impl RoomManager {
         new_height: usize
     ) {
         // Find the bounds of the current room
-        if let Some((left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
+        if let Some((_left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_y = (top_y + bottom_y) / 2;
             let old_x = right_x + 1;
             println!("width: {}", new_width);
@@ -372,6 +372,9 @@ pub fn spawn_start_room(
 
     // get current room z index
     let z_index = room_manager.current_room_z_index();
+
+    // ADD THIS TO FIX SPAWN ROOM
+    room_manager.room_array.add_room_to_storage(z_index as f32, random_width as usize, random_height as usize);
 
     // add start room to map at a random position
     room_manager.add_start_room_to_map(z_index as i32, random_width as usize, random_height as usize);
@@ -531,8 +534,8 @@ fn generate_room_boundaries(
 fn generate_walls_and_floors(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    room_width: f32,
-    room_height: f32,
+    _room_width: f32,
+    _room_height: f32,
     max_x: f32,
     max_y: f32,
     z_index: f32,
@@ -622,7 +625,7 @@ fn generate_doors(
 ) {
     let door_handle = asset_server.load("tiles/walls/black_void.png");
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
-        if (left_x as i32 - 80 > 0){
+        if left_x as i32 - 80 > 0{
             
             // Left door
             let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
@@ -645,7 +648,7 @@ fn generate_doors(
             set_collide(room_manager, xcoord_left, ycoord_left, 2);
         }
 
-        if (right_x as i32 + 80 < 400){
+        if right_x as i32 + 80 < 400{
 
             // Right door
             let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
@@ -669,7 +672,7 @@ fn generate_doors(
 
         }
 
-        if (top_y as i32 - 80 > 0){
+        if top_y as i32 - 80 > 0{
             // Top door
             let door_top_x = TILE_SIZE as f32 / 2.0;
             let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
@@ -692,7 +695,7 @@ fn generate_doors(
 
         }
 
-        if (bottom_y as i32 + 80 < 400){
+        if bottom_y as i32 + 80 < 400{
             // Bottom door
             let door_bottom_x = TILE_SIZE as f32 / 2.0;
             let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
@@ -731,7 +734,7 @@ pub fn generate_random_room_with_bounds(
     // Get z-index for this room
     let next_z_index = room_manager.next_room_z_index();
 
-    let current_z_index = room_manager.current_z_index;
+    let _current_z_index = room_manager.current_z_index;
 
     // global
     let global_z_index = room_manager.get_global_z_index();
@@ -828,20 +831,20 @@ pub fn transition_map(
     asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     mut room_query: Query<Entity, With<Room>>, 
-    door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,  
+    _door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,  
     pt: &mut Transform,
     door_type: DoorType, 
 ) {
-    // Despawn old room
     let mut right_x_out = 0;
     let mut left_x_out = 0;
     let mut top_y_out = 0;
     let mut bottom_y_out = 0;
 
-    
+    // Despawn old room
     for entity in room_query.iter_mut() {
         commands.entity(entity).despawn();
     }
+    
     let z_in = room_manager.get_current_z_index();
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_in as i32) {
         right_x_out = right_x;
@@ -855,11 +858,11 @@ pub fn transition_map(
 
     
 
-    let max_x = room_manager.current_room_max().0;
-    let max_y = room_manager.current_room_max().1;
+    let _max_x = room_manager.current_room_max().0;
+    let _max_y = room_manager.current_room_max().1;
 
     // generate random room boundaries
-    let (room_width, room_height, max_x, max_y, z_index) = generate_room_boundaries(room_manager);
+    let (room_width, room_height, max_x, max_y, _z_index) = generate_room_boundaries(room_manager);
 
     // Adjust the player's position based on the door they entered
     match door_type {
@@ -869,11 +872,11 @@ pub fn transition_map(
             let y_to_check =(top_y_out + bottom_y_out) / 2;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
             println!("Room_Val {:?}", room_val);
-            if(room_val == Some(1)){
+            if room_val == Some(1){
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
-                let global_z = room_manager.get_global_z_index();
+                let _global_z = room_manager.get_global_z_index();
 
                 // add new room to map relative to current room top door
                 room_manager.add_room_to_map_from_right_door(
@@ -930,11 +933,11 @@ pub fn transition_map(
             let y_to_check =(top_y_out + bottom_y_out) / 2;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
             println!("Room_Val {:?}", room_val);
-            if(room_val == Some(1)){
+            if room_val == Some(1){
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
-                let global_z = room_manager.get_global_z_index();
+                let _global_z = room_manager.get_global_z_index();
 
                 // add new room to map relative to current room top door
                 room_manager.add_room_to_map_from_left_door(
@@ -993,11 +996,11 @@ pub fn transition_map(
             let y_to_check = top_y_out - 1;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
             println!("Room_Val {:?}", room_val);
-            if(room_val == Some(1)){
+            if room_val == Some(1) {
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
-                let global_z = room_manager.get_global_z_index();
+                let _global_z = room_manager.get_global_z_index();
 
                 // add new room to map relative to current room top door
                 room_manager.add_room_to_map_from_top_door(
@@ -1058,11 +1061,11 @@ pub fn transition_map(
             let y_to_check = bottom_y_out + 1;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
             println!("Room_Val {:?}", room_val);
-            if(room_val == Some(1)){
+            if room_val == Some(1){
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
-                let global_z = room_manager.get_global_z_index();
+                let _global_z = room_manager.get_global_z_index();
 
                 // add new room to map relative to current room top door
                 room_manager.add_room_to_map_from_bottom_door(
@@ -1156,7 +1159,7 @@ pub fn client_spawn_pot(
         None,
         None
     );
-    let pot_layout_len = pot_layout.textures.len();
+    let _pot_layout_len = pot_layout.textures.len();
     let pot_layout_handle = texture_atlases.add(pot_layout);
     info!("spawning pot");
     commands.spawn((
