@@ -21,10 +21,12 @@ pub fn send_id(
     commands.spawn(NetworkId{id:player_id, addr:source_addr});
 
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
-    /* lil baby struct to serialize */
-    let id_packet = IdPacket{ id: player_id};
+
+    let id_packet = IdPacket{id: player_id};
+
     let to_send = SendablePacket::IdPacket(id_packet);
-    to_send.serialize(  &mut serializer ).unwrap();
+
+    to_send.serialize(&mut serializer).unwrap();
 
     /* once serialized, we throw our opcode on the end */
     // let opcode: &[u8] = std::slice::from_ref(&GET_PLAYER_ID_CODE);
@@ -58,14 +60,10 @@ pub fn listen(
     }
     let (amt, src) = packet.unwrap();
     
-    /* when we serialize, we throw our opcode on the end, so we know how to
-     * de-serialize... jank? maybe.  */
-   // let opcode = buf[amt -1];
-    
-    /* trim trailing 0s */
-    let t_buf = &buf[..amt]; // / -1
+    let t_buf = &buf[..amt]; // trim buf (buf is raw byte data we recieved from socket)
 
     let deserializer = flexbuffers::Reader::get_root(t_buf).unwrap();
+
     let player_struct: SendablePacket = SendablePacket::deserialize(deserializer).unwrap();
 
     match player_struct {

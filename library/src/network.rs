@@ -49,9 +49,10 @@ pub enum SendablePacket{
     NewPlayerPacket(NewPlayerPacket)
 }
 
-pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    // will slice anything into u8 array !! https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8
-    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array 
+    
+    ::core::slice::from_raw_parts((p as *const T) as *const u8,
+     ::core::mem::size_of::<T>())
 }
 
 pub unsafe fn u8_to_f32(input_arr: &[u8]) -> (&[u8], &[f32], &[u8]) {
