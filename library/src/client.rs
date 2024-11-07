@@ -84,7 +84,7 @@ pub fn id_request(
     for (v, t, i, p, h, c, r, s, a)  in player.iter(){
         if i.id == client_id.id && (v.velocity.x != 0. || v.velocity.y != 0.){
             let outgoing_state = ServerPlayerBundle { 
-                velo: *v,
+                velo: v.clone(),
                 transform: *t,
                 player: *p,
                 health: *h,

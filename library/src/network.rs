@@ -1,9 +1,11 @@
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
-use std::net::UdpSocket;
+use std::{net::UdpSocket, time};
 use std::io;
+use crate::freshwork::Timestamp;
 use crate::player::ServerPlayerBundle;
+use std::time::{Instant, Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Resource, Component)]
 pub struct UDP {
@@ -28,18 +30,41 @@ pub struct PlayerPacket{
     pub velocity_x: f32,
     pub velocity_y: f32,
 }
-
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct InputPacket{
+    header: Header,
+    key_pressed: KeyCode,
+}
+
+impl InputPacket{
+    pub fn new( header: Header, keycode: KeyCode) -> Self {
+        Self { header: header , key_pressed: keycode }
+    }
+    // SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct NewPlayerPacket{
    pub client_bundle: ServerPlayerBundle
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct IdPacket{
-    pub id: u8
+    pub id: u8,
+}
+#[derive(Serialize,Deserialize, PartialEq, Debug)]
+pub struct Header{
+    pub network_id: u8,
+    pub sequence_num: u64,
+    pub timestamp: u128
+
+}
+#[derive(Serialize,Deserialize,PartialEq,Debug)]
+pub struct TimeIdPacket {
+    pub header: Header
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize)]
 pub enum SendablePacket{
     PlayerPacket(PlayerPacket),
     IdPacket(IdPacket),

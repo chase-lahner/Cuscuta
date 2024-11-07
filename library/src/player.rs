@@ -86,7 +86,7 @@ pub struct ClientPlayerBundle {
     attacking: Attack,
 }
 
-#[derive(Bundle, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Bundle, Serialize, Deserialize)]
 pub struct ServerPlayerBundle {
     pub velo: Velocity,
     pub transform: Transform,

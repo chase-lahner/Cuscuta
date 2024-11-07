@@ -236,7 +236,7 @@ fn update_player_state_new(
             if *addressi != i.addr && (v.velocity.x != 0. || v.velocity.y != 0.)
             {
                 let outgoing_state = ServerPlayerBundle { 
-                    velo: *v,
+                    velo: v.clone(),
                     transform: *t,
                     player: *p,
                     health: *h,
