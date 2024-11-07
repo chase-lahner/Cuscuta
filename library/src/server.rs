@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
+use crate::{cuscuta_resources::{AddressList, Health, PlayerCount, Velocity}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
 
 /* Upon request, sends an id to client */
 pub fn send_id(
@@ -41,10 +41,10 @@ pub fn send_id(
 /* Server side listener for packets,  */
 pub fn listen(
     udp: Res<UDP>,
-    mut commands: Commands,
-    mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
+    commands: Commands,
+    players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     mut n_p: ResMut<PlayerCount>,
-    mut addresses: ResMut<AddressList>
+    addresses: ResMut<AddressList>
 
 ) {
     /* to hold msg */
@@ -52,7 +52,7 @@ pub fn listen(
     // pseudo poll. nonblocking, gives ERR on no read tho
     let packet = udp.socket.recv_from(&mut buf);
     match packet{
-        Err(e)=> return,
+        Err(_e)=> return,
         _ => info!("read packet!")
     }
     let (amt, src) = packet.unwrap();
@@ -68,7 +68,7 @@ pub fn listen(
     let player_struct: SendablePacket = SendablePacket::deserialize(deserializer).unwrap();
 
     match player_struct {
-        SendablePacket::IdPacket(id_packet) => {
+        SendablePacket::IdPacket(_id_packet) => {
             info!("sending id to client");
             send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
         SendablePacket::PlayerPacket(player_packet) => {
@@ -171,5 +171,3 @@ fn update_player_state(
         }
     }
 }
-
-fn something(){}

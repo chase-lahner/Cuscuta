@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::network::{append_opcode, IdPacket, PlayerPacket, SendablePacket, UDP};
+use crate::network::{ IdPacket, PlayerPacket, SendablePacket, UDP};
 use crate::cuscuta_resources::*;
 use crate::player::*;
 
@@ -11,7 +11,7 @@ pub fn recv_id(
     source_addr: SocketAddr,
     network_id: &mut NetworkId,
     ds_struct: IdPacket,
-    mut commands: Commands,
+    mut _commands: Commands,
     mut id: ResMut<ClientId>
 ) {
     info!("Recieving ID");
@@ -113,18 +113,18 @@ pub fn listen(
      * Would really love to get that spawn player fn out of here, 
      * maybe event or stage??? */
     udp: Res<UDP>,
-    mut commands: Commands,
+    commands: Commands,
     mut player: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    mut asset_server: Res<AssetServer>,
+    asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut id: ResMut<ClientId>
+    id: ResMut<ClientId>
 ) {
     //info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
     let packet = udp.socket.recv_from(&mut buf);
     match packet{
-        Err(e)=> return,
+        Err(_e)=> return,
         _ =>  info!("read packet!")
     }
     let (amt, src) = packet.unwrap();
@@ -189,5 +189,4 @@ fn update_player_state(
     }
 }
 
-fn something(){}
 
