@@ -1,5 +1,5 @@
 use bevy::prelude::{KeyCode::*, *};
-use crate::{cuscuta_resources::*, player::*};
+use crate::{carnage::CarnageBar, cuscuta_resources::*, player::*};
 
 #[derive(Component)]
 pub struct Timestamp{
@@ -12,11 +12,12 @@ pub struct InputQueue{
 }
 
 pub fn update_player(
-    mut players: Query<(&Timestamp, &mut Velocity, &mut Transform, &mut InputQueue, &Crouch, &Sprint),With<Player>>,
-
+    mut player_q: Query<(&Timestamp, &mut Velocity, &mut Transform, &mut InputQueue, &Crouch, &Sprint),With<Player>>,
+    mut carange_q: Query<&mut CarnageBar>
 ){
-    for (time, mut velocity, mut transform, queue, crouch, sprint) in players.iter_mut() {
-        let curr_time = time.time;
+    /* query establihsed, not active state */
+    for (time, mut velocity, mut transform, queue, crouch, sprint) in player_q.iter_mut() {
+        let mut curr_time: f32 = time.time;
         let mut curr_velo = velocity.into_inner();
         let mut curr_transform = transform.into_inner();
         for(input_time, key) in &queue.q{
@@ -26,14 +27,22 @@ pub fn update_player(
             }
             else {// time <= input_time
                 match key{
-                    KeyW | KeyA | KeyS | KeyD => (*curr_velo, *curr_transform) = 
-                                        move_over(curr_time,input_time.time,
-                                                    curr_velo, curr_transform,
-                                                    sprint.sprinting, crouch.crouching,
-                                                *key),
+                    KeyW | KeyA | KeyS | KeyD 
+                    => (*curr_velo, *curr_transform) = 
+                        move_over(curr_time,input_time.time,
+                        curr_velo, curr_transform,
+                        sprint.sprinting, crouch.crouching,
+                        *key),
+                    CapsLock => crouchy(),
+                    ShiftLeft => roll(),
+                    KeyQ | KeyE => item_rotate(),// how are we doing items?
+                    Space => attack(),
                     _ => todo!()//more keypresses! more actions!
                 }
             }
+            //curr time is not accurate atm, it uses last commands, not last
+            //move etc etc
+            curr_time = input_time.time;
         }
     }
 }
@@ -48,6 +57,7 @@ fn move_over(
     crouching:bool,
     key:KeyCode
 ) -> (Velocity, Transform) {
+
 
     /* calulate time between last input used */
     let delta_time: f32 = curr_time - input_time;
@@ -97,5 +107,15 @@ fn move_over(
     transform.translation.x = new_pos_x;
     transform.translation.y = new_pos_y;
 
-    return (*velocity, *transform)
+    return (velocity.clone(), *transform)
 }
+
+fn roll(){}
+
+fn crouchy(){}
+
+fn item_rotate(){}
+
+/* Differences betwen client/server?  */
+fn attack(){}
+
