@@ -414,10 +414,8 @@ pub fn spawn_start_room(
     // add start room to map at a random position
     room_manager.add_start_room_to_map(z_index as i32, random_width as usize, random_height as usize);
 
-    // print room map
-    //room_manager.print_room_map();
 
-    // **NEW**: Find the bounds of the start room and print them
+    // find the bounds of the start room and print them
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
         println!("Start room bounds: Left: {}, Right: {}, Top: {}, Bottom: {}", left_x, right_x, top_y, bottom_y);
     } else {

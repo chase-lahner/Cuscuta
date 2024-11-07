@@ -1,5 +1,5 @@
 pub mod camera;
-pub mod carnage;
+pub mod ui;
 pub mod collision;
 pub mod cuscuta_resources;
 pub mod enemies;

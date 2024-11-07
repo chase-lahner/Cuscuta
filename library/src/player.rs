@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use bevy::prelude::*;
 
 use crate::{
-    carnage::CarnageBar,
+    ui::CarnageBar,
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,

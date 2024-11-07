@@ -3,7 +3,7 @@ use std::{net::{ Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs, UdpSocket}, 
 use bevy::{prelude::*, tasks::IoTaskPool};
 use flexbuffers::FlexbufferSerializer;
 
-use crate::{camera::spawn_camera, carnage::client_spawn_ui, cuscuta_resources::{self, AddressList, ClientId}, network::*, player::*, room_gen::*};
+use crate::{camera::spawn_camera, ui::client_spawn_ui, cuscuta_resources::{self, AddressList, ClientId}, network::*, player::*, room_gen::*};
 
 pub fn ip_setup(
     mut commands: Commands
