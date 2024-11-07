@@ -69,7 +69,7 @@ pub fn enemy_movement(
         // checking which player is closest
         let mut longest: f32 = 99999999999.0;
         // for every player
-        for (mut pt, p, mut ph) in player_query.iter_mut(){
+        for (mut pt, _p, mut ph) in player_query.iter_mut(){
             let xdis = (pt.translation.x - transform.translation.x).abs() * (pt.translation.x - transform.translation.x).abs();
             let ydis = (pt.translation.y - transform.translation.y).abs() * (pt.translation.y - transform.translation.y).abs();
             if ydis + xdis < ENEMY_SPOT_DISTANCE * ENEMY_SPOT_DISTANCE {
@@ -81,7 +81,7 @@ pub fn enemy_movement(
                     let xnew = transform.translation.x + dec * (pt.translation.x - transform.translation.x);
                     let ynew = transform.translation.y + dec * (pt.translation.y - transform.translation.y);
                     let pointaabb = Aabb::new(Vec3::new(xnew, ynew, 0.), Vec2::splat(1.));
-                    for (wt, w) in wall_query.iter() {
+                    for (wt, _w) in wall_query.iter() {
                         //if wt.translation.z == pt.translation.z || wt.translation.z == pt.translation.z - 0.1 {
                             let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
                             if pointaabb.losintersect(&wallaabb){
@@ -140,7 +140,7 @@ pub fn enemy_movement(
             let mut xmul: f32 = 1.;
             let mut ymul: f32 = 1.;
             let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
-            for (wt, w) in wall_query.iter() {
+            for (wt, _w) in wall_query.iter() {
                 //if wt.translation.z == player_transform.translation.z || wt.translation.z == player_transform.translation.z - 0.1 {
                     let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
                     if tempaabb.intersects(&wallaabb){
@@ -190,7 +190,7 @@ pub fn enemy_movement(
         let mut xmul: f32 = 1.;
         let mut ymul: f32 = 1.;
         let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
-        for (wt, w) in wall_query.iter() {
+        for (wt, _w) in wall_query.iter() {
             //if wt.translation.z == player_transform.translation.z || wt.translation.z == player_transform.translation.z - 0.1 {
                 let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
                 if tempaabb.intersects(&wallaabb){

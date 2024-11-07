@@ -11,7 +11,7 @@ pub fn recv_id(
     source_addr: SocketAddr,
     network_id: &mut NetworkId,
     ds_struct: IdPacket,
-    mut commands: Commands,
+    mut _commands: Commands,
     mut id: ResMut<ClientId>
 ) {
     info!("Recieving ID");
@@ -121,14 +121,14 @@ pub fn listen(
     mut players_new: Query<(&mut Velocity, &mut Transform, &mut Player, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), With<Player>>,
     mut asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut id: ResMut<ClientId>
+    id: ResMut<ClientId>
 ) {
     //info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
     let packet = udp.socket.recv_from(&mut buf);
     match packet{
-        Err(e)=> return,
+        Err(_e)=> return,
         _ =>  info!("read packet!")
     }
     let (amt, src) = packet.unwrap();

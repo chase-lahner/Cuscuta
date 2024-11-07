@@ -47,7 +47,7 @@ pub fn listen(
     // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     mut players_new: Query<(&mut Velocity, &mut Transform, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), (With<Player>, Without<Enemy>)>,
     mut n_p: ResMut<PlayerCount>,
-    mut addresses: ResMut<AddressList>
+    addresses: ResMut<AddressList>
 
 ) {
     /* to hold msg */
@@ -67,7 +67,7 @@ pub fn listen(
     let player_struct: SendablePacket = SendablePacket::deserialize(deserializer).unwrap();
 
     match player_struct {
-        SendablePacket::IdPacket(id_packet) => {
+        SendablePacket::IdPacket(_id_packet) => {
             info!("sending id to client");
             send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
         SendablePacket::PlayerPacket(player_packet) => {
@@ -271,5 +271,3 @@ fn update_player_state_new(
         
     }
 }
-
-fn something(){}
