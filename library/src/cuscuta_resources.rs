@@ -5,11 +5,11 @@
 use std::net::SocketAddr;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 
 pub const TICKS_PER_SECOND: f64 = 60.;
-pub const SERVER_ADR: &str = "10.4.41.241:5001"; //136.142.159.86:5001
+pub const SERVER_ADR: &str = "10.4.66.179:5001"; //136.142.159.86:5001
 
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;
@@ -69,7 +69,7 @@ pub struct Pot{
 #[derive(Component)]
 pub struct Wall;
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Health{
     pub max: f32,
     pub current: f32
@@ -112,7 +112,7 @@ impl AddressList{
 
 
 
-#[derive(Component, Serialize, Clone)]
+#[derive(Component, Serialize, Deserialize, Clone, Copy)]
 pub struct Velocity {
     pub velocity: Vec2,
 }
