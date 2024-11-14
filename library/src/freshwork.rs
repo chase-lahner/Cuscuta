@@ -23,11 +23,11 @@ pub fn update_player(
         let mut curr_velo = velocity.into_inner();
         let mut curr_transform = transform.into_inner();
         for(input_time, key) in &queue.q{
-            if time.time > input_time.time {
+            if time.time > input_time.time + 1.{// 
                 //queue.q.remove(index)
                 //TODO remove
             }
-            else {// time <= input_time
+            else if time.time <= input_time.time{// time <= input_time
                 match key{
                     KeyW | KeyA | KeyS | KeyD 
                     => (*curr_velo, *curr_transform) = 
@@ -45,7 +45,8 @@ pub fn update_player(
             //curr time is not accurate atm, it uses last commands, not last
             //move etc etc
             curr_time = input_time.time;
-        }
+        }//end input_queue
+        //more clapms? last minute checks on collision?????????
     }
 }
 

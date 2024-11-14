@@ -60,7 +60,10 @@ pub fn listen(
     }
     let (amt, src) = packet.unwrap();
     
-    let t_buf = &buf[..amt]; // trim buf (buf is raw byte data we recieved from socket)
+
+    /* trim trailing 0s */
+    let t_buf = &buf[..amt]; // / -1
+
 
     let deserializer = flexbuffers::Reader::get_root(t_buf).unwrap();
 
@@ -71,28 +74,16 @@ pub fn listen(
             info!("sending id to client");
             send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
         SendablePacket::PlayerPacket(player_packet) => {
-            {}
-            // update_player_state(src, players, player_packet, commands);
 
+            update_player_state(src, players, player_packet, commands);
+            //recieve_input()
         }
         SendablePacket::NewPlayerPacket(packet_bundle) => {
             update_player_state_new(src, players_new, packet_bundle, commands);
         }
     }
 
-    
 
-
-    // match opcode{
-    //     cuscuta_resources::GET_PLAYER_ID_CODE => {
-    //         info!("sending id to client");
-    //         send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
-    //     cuscuta_resources::PLAYER_DATA =>
-    //         update_player_state(src, players, t_buf, commands),
-    //     _ => 
-    //         something()//TOTO
-
-    // };
 }
 
 /* once we have our packeet, we must use it to update
