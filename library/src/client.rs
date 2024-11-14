@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use bevy::input::keyboard::KeyboardInput;
 
 use crate::network::{ IdPacket, PlayerPacket, SendablePacket, UDP, NewPlayerPacket};
 use crate::cuscuta_resources::*;
@@ -79,6 +80,7 @@ pub fn id_request(
     player : Query<(&Velocity, &Transform, &NetworkId, &Player, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
     socket : Res<UDP>,
     client_id: Res<ClientId>,
+    mut keyb: EventReader<KeyboardInput>,
 )
 {
     /* Deconstruct out Query. SHould be client side so we can do single */
