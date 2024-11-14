@@ -24,6 +24,7 @@ pub fn recv_id(
     network_id.id = ds_struct.id;
     network_id.addr = source_addr;
     id.id = ds_struct.id;
+    
 
     info!("ASSIGNED ID: {:?}", network_id.id);
 }
