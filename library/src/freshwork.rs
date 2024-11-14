@@ -1,17 +1,10 @@
 use std::time::Instant;
 
 use bevy::prelude::{KeyCode::*, *};
-use crate::{carnage::CarnageBar, cuscuta_resources::*, player::*};
+use serde::{Serialize, Deserialize};
+use crate::{ui::CarnageBar, cuscuta_resources::*, player::*};
 
-#[derive(Component)]
-pub struct Timestamp{
-    time: u128
-}
 
-#[derive(Component)]
-pub struct InputQueue{
-    pub q: Vec<(Timestamp, KeyCode),>
-}
 
 pub fn update_player(
     mut player_q: Query<(&Timestamp, &mut Velocity, &mut Transform, &mut InputQueue, &Crouch, &Sprint),With<Player>>,
