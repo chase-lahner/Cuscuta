@@ -27,8 +27,8 @@ pub fn move_camera(
             let max_x = width/2.0;
             let max_y = height/2.0;
 
-            ct.translation.x = transform.translation.x.clamp(-max_x + (WIN_W / 2.), max_x - (WIN_W / 2.));
-            ct.translation.y = transform.translation.y.clamp(-max_y + (WIN_H / 2.), max_y - (WIN_H / 2.) + (3. * (TILE_SIZE as f32)));
+        ct.translation.x = transform.translation.x.clamp(-max_x + (WIN_W / 2.), max_x - (WIN_W / 2.));
+        ct.translation.y = transform.translation.y.clamp(-max_y + (WIN_H / 2.), max_y - (WIN_H / 2.));
         }
     }
 }
@@ -39,21 +39,6 @@ pub fn spawn_camera(
 ){
     /* camera spawn */
     commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
-    
-    /* ui bar */
-    commands.spawn((
-        NodeBundle {
-            style: Style{
-                width: Val::Px(1280.),
-                /* currently a 3 tile tall bar is plopped at top of screen */
-                height: Val::Px(96.),
-                margin: UiRect{top: Val::VMin(0.), left: Val::VMax(0.),..default()},
-                ..default()
-            },
-            z_index: ZIndex::Global(0),
-            ..default()
-        },
-        UiImage::new(asset_server.load("ui/ui_bar.png"))
-    ));
+
 }
 

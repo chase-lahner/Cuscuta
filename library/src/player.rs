@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    carnage::CarnageBar,
+    ui::CarnageBar,
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,

@@ -5,12 +5,31 @@ use crate::cuscuta_resources::*;
 use crate::player::*;
 use crate::enemies::*;
 
+#[derive(Component)]
+pub struct Potion;
 
 // dimensions for remebering rooms array
 #[derive(Debug, Clone)] 
 pub struct RoomDimensions {
     pub width: usize,
     pub height: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct InnerWallStartPos {
+    pub x: usize,
+    pub y: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct InnerWall {
+    pub start_pos: InnerWallStartPos,
+    pub length_direction_vector: (i32, i32),
+}
+
+#[derive(Debug, Clone)]
+pub struct InnerWallList {
+    pub walls: Vec<Vec<InnerWall>>, 
 }
 
 // array that remembers rooms and their z indexes
@@ -85,6 +104,7 @@ pub struct RoomManager {
     pub current_z_index: f32,  
     // z of room that was most recently generated (used so we can backtrack w/o screwing everything up)
     pub global_z_index: f32,  
+    pub inner_wall_list: InnerWallList,
 }
 
 impl RoomManager {
@@ -101,6 +121,7 @@ impl RoomManager {
             max_sizes: Vec::new(), 
             current_z_index: -2.0,
             global_z_index: -2.0,
+            inner_wall_list: InnerWallList { walls: vec![Vec::new(); 100] },
         }
 
     }
@@ -158,13 +179,10 @@ impl RoomManager {
         new_height: usize
     ) {
         // Find the bounds of the current room
-        println!("Z: {}", z_index);
         
         if let Some((left_x, right_x, top_y, _bottom_y)) = self.find_room_bounds(z_index) {
             let old_x = (left_x + right_x) / 2;
             let old_y = top_y;
-            println!("width: {}", new_width);
-            println!("height: {}", new_height);
 
             let start_x = old_x - (new_width / 2);
             let start_y = old_y - new_height;
@@ -219,8 +237,6 @@ impl RoomManager {
         if let Some((left_x, _right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_y = (top_y + bottom_y) / 2;
             let old_x = left_x;
-            println!("width: {}", new_width);
-            println!("height: {}", new_height);
             let start_y = old_y - (new_height / 2);
             let start_x = old_x - new_width;
 
@@ -247,8 +263,6 @@ impl RoomManager {
         if let Some((_left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_y = (top_y + bottom_y) / 2;
             let old_x = right_x + 1;
-            println!("width: {}", new_width);
-            println!("height: {}", new_height);
             let start_y = old_y - (new_height / 2);
             let start_x = old_x;
 
@@ -316,7 +330,6 @@ impl RoomManager {
     // Get the Z-index for the next room
     pub fn next_room_z_index(&mut self) -> f32 {
         self.global_z_index -= 2.0; // Always decrement the global Z by 2 for a new room
-        println!("Global Z index decremented to: {}", self.global_z_index); // Print the new global Z index
         self.current_z_index = self.get_global_z_index();
         self.global_z_index
     }
@@ -341,9 +354,54 @@ impl RoomManager {
 
     pub fn current_room_max(&self) -> (f32, f32) {
         self.max_sizes[self.current_room]
+    }
 
+    pub fn add_inner_wall(&mut self, index: usize, wall: InnerWall) {
+        if index < self.inner_wall_list.walls.len() {
+            self.inner_wall_list.walls[index].push(wall);
+        } else {
+            println!("Error: Index {} is out of bounds for InnerWallList.", index);
+        }
+    }
+
+    pub fn get_inner_walls(&self, index: usize) -> Option<&Vec<InnerWall>> {
+        self.inner_wall_list.walls.get(index)
     }
 }
+
+pub fn spawn_potions_in_room(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    room_manager: &RoomManager,
+    num_potions: usize,
+) {
+    let potion_texture_handle = asset_server.load("items/potion.png");
+
+    // Get room boundaries
+    let (room_width, room_height) = room_manager.current_room_size();
+    let max_x = room_width / 2.0;
+    let max_y = room_height / 2.0;
+    let z_index = room_manager.current_room_z_index();
+
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..num_potions {
+        // Randomize position within room boundaries
+        let x_position = rng.gen_range(-max_x + TILE_SIZE as f32..max_x - TILE_SIZE as f32);
+        let y_position = rng.gen_range(-max_y + TILE_SIZE as f32..max_y - TILE_SIZE as f32);
+
+        // Spawn the potion
+        commands.spawn((
+            SpriteBundle {
+                texture: potion_texture_handle.clone(),
+                transform: Transform::from_xyz(x_position, y_position, z_index + 0.1),
+                ..default()
+            },
+            Potion,
+        ));
+    }
+}
+
 
 #[derive(Component)]
 pub struct Room;
@@ -354,7 +412,6 @@ pub fn spawn_start_room(
     room_manager: &mut RoomManager,
 ) {
     let mut rng = rand::thread_rng();
-
     // generate random integers between 50 and 250, * 32
     let random_width = rng.gen_range(40..=40);
     let random_height = rng.gen_range(40..=40);
@@ -379,12 +436,10 @@ pub fn spawn_start_room(
     // add start room to map at a random position
     room_manager.add_start_room_to_map(z_index as i32, random_width as usize, random_height as usize);
 
-    // print room map
-    //room_manager.print_room_map();
 
-    // **NEW**: Find the bounds of the start room and print them
+    // find the bounds of the start room and print them
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
-        println!("Start room bounds: Left: {}, Right: {}, Top: {}, Bottom: {}", left_x, right_x, top_y, bottom_y);
+        //println!("Start room bounds: Left: {}, Right: {}, Top: {}, Bottom: {}", left_x, right_x, top_y, bottom_y);
     } else {
         println!("Error: Could not find bounds for the start room.");
     }
@@ -469,24 +524,16 @@ pub fn spawn_start_room(
         x_offset += TILE_SIZE as f32;
     }
 
-    // Spawn a vertical wall in the center of the map with height of 10
-    let wall_height = 10;
-    let wall_x = TILE_SIZE as f32 * 2.0; // Move the wall 2 squares to the right
-    let mut wall_y = -(TILE_SIZE as f32 * (wall_height as f32 / 2.0)); 
+    let current_z_index = room_manager.current_room_z_index();
 
+    // BEGIN EDITING HERE:
+    let wall_count = rng.gen_range(1..=3);
 
-    for _ in 0..wall_height {
-        commands.spawn((
-            SpriteBundle {
-                texture: north_wall_texture_handle.clone(),
-                transform: Transform::from_xyz(wall_x, wall_y, z_index),
-                ..default()
-            },
-            Wall,
-            Room,
-        ));
-        wall_y += TILE_SIZE as f32; // Move up by one tile each iteration
+    for _ in 0..wall_count {
+        create_inner_walls(commands, asset_server, room_manager, random_width, random_height, current_z_index as isize);
     }
+
+    // end new fn
 
     generate_doors(
         commands,
@@ -496,6 +543,291 @@ pub fn spawn_start_room(
         max_y,
         z_index,
     );
+
+    spawn_potions_in_room(commands, asset_server, &room_manager, 2);
+
+}
+
+fn create_inner_walls(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>,
+    room_manager: &mut RoomManager,
+    room_width: usize,
+    room_height: usize,
+    z_index: isize,
+){
+    let z_abs = z_index.abs() as usize;
+    let mut rng = rand::thread_rng();
+    let start_pos_x = rng.gen_range(1..=room_width - 1);
+    let start_pos_y = rng.gen_range(1..=room_height - 1);
+
+    // horizontal or vertical wall
+    let horizon_or_vert = rng.gen_range(0..=1);
+
+    // HORIZONTAL WALL
+    let wall = if horizon_or_vert == 0 {
+        // get wall length
+        let wall_length = rng.gen_range(3..=(room_width / 2) - 1);
+
+        // get room mid point
+        let mid_point = room_width / 2;
+
+        // if closer to right wall
+        let length_direction_vector = if start_pos_x >= mid_point {
+            (-(wall_length as i32), 1)
+        } else {
+            (wall_length as i32, 1)
+        };
+        
+        // create a new inner wall
+        InnerWall {
+            start_pos: InnerWallStartPos { x: start_pos_x, y: start_pos_y },
+            length_direction_vector,
+        }
+    } 
+
+    // VERTICAL WALL
+    else 
+    {
+        // get wall height
+        let wall_height = rng.gen_range(3..=(room_height / 2) - 1);
+
+        // get room mid point
+        let mid_point = room_height / 2;
+
+        // if closer to right wall
+        let length_direction_vector = if start_pos_y >= mid_point {
+            (1, -(wall_height as i32))
+        } else {
+            (1, wall_height as i32)
+        };
+        
+        // create a new inner wall
+        InnerWall {
+            start_pos: InnerWallStartPos { x: start_pos_x, y: start_pos_y },
+            length_direction_vector,
+        }
+    };
+    // add inner wall to inner wall list
+    room_manager.add_inner_wall(z_abs, wall);
+
+
+    // loop through inner wall list at current z index
+    if let Some(walls) = room_manager.get_inner_walls(z_abs as usize) {
+        for (i, wall) in walls.iter().enumerate() {
+            // println!("Wall {} at Z index {}: Start position ({}, {}), Direction vector ({}, {})",
+            //     i,
+            //     z_abs,
+            //     wall.start_pos.x,
+            //     wall.start_pos.y,
+            //     wall.length_direction_vector.0,
+            //     wall.length_direction_vector.1
+            // );
+
+
+            draw_inner_wall(commands, asset_server, wall, z_abs, room_width, room_height);
+        }
+    }  else {
+        println!("No inner walls found for Z index {}", z_abs);
+    }
+    
+}
+
+
+fn draw_inner_wall(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    inner_wall: &InnerWall,
+    z_index: usize,
+    room_width: usize,
+    room_height: usize,
+){
+    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
+
+    // get start pos out of inner wall
+    let mut current_x = inner_wall.start_pos.x as f32 * TILE_SIZE as f32 - ((room_width * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
+    let mut current_y = inner_wall.start_pos.y as f32 * TILE_SIZE as f32 - ((room_height * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
+
+    // get direction length vector out of inner wall
+    let (dir_x, dir_y) = inner_wall.length_direction_vector;
+
+    // horizontal wall
+    if dir_y == 1 {
+        // draw to the right
+        if dir_x > 0 {
+            let end_value = current_x + (dir_x as f32 - 3.) * 32.;
+
+            while current_x <= end_value {
+                commands.spawn((
+                    SpriteBundle {
+                        texture: north_wall_texture_handle.clone(),
+                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
+                        ..default()
+                    },
+                    Wall,
+                    Room,
+                ));
+                current_x += TILE_SIZE as f32;
+            }
+        } 
+        // draw to the left
+        else {
+
+            let end_value = current_x + (dir_x as f32 + 3.) * 32.;
+
+            while current_x >= end_value {
+                commands.spawn((
+                    SpriteBundle {
+                        texture: north_wall_texture_handle.clone(),
+                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
+                        ..default()
+                    },
+                    Wall,
+                    Room,
+                ));
+                current_x -= TILE_SIZE as f32;
+            }
+        }
+
+    }
+
+
+
+    // vertical wall
+    if dir_x == 1 {
+        // draw down
+        if dir_y > 0 {
+            let end_value = current_y + (dir_y as f32 - 3.) * 32.;
+
+            while current_y <= end_value {
+                commands.spawn((
+                    SpriteBundle {
+                        texture: north_wall_texture_handle.clone(),
+                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
+                        ..default()
+                    },
+                    Wall,
+                    Room,
+                ));
+                current_y += TILE_SIZE as f32;
+            }
+        } 
+        // draw up
+        else {
+
+            let end_value = current_y + (dir_y as f32 + 3.) * 32.;
+
+            while current_y >= end_value {
+                commands.spawn((
+                    SpriteBundle {
+                        texture: north_wall_texture_handle.clone(),
+                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
+                        ..default()
+                    },
+                    Wall,
+                    Room,
+                ));
+                current_y -= TILE_SIZE as f32;
+            }
+        }
+    }
+}
+
+fn regen_draw_inner_wall(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    inner_wall: &InnerWall,
+    z_index: usize,
+    room_width: usize,
+    room_height: usize,
+){
+    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
+
+    // get start pos out of inner wall
+    let mut current_x = inner_wall.start_pos.x as f32 * TILE_SIZE as f32 - ((room_width * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
+    let mut current_y = inner_wall.start_pos.y as f32 * TILE_SIZE as f32 - ((room_height * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
+
+    // get direction length vector out of inner wall
+    let (dir_x, dir_y) = inner_wall.length_direction_vector;
+
+    // horizontal wall
+    if dir_y == 1 {
+        // draw to the right
+        if dir_x > 0 {
+            let end_value = current_x + (dir_x as f32 - 3.) * 32.;
+
+            while current_x <= end_value {
+                commands.spawn((
+                    SpriteBundle {
+                        texture: north_wall_texture_handle.clone(),
+                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
+                        ..default()
+                    },
+                    Wall,
+                    Room,
+                ));
+                current_x += TILE_SIZE as f32;
+            }
+        } 
+        // draw to the left
+        else {
+            let end_value = current_x + (dir_x as f32 + 3.) * 32.;
+
+            while current_x >= end_value {
+                commands.spawn((
+                    SpriteBundle {
+                        texture: north_wall_texture_handle.clone(),
+                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
+                        ..default()
+                    },
+                    Wall,
+                    Room,
+                ));
+                current_x -= TILE_SIZE as f32;
+            }
+        }
+
+    }
+
+
+
+    // vertical wall
+    if dir_x == 1 {
+        // draw down
+        if dir_y > 0 {
+            let end_value = current_y + (dir_y as f32 - 3.) * 32.;
+
+            while current_y <= end_value {
+                commands.spawn((
+                    SpriteBundle {
+                        texture: north_wall_texture_handle.clone(),
+                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
+                        ..default()
+                    },
+                    Wall,
+                    Room,
+                ));
+                current_y += TILE_SIZE as f32;
+            }
+        } 
+        // draw up
+        else {
+            let end_value = current_y + (dir_y as f32 + 3.) * 32.;
+
+            while current_y >= end_value {
+                commands.spawn((
+                    SpriteBundle {
+                        texture: north_wall_texture_handle.clone(),
+                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
+                        ..default()
+                    },
+                    Wall,
+                    Room,
+                ));
+                current_y -= TILE_SIZE as f32;
+            }
+        }
+    }
 }
 
 
@@ -753,6 +1085,15 @@ pub fn generate_random_room_with_bounds(
         next_z_index,
     );
 
+    let mut rng = rand::thread_rng();
+
+    let wall_count = rng.gen_range(1..=3);
+    
+    // add inner walls
+    for _ in 0..wall_count {
+        create_inner_walls(commands, asset_server, room_manager, width, height, global_z_index as isize);
+    }
+
     // Generate doors
     generate_doors(
         commands,
@@ -779,6 +1120,7 @@ pub fn regenerate_existing_room(
     height: usize,
     z_for_regen: f32,
 ) {
+    let z_abs = z_for_regen.abs() as usize;
     // Manually calculate the room width and height in pixels
     let room_width = width as f32 * TILE_SIZE as f32;
     let room_height = height as f32 * TILE_SIZE as f32;
@@ -794,9 +1136,6 @@ pub fn regenerate_existing_room(
     // global
     let global_z_index = room_manager.get_global_z_index();
 
-    // Add the room to the room manager
-    //room_manager.add_room(width, height, room_width, room_height);
-
     // Generate walls and floors
     generate_walls_and_floors(
         commands,
@@ -807,6 +1146,7 @@ pub fn regenerate_existing_room(
         max_y,
         next_z_index,
     );
+
 
     // Generate doors
     generate_doors(
@@ -820,9 +1160,18 @@ pub fn regenerate_existing_room(
 
     // **NEW**: Find and print the room bounds after generating the room
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_for_regen as i32) {
-        println!("Generating OLD ROOM: Left: {}, Right: {}, Top: {}, Bottom: {}, z_index: {}", left_x, right_x, top_y, bottom_y, z_for_regen);
+        println!("Regenerating OLD ROOM: Left: {}, Right: {}, Top: {}, Bottom: {}, z_index: {}", left_x, right_x, top_y, bottom_y, z_for_regen);
     } else {
         println!("Error: Could not find bounds for the newly generated room. {}", global_z_index);
+    };
+
+    // retrieve and spawn inner walls for the current room from `InnerWallList`
+    if let Some(walls) = room_manager.get_inner_walls(z_abs as usize) {
+        for wall in walls.iter() {
+            draw_inner_wall(commands, asset_server, wall, z_abs, width, height);
+        }
+    } else {
+        println!("No inner walls found for Z index {}", z_abs);
     }
 }
 
@@ -851,7 +1200,6 @@ pub fn transition_map(
         left_x_out = left_x;
         top_y_out = top_y;
         bottom_y_out = bottom_y;
-        println!("DETECTED room bounds: Left: {}, Right: {}, Top: {}, Bottom: {}, z_index: {}", left_x, right_x, top_y, bottom_y, z_in);
     } else {
         println!("Error: Could not find bounds for the newly generated room. {}", z_in);
     }
@@ -871,8 +1219,7 @@ pub fn transition_map(
             let x_to_check = right_x_out + 1;
             let y_to_check =(top_y_out + bottom_y_out) / 2;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
-            println!("Room_Val {:?}", room_val);
-            if room_val == Some(1){
+            if(room_val == Some(1)){
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
@@ -917,7 +1264,6 @@ pub fn transition_map(
                             room_val_unwrapped as f32,
                         );
                         pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
-                        println!("PLAYER Z: {}",room_val_unwrapped);
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -932,8 +1278,7 @@ pub fn transition_map(
             let x_to_check = left_x_out - 1;
             let y_to_check =(top_y_out + bottom_y_out) / 2;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
-            println!("Room_Val {:?}", room_val);
-            if room_val == Some(1){
+            if(room_val == Some(1)){
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
@@ -978,7 +1323,6 @@ pub fn transition_map(
                             room_val_unwrapped as f32,
                         );
                         pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
-                        println!("PLAYER Z: {}",room_val_unwrapped);
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -995,8 +1339,7 @@ pub fn transition_map(
             let x_to_check = (left_x_out + right_x_out) / 2;
             let y_to_check = top_y_out - 1;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
-            println!("Room_Val {:?}", room_val);
-            if room_val == Some(1) {
+            if(room_val == Some(1)){
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
@@ -1041,7 +1384,6 @@ pub fn transition_map(
                             room_val_unwrapped as f32,
                         );
                         pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
-                        println!("PLAYER Z: {}",room_val_unwrapped);
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1060,8 +1402,7 @@ pub fn transition_map(
             let x_to_check = (left_x_out + right_x_out) / 2;
             let y_to_check = bottom_y_out + 1;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
-            println!("Room_Val {:?}", room_val);
-            if room_val == Some(1){
+            if(room_val == Some(1)){
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
@@ -1106,7 +1447,6 @@ pub fn transition_map(
                             room_val_unwrapped as f32,
                         );
                         pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
-                        println!("PLAYER Z: {}",room_val_unwrapped);
                     } else {
                         println!("Error: Room not found in storage.");
                     }
