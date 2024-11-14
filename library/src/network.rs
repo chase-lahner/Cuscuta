@@ -30,7 +30,7 @@ pub struct PlayerPacket{
     pub velocity_x: f32,
     pub velocity_y: f32,
 }
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug)]
 pub struct InputPacket{
     header: Header,
     key_pressed: KeyCode,

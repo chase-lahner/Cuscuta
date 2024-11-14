@@ -8,7 +8,7 @@ use crate::{
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{self, PlayerPacket, NewPlayerPacket},
+    network::{self, Header, NewPlayerPacket, PlayerPacket},
     room_gen::*,
 };
 
@@ -88,10 +88,9 @@ pub struct ClientPlayerBundle {
 
 #[derive(Bundle, Serialize, Deserialize)]
 pub struct ServerPlayerBundle {
+    pub header: Header,
     pub velo: Velocity,
     pub transform: Transform,
-    pub id: NetworkId,
-    pub player: Player,
     pub health: Health,
     pub crouching: Crouch,
     pub rolling: Roll,
