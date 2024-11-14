@@ -5,7 +5,7 @@ authors = ["Rory McCann <rcm71@pitt.edu>", "Lukas Finn <lef74@pitt.edu>"]
 edition = "2021"
 
 [dependencies]
-bevy = "=0.14.0"
+bevy = {version = "0.14.0", features = ["serialize"]}
 rand = "0.8"
 serde = {version = "1.0" , features = ["derive"] }
 flexbuffers = "2.0.0"

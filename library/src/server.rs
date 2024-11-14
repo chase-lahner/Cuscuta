@@ -57,10 +57,6 @@ pub fn listen(
     }
     let (amt, src) = packet.unwrap();
     
-    /* when we serialize, we throw our opcode on the end, so we know how to
-     * de-serialize... jank? maybe.  */
-   // let opcode = buf[amt -1];
-    
     /* trim trailing 0s */
     let t_buf = &buf[..amt]; // / -1
 
@@ -72,24 +68,12 @@ pub fn listen(
             info!("sending id to client");
             send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
         SendablePacket::PlayerPacket(player_packet) => {
-            update_player_state(src, players, player_packet, commands);
-
+            //update_player_state(src, players, player_packet, commands);
+            recieve_input()
         }
     }
 
-    
 
-
-    // match opcode{
-    //     cuscuta_resources::GET_PLAYER_ID_CODE => {
-    //         info!("sending id to client");
-    //         send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
-    //     cuscuta_resources::PLAYER_DATA =>
-    //         update_player_state(src, players, t_buf, commands),
-    //     _ => 
-    //         something()//TOTO
-
-    // };
 }
 
 /* once we have our packeet, we must use it to update
