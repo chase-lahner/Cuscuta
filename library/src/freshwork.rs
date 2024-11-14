@@ -1,9 +1,11 @@
+use std::time::Instant;
+
 use bevy::prelude::{KeyCode::*, *};
 use crate::{carnage::CarnageBar, cuscuta_resources::*, player::*};
 
 #[derive(Component)]
 pub struct Timestamp{
-    time: f32
+    time: u128
 }
 
 #[derive(Component)]
