@@ -17,6 +17,34 @@ pub struct CarnageBar{
     pub carnage: f32
 }
 
+impl CarnageBar{
+    pub fn new() -> Self {
+        Self{
+            stealth: 0.,
+            carnage: 0.
+        }
+    }
+
+    pub fn up_stealth(&mut self, up:f32){
+        self.stealth += up;
+    }
+
+    pub fn down_stealth(&mut self, down:f32){
+        self.stealth -= down;
+    }
+
+    pub fn up_carnage(&mut self, up:f32){
+        self.carnage += up;
+    }
+    
+    pub fn down_carnage(&mut self, down:f32){
+        self.carnage -= down;
+    }
+
+
+
+}
+
 #[derive(Component)]
 pub struct Red;
 

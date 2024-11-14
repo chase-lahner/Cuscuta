@@ -5,7 +5,7 @@
 use std::net::SocketAddr;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 
 pub const TICKS_PER_SECOND: f64 = 60.;
@@ -69,7 +69,7 @@ pub struct Pot{
 #[derive(Component)]
 pub struct Wall;
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Health{
     pub max: f32,
     pub current: f32
@@ -112,7 +112,7 @@ impl AddressList{
 
 
 
-#[derive(Component, Serialize)]
+#[derive(Component, Serialize, Deserialize, Clone, Copy)]
 pub struct Velocity {
     pub velocity: Vec2,
 }

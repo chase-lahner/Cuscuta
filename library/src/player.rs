@@ -1,20 +1,21 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ui::CarnageBar,
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{self, PlayerPacket},
+    network::{self, PlayerPacket, NewPlayerPacket},
     room_gen::*,
 };
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Player; // wow! it is he!
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
     pub addr: SocketAddr,
@@ -29,7 +30,7 @@ impl NetworkId {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Crouch {
     pub crouching: bool,
 }
@@ -39,7 +40,7 @@ impl Crouch {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Roll {
     pub rolling: bool,
 }
@@ -49,7 +50,7 @@ impl Roll {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Sprint {
     pub sprinting: bool,
 }
@@ -59,7 +60,7 @@ impl Sprint {
     }
 }
 /* global boolean to not re-attack */
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Attack {
     pub attacking: bool,
 }
@@ -85,7 +86,7 @@ pub struct ClientPlayerBundle {
     attacking: Attack,
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Serialize, Deserialize)]
 pub struct ServerPlayerBundle {
     pub velo: Velocity,
     pub transform: Transform,
@@ -225,7 +226,7 @@ pub fn client_spawn_user_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    id: u8,
+    _id: u8,
 ) {
     let player_sheet_handle = asset_server.load("player/4x12_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
@@ -259,7 +260,48 @@ pub fn client_spawn_user_player(
         rolling: Roll{rolling:false},
         sprinting: Sprint{sprinting:false},
         attacking: Attack{attacking:false}
-});
+    });
+}
+
+pub fn client_spawn_other_player_new(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    player: NewPlayerPacket,
+    source_ip:SocketAddr,
+){
+    let player_sheet_handle = asset_server.load("player/4x8_player.png");
+    let player_layout = TextureAtlasLayout::from_grid(
+        UVec2::splat(TILE_SIZE),
+        PLAYER_SPRITE_COL,
+        PLAYER_SPRITE_ROW,
+        None,
+        None,
+    );
+    let player_layout_len = player_layout.textures.len();
+    let player_layout_handle = texture_atlases.add(player_layout);
+    // spawn player at origin
+    commands.spawn(ClientPlayerBundle {
+        sprite: SpriteBundle { 
+            texture: player_sheet_handle,
+            transform: player.client_bundle.transform,
+            ..default()
+        },
+        rolling: player.client_bundle.rolling,
+        atlas: TextureAtlas {
+            layout: player_layout_handle,
+            index: 0,
+        },
+        animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+        animation_frames: AnimationFrameCount(player_layout_len),
+        velo: player.client_bundle.velo,
+        id:player.client_bundle.id,
+        player: Player,
+        health: player.client_bundle.health,
+        crouching: player.client_bundle.crouching,
+        sprinting: player.client_bundle.sprinting,
+        attacking: player.client_bundle.attacking,
+    });
 
 }
 
@@ -345,7 +387,7 @@ pub fn player_interact(
                 info!("you got touched");
                 pot.touch += 1;
 
-                if(pot.touch == 1)
+                if pot.touch == 1
                 {
                     pot_atlas.index = pot_atlas.index+1;
                 }
@@ -444,7 +486,7 @@ pub fn player_input(
                  * We should decelerate by a given rate, our acceleration rate! s
                  * not using the adjusted, dont want if crouch slow slowdown yk */
                 adjusted_speed -= ACCELERATION_RATE;
-                deltav.clamp_length_max(adjusted_speed);
+                let _boo = deltav.clamp_length_max(adjusted_speed);
             }
 
             /* final set */
@@ -461,11 +503,11 @@ pub fn update_player_position(
 ) {
     /* We use delta time to determine ur velocity earlier, so we really want to use it again here?
      * It gives second since update, not since we got input... */
-    for (mut transform, mut velocity) in players.iter_mut() {
+    for (mut transform, velocity) in players.iter_mut() {
         transform.translation.x += velocity.velocity.x * time.delta_seconds();
         transform.translation.y += velocity.velocity.y * time.delta_seconds();
 
-        let mut hit_door = false;
+        let mut _hit_door = false;
         // take care of horizontal and vertical movement + enemy collision check
         // TODODODODODODODODODODODO
 
@@ -486,7 +528,7 @@ pub fn move_player(
         (With<Player>, Without<Background>, Without<Door>),
     >,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
-    mut door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
     mut room_manager: ResMut<RoomManager>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -495,11 +537,11 @@ pub fn move_player(
     mut carnage: Query<&mut CarnageBar>,
 ) {
     let mut hit_door = false;
-    let mut player_transform = Vec3::ZERO;
+    let mut _player_transform = Vec3::ZERO;
     let mut door_type: Option<DoorType> = Option::None;
 
     // Player movement
-    for ((mut pt, mut pv, id)) in player_query.iter_mut() {
+    for (mut pt, mut pv, id) in player_query.iter_mut() {
         if id.id != client_id.id {
             continue;
         }
@@ -555,11 +597,11 @@ pub fn move_player(
         let change = pv.velocity * deltat;
         let (room_width, room_height) = room_manager.current_room_size();
 
-        let mut help = false;
-        if !help{
-            //println!("--HELP-- Room Width: {} Room Height: {}",room_width,room_height);
-            help = true;
-        }
+        // let mut help = false;
+        // if !help{
+        //     //println!("--HELP-- Room Width: {} Room Height: {}",room_width,room_height);
+        //     help = true;
+        // }
 
         // Calculate new player position and clamp within room boundaries
         let new_pos_x = (pt.translation.x + change.x).clamp(
@@ -575,7 +617,7 @@ pub fn move_player(
         pt.translation.y = new_pos_y;
 
         // Store the player's position for later use
-        player_transform = pt.translation;
+        _player_transform = pt.translation;
 
         let baban = handle_movement_and_enemy_collisions(
             &mut pt,
@@ -625,8 +667,8 @@ pub fn handle_movement_and_enemy_collisions(
         translate_coords_to_grid(&player_aabb, room_manager);
 
     // Translate player position to grid indices
-    let grid_x = (new_pos.x / TILE_SIZE as f32).floor();
-    let grid_y = (new_pos.y / TILE_SIZE as f32).floor();
+    let _grid_x = (new_pos.x / TILE_SIZE as f32).floor();
+    let _grid_y = (new_pos.y / TILE_SIZE as f32).floor();
     //println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
 
     // Handle collisions and movement within the grid
