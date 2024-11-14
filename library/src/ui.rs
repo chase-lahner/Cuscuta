@@ -6,9 +6,9 @@ use crate::player::{NetworkId, Player};
 
 
 /* stupud to do math like this but basically window is  */
-const CARNAGE_BAR_LEFT: f32 = 15./40. * 100.;
-const _CARNAGE_BAR_RIGHT: f32 = 25./40. * 100.;
-const CARNAGE_BAR_MIDDLE: f32 = 20./40. * 100.;
+const CARNAGE_BAR_LEFT: f32 = 3.0;
+const CARNAGE_BAR_MIDDLE: f32 = CARNAGE_BAR_LEFT + 12.; 
+const CARNAGE_BAR_RIGHT: f32 = CARNAGE_BAR_MIDDLE + 12.;
 
 
 #[derive(Component)]
@@ -57,13 +57,13 @@ pub fn client_spawn_ui(
     asset_server: & AssetServer
 ){
 
-    /* carnage bar spawn */
+    /* carnage bar border */
     commands.spawn((
         NodeBundle {
             style: Style {
                 width: Val::Px(320.0),
                 height: Val::Px(TILE_SIZE as f32),
-                margin: UiRect{ top: Val::VMin(2.5), left: Val::VMax(CARNAGE_BAR_LEFT),..default()},
+                margin: UiRect{ top: Val::VMin(83.), left: Val::VMax(CARNAGE_BAR_LEFT),..default()},
                 ..default()
             },
             z_index: ZIndex::Global(999),
@@ -72,14 +72,15 @@ pub fn client_spawn_ui(
         UiImage::new(asset_server.load("ui/carnage_bar_border.png")),
         CarnageBar{stealth: 0., carnage: 0.}
     ));
-    /* 'carnage' aspect of bar */
+
+    // CARNAGE RED
     commands.spawn(
         (NodeBundle{
             style: Style {
                 width: Val::Px(1.),
                 height: Val::Px(32.),
                 margin: UiRect {
-                    top: Val::VMin(2.5), left: Val::VMax(CARNAGE_BAR_MIDDLE),
+                    top: Val::VMin(83.), left: Val::VMax(CARNAGE_BAR_MIDDLE),
                     .. default()
                 },
                 ..default()
@@ -90,14 +91,16 @@ pub fn client_spawn_ui(
         UiImage::solid_color(Color::from(RED)),
         Red,
     ));
-    /* 'stealth' side of carnage bar */
+
+
+    // CARNAGE GREEN
     commands.spawn(
         (NodeBundle{
             style: Style {
                 width: Val::Px(1.),
                 height: Val::Px(32.),
                 margin: UiRect {
-                    top: Val::VMin(2.5), left: Val::VMax(CARNAGE_BAR_LEFT),
+                    top: Val::VMin(83.), left: Val::VMax(CARNAGE_BAR_LEFT), // 2.5, left
                     .. default()
                 },
                 ..default()
@@ -108,28 +111,15 @@ pub fn client_spawn_ui(
         UiImage::solid_color(Color::from(SEA_GREEN)),
         Green,
     ));
-    /* carnage bar underlay */
+
+    // HEALTH BAR RED
     commands.spawn(
         (NodeBundle{
             style: Style {
-                width: Val::Px(320.0),
-                height: Val::Px(TILE_SIZE as f32),
-                margin: UiRect{ top: Val::VMin(2.5), left: Val::VMax(CARNAGE_BAR_LEFT),..default()},
-                ..default()
-            },
-            z_index: ZIndex::Global(3),
-            ..default()
-        },
-        UiImage::solid_color(Color::from(BLACK)),
-    ));
-    /* health bar spawn */
-    commands.spawn(
-        (NodeBundle{
-            style: Style {
-                width: Val::Px(100.),
+                width: Val::Px(150.),
                 height: Val::Px(32.),
                 margin: UiRect {
-                    top: Val::VMin(2.5), left: Val::VMax(0.),
+                    top: Val::VMin(90.), left: Val::VMax(3.), // 2.5, 0
                     .. default()
                 },
                 ..default()
@@ -140,14 +130,15 @@ pub fn client_spawn_ui(
         UiImage::solid_color(Color::from(MAROON)),
         Health::new(),
     ));
-    /* Health underlay */
+
+    // HEALTH BAR BLACk
     commands.spawn(
         (NodeBundle{
             style: Style {
-                width: Val::Px(100.),
+                width: Val::Px(150.),
                 height: Val::Px(32.),
                 margin: UiRect {
-                    top: Val::VMin(2.5), left: Val::VMax(0.),
+                    top: Val::VMin(90.), left: Val::VMax(3.), // 2.5, 0
                     .. default()
                 },
                 ..default()
@@ -158,6 +149,25 @@ pub fn client_spawn_ui(
         UiImage::solid_color(Color::from(BLACK)),
     ));
 
+
+    // POTION ICON
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Px(32.0),  
+                height: Val::Px(32.0), 
+                margin: UiRect {
+                    top: Val::VMin(90.),   
+                    left: Val::VMax(15.0),  
+                    ..default()
+                },
+                ..default()
+            },
+            z_index: ZIndex::Global(999),
+            ..default()
+        },
+        UiImage::new(asset_server.load("ui/potion_icon_empty.png")),
+    ));
 }
 
 
@@ -176,9 +186,13 @@ pub fn update_ui_elements(
 
     red.width = Val::Px(carnage.carnage * 2. );
     green.width = Val::Px(carnage.stealth * 2. );
+
+    let full_health_width = 150.0;
+
     for (health, id) in player_q.iter(){
         if id.id == client_id.id{
-            healthy.width = Val::Px(health.current)
+            let health_ratio = health.current / health.max;
+            healthy.width = Val::Px(full_health_width * health_ratio);
         }
     }
 }
