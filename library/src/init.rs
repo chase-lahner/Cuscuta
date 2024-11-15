@@ -42,7 +42,8 @@ pub fn client_setup(
     /* spawn pot to play with */
     client_spawn_pot(&mut commands, &asset_server, &mut texture_atlases);
     // spawn player, id 0 because it will be set later on
-    client_spawn_user_player(&mut commands, &asset_server, &mut texture_atlases, 0);
+   //  client_spawn_other_player_new(&mut commands, &asset_server, &mut texture_atlases, 0);
+   // WHAT DO WE WANT TO DO WITH THIS?
 }
 
 

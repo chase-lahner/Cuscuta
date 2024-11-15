@@ -65,9 +65,9 @@ impl Attack {
     }
 }
 
-#[derive(Component, Serialize, Deserialize)]
+#[derive(Component, Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct InputQueue{
-    pub q: Vec<(Timestamp, KeyCode),>
+    pub q: Vec<(Timestamp, KeyCode)>
 }
 
 #[derive(Bundle)]
@@ -286,23 +286,24 @@ pub fn client_spawn_other_player_new(
     commands.spawn(ClientPlayerBundle {
         sprite: SpriteBundle { 
             texture: player_sheet_handle,
-            transform: player.client_bundle.transform,
+            transform: player.transform,
             ..default()
         },
-        rolling: player.client_bundle.rolling,
+        rolling: Roll{rolling: player.roll},
         atlas: TextureAtlas {
             layout: player_layout_handle,
             index: 0,
         },
         animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
         animation_frames: AnimationFrameCount(player_layout_len),
-        velo: player.client_bundle.velo,
-        id:player.client_bundle.id,
+        velo: Velocity{velocity: player.velocity},
+        id: NetworkId{id: player.head.network_id, addr: source_ip},
         player: Player,
-        health: player.client_bundle.health,
-        crouching: player.client_bundle.crouching,
-        sprinting: player.client_bundle.sprinting,
-        attacking: player.client_bundle.attacking,
+        health: Health { max: player.max_health, current: player.health },
+        crouching: Crouch{ crouching: player.crouch},
+        sprinting: Sprint{sprinting: player.sprint},
+        attacking: Attack{attacking: player.attack},
+        inputs: player.inputs
     });
 
 }
@@ -311,7 +312,7 @@ pub fn client_spawn_other_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    player: PlayerPacket,
+    player: PlayerS2C,
     source_ip: SocketAddr,
 ) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
@@ -329,7 +330,7 @@ pub fn client_spawn_other_player(
     commands.spawn(ClientPlayerBundle {
         sprite: SpriteBundle {
             texture: player_sheet_handle,
-            transform: Transform::from_xyz(player.transform_x, player.transform_y, 900.),
+            transform: Transform::from_xyz(player.transform.translation.x, player.transform.translation.y, 900.),
             ..default()
         },
         rolling: Roll::new(),
@@ -341,7 +342,7 @@ pub fn client_spawn_other_player(
         animation_frames: AnimationFrameCount(player_layout_len),
         velo: Velocity::new(),
         id: NetworkId {
-            id: player.id,
+            id: player.head.network_id,
             addr: source_ip,
         },
         player: Player,
@@ -349,6 +350,7 @@ pub fn client_spawn_other_player(
         crouching: Crouch { crouching: false },
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
+        inputs: player.inputs
     });
 }
 

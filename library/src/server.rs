@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, ClientId, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, enemies::Enemy, network, player::{self, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
+use crate::{cuscuta_resources::{self, AddressList, ClientId, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, enemies::Enemy, network, player::{self, Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
 
 /* Upon request, sends an id to client */
 pub fn send_id(
@@ -219,27 +219,28 @@ fn update_player_state(
 /* Transforms current player state into u8 array that
  * we can then send across the wire to be deserialized once it arrives */
  pub fn send_player(
-    player : Query<(&Velocity, &Transform, &NetworkId, &Player, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
+    player : Query<(&Velocity, &Transform, &NetworkId, &Player, &Health, &Crouch, &Roll, &Sprint, &Attack, &InputQueue), With<Player>>,
     socket : Res<UDP>,
     addresses: ResMut<AddressList>,
     mut server_seq: ResMut<ServerSequence>
 )
 {
     /* Deconstruct out Query. */
-    for (v, t, i, p, h, c, r, s, a)  in player.iter(){
+    for (v, t, i, p, h, c, r, s, a, i_q)  in player.iter(){
         for addressi in addresses.list.iter(){
             if *addressi != i.addr && (v.velocity.x != 0. || v.velocity.y != 0.)
             {
                 let outgoing_state: PlayerS2C = PlayerS2C {
-                    xcoord: t.translation.x,
-                    ycoord: t.translation.y,
+                    transform: *t,
                     head: Header{network_id: i.id, sequence_num: server_seq.get(), timestamp: 0},
                     attack: a.attacking,
                     velocity: v.velocity,
                     health: h.current,
+                    max_health: h.max,
                     crouch: c.crouching,
                     roll: r.rolling,
-                    sprint: s.sprinting
+                    sprint: s.sprinting,
+                    inputs: i_q.clone()
 
                     
                 };

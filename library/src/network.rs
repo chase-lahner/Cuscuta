@@ -3,11 +3,11 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 use std::{net::UdpSocket, time};
 use std::io;
-use crate::player::ServerPlayerBundle;
+use crate::player::{InputQueue, ServerPlayerBundle};
 use std::time::{Instant, Duration, SystemTime, UNIX_EPOCH};
 
 
-#[derive(Component, Serialize, Deserialize)]
+#[derive(Component, Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
 pub struct Timestamp{
     pub time: u128
 }
@@ -87,21 +87,21 @@ pub struct PlayerC2S{
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PlayerS2C{
     pub head: Header,
-    pub xcoord: f32,
-    pub ycoord: f32,
+    pub transform: Transform,
     pub velocity: Vec2,
     pub health: f32,
+    pub max_health: f32,
     pub crouch: bool,
     pub attack: bool,
     pub roll: bool,
     pub sprint: bool,
+    pub inputs: InputQueue
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct EntityS2C{
     pub head: Header,
     pub entid: u8,
-    pub xcoord: f32,
-    pub ycoord: f32,
+    pub transform: Transform,
     pub velocity: Vec2,
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
