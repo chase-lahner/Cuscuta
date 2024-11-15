@@ -7,8 +7,6 @@ const TICKS_PER_SECOND: f64 = 60.;
 
 fn main() {
     App::new()
-    .insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND))
-    .insert_resource(PlayerCount{count:0})
     .add_plugins(DefaultPlugins)
     .add_systems(Startup, init::server_setup)
     .add_systems(FixedUpdate, (

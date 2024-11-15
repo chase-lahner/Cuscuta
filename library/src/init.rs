@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 
 use bevy::prelude::*;
 
-use crate::{camera::spawn_camera, ui::client_spawn_ui, cuscuta_resources::{self, AddressList, ClientId}, network::*, player::*, room_gen::*};
+use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, PlayerCount, TICKS_PER_SECOND}, network::*, player::*, room_gen::*, ui::client_spawn_ui};
 
 pub fn ip_setup(
     mut commands: Commands
@@ -34,6 +34,9 @@ pub fn client_setup(
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */
     commands.insert_resource(ClientId{id:0});
+    
+    /* sequence number! gives us a lil ordering */
+    commands.insert_resource(Sequence::new());
 
     // spawn camera
     spawn_camera(&mut commands, &asset_server);
@@ -51,9 +54,18 @@ pub fn server_setup(
     mut commands: Commands
 ){
     info!("entered setup");
+    /* send from where ?*/
     let socket = UdpSocket::bind(cuscuta_resources::SERVER_ADR).unwrap();
+    /* fuck you soket. */
     socket.set_nonblocking(true).unwrap();
     commands.insert_resource(UDP{socket:socket});
+    /* who we connected to again?*/
     commands.insert_resource(AddressList::new());
+    /* lilk ordering action */
+    commands.insert_resource(Sequence::new());
+    /* tha rate ehhh this could need to be called before init idk*/
+    commands.insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND));
+    /* bum ass no friend ass lonely ahh */
+    commands.insert_resource(PlayerCount{count:0});
     info!("done setup");
 }

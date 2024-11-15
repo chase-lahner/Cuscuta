@@ -47,11 +47,10 @@ pub fn id_request(
     let id_packet = IdPacket {
         head:Header{
             network_id: i.id,
-            sequence_num: sequence.get(),
+            sequence_num: sequence.geti(),
             timestamp:0
         }
     };
-    sequence.up();
 
     let to_send: ClientPacket = ClientPacket::IdPacket(id_packet);
 
@@ -86,12 +85,11 @@ pub fn id_request(
                 let outgoing_state = PlayerC2S { 
                     head:Header{
                         network_id: i.id,
-                        sequence_num: sequence.get(),
+                        sequence_num: sequence.geti(),
                         timestamp: 0 // TODODOODOOO
                     },
                     key: *key,
                 };
-                sequence.up();
                 q.q.push((Timestamp{time:0}, *key));
                 let mut serializer = flexbuffers::FlexbufferSerializer::new();
                 let to_send: ClientPacket = ClientPacket::PlayerPacket(outgoing_state);

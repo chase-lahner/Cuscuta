@@ -16,11 +16,18 @@ pub struct NetworkId {
     pub addr: SocketAddr,
 }
 impl NetworkId {
-    pub fn new() -> Self {
+    pub fn new(id: u8) -> Self {
         Self {
-            id: 0,
+            id: id,
             /* stupid fake NULL(not really) ass address. dont use this. is set when connection established */
             addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+        }
+    }
+    /* one good thing about java is reusing fn name*/
+    pub fn new_s(id:u8, sock: SocketAddr) -> Self{
+        Self{
+            id: id,
+            addr: sock
         }
     }
 }
@@ -96,7 +103,7 @@ pub struct ClientPlayerBundle {
 
 #[derive(Bundle, Serialize, Deserialize)]
 pub struct ServerPlayerBundle {
-    pub header: Header,
+    pub id: NetworkId,
     pub velo: Velocity,
     pub transform: Transform,
     pub health: Health,
@@ -104,7 +111,7 @@ pub struct ServerPlayerBundle {
     pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack,
-    inputs: InputQueue,
+    pub inputs: InputQueue,
 }
 
 pub fn player_attack(
@@ -305,7 +312,7 @@ pub fn client_spawn_other_player_new(
         velo: Velocity{velocity: player.velocity},
         id: NetworkId{id: player.head.network_id, addr: source_ip},
         player: Player,
-        health: Health { max: player.max_health, current: player.health },
+        health: player.health,
         crouching: Crouch{ crouching: player.crouch},
         sprinting: Sprint{sprinting: player.sprint},
         attacking: Attack{attacking: player.attack},

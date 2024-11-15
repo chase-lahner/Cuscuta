@@ -5,7 +5,7 @@ use std::{net::UdpSocket, time};
 use std::io;
 use crate::player::{InputQueue, ServerPlayerBundle};
 use std::time::{Instant, Duration, SystemTime, UNIX_EPOCH};
-
+use crate::cuscuta_resources::Health;
 
 #[derive(Component, Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
 pub struct Timestamp{
@@ -18,12 +18,16 @@ pub struct Sequence{
 }
 
 impl Sequence{
-    pub fn up(&mut self){
+    /* everytime we use a sequence # we should increment */ 
+    pub fn geti(&mut self) -> u64{
         self.num += 1;
+        self.num - 1
     }
     
-    pub fn get(&mut self) -> u64{
-        self.num
+    pub fn new() -> Self{
+        Self{
+            num: 0
+        }
     }
 }
 
@@ -89,8 +93,7 @@ pub struct PlayerS2C{
     pub head: Header,
     pub transform: Transform,
     pub velocity: Vec2,
-    pub health: f32,
-    pub max_health: f32,
+    pub health: Health,
     pub crouch: bool,
     pub attack: bool,
     pub roll: bool,
@@ -117,8 +120,17 @@ pub struct Header{
     pub network_id: u8,
     pub sequence_num: u64,
     pub timestamp: u128
-
 }
+impl Header{
+    pub fn new(id: u8, seq: u64, time: u128)-> Self{
+        Self{
+            network_id: id,
+            sequence_num: seq,
+            timestamp: time,
+        }
+    }
+}
+
 
 /**#[derive(Serialize,Deserialize,PartialEq,Debug)]
 pub struct TimeIdPacket {
