@@ -219,14 +219,14 @@ fn update_player_state(
 /* Transforms current player state into u8 array that
  * we can then send across the wire to be deserialized once it arrives */
  pub fn send_player(
-    player : Query<(&Velocity, &Transform, &NetworkId, &Player, &Health, &Crouch, &Roll, &Sprint, &Attack, &InputQueue), With<Player>>,
+    player : Query<(&Velocity, &Transform, &NetworkId, &Player, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
     socket : Res<UDP>,
     addresses: ResMut<AddressList>,
     mut server_seq: ResMut<ServerSequence>
 )
 {
     /* Deconstruct out Query. */
-    for (v, t, i, p, h, c, r, s, a, i_q)  in player.iter(){
+    for (v, t, i, p, h, c, r, s, a,)  in player.iter(){
         for addressi in addresses.list.iter(){
             if *addressi != i.addr && (v.velocity.x != 0. || v.velocity.y != 0.)
             {
@@ -240,7 +240,6 @@ fn update_player_state(
                     crouch: c.crouching,
                     roll: r.rolling,
                     sprint: s.sprinting,
-                    inputs: i_q.clone()
 
                     
                 };

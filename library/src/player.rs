@@ -70,6 +70,12 @@ pub struct InputQueue{
     pub q: Vec<(Timestamp, KeyCode)>
 }
 
+impl InputQueue {
+    pub fn new() -> Self {
+        Self { q: Vec::new() }
+    }
+}
+
 #[derive(Bundle)]
 pub struct ClientPlayerBundle {
     sprite: SpriteBundle,
@@ -84,7 +90,7 @@ pub struct ClientPlayerBundle {
     rolling: Roll,
     sprinting: Sprint,
     attacking: Attack,
-    inputs: InputQueue,
+    inputs: InputQueue
 
 }
 
@@ -303,7 +309,7 @@ pub fn client_spawn_other_player_new(
         crouching: Crouch{ crouching: player.crouch},
         sprinting: Sprint{sprinting: player.sprint},
         attacking: Attack{attacking: player.attack},
-        inputs: player.inputs
+        inputs: InputQueue::new(),
     });
 
 }
@@ -350,7 +356,7 @@ pub fn client_spawn_other_player(
         crouching: Crouch { crouching: false },
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
-        inputs: player.inputs
+        inputs: InputQueue::new()
     });
 }
 

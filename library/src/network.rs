@@ -95,7 +95,6 @@ pub struct PlayerS2C{
     pub attack: bool,
     pub roll: bool,
     pub sprint: bool,
-    pub inputs: InputQueue
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct EntityS2C{
