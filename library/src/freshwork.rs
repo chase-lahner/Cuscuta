@@ -1,7 +1,5 @@
-use std::{ops::Mul, time::Instant};
-
+use std::ops::Mul;
 use bevy::prelude::{KeyCode::*, *};
-use serde::{Serialize, Deserialize};
 use crate::{ui::CarnageBar, cuscuta_resources::*, player::*};
 
 
@@ -58,17 +56,17 @@ fn move_over(
     /* calulate time between last input used */
     let delta_time: u128 = curr_time - input_time;
     /* Use said time to calculate estimated acceleration rate */
-    let mut acceleration: <u128 as Mul<u128>>::Output = ACCELERATION_RATE as u128 * delta_time;
+    let mut acceleration: <f32 as Mul<f32>>::Output = ACCELERATION_RATE * delta_time;
     let mut max_speed = PLAYER_SPEED;
     let mut delta_velo = Vec2::splat(0.);
 
     /* Aply sprint/ crouch */
     if sprinting {
-        acceleration = acceleration * SPRINT_MULTIPLIER as u128;
+        acceleration = acceleration * SPRINT_MULTIPLIER as f32;
         max_speed = max_speed * SPRINT_MULTIPLIER;
     }
     if crouching {
-        acceleration = acceleration * CROUCH_MULTIPLIER as u128;
+        acceleration = acceleration * CROUCH_MULTIPLIER as f32;
         max_speed = max_speed * CROUCH_MULTIPLIER;
     }
 
