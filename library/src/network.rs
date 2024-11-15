@@ -3,9 +3,29 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 use std::{net::UdpSocket, time};
 use std::io;
-use crate::freshwork::Timestamp;
 use crate::player::ServerPlayerBundle;
 use std::time::{Instant, Duration, SystemTime, UNIX_EPOCH};
+
+
+#[derive(Component, Serialize, Deserialize)]
+pub struct Timestamp{
+    pub time: u128
+}
+
+#[derive(Resource)]
+pub struct Sequence{
+    num: u64
+}
+
+impl Sequence{
+    pub fn up(&mut self){
+        self.num += 1;
+    }
+    
+    pub fn get(&mut self) -> u64{
+        self.num
+    }
+}
 
 #[derive(Resource, Component)]
 pub struct UDP {
@@ -47,14 +67,11 @@ pub struct NewPlayerPacket{
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PlayerC2S{
     pub head: Header,
-    pub id: u8,
     pub key: KeyCode,
-    pub door: u8,
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PlayerS2C{
     pub head: Header,
-    pub id: u8,
     pub xcoord: f32,
     pub ycoord: f32,
     pub velocity: Vec2,
@@ -81,8 +98,7 @@ pub struct MapS2C{
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct IdPacket{
-    pub head: Header,
-    pub id: u8,
+    pub head: Header
 }
 #[derive(Serialize,Deserialize, PartialEq, Debug)]
 pub struct Header{
