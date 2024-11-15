@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network::{PlayerS2C, Timestamp}, room_gen::*, ui::CarnageBar
+    collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network::{Header, PlayerS2C, Timestamp}, room_gen::*, ui::CarnageBar
 };
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]

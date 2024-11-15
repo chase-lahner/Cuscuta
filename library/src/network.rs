@@ -27,6 +27,21 @@ impl Sequence{
     }
 }
 
+#[derive(Resource)]
+pub struct ServerSequence{
+    num: u64
+}
+
+impl ServerSequence{
+    pub fn up(&mut self){
+        self.num +=1;
+    }
+
+    pub fn get(&mut self) -> u64{
+        self.num
+    }
+}
+
 #[derive(Resource, Component)]
 pub struct UDP {
     pub socket: UdpSocket,
@@ -75,7 +90,6 @@ pub struct PlayerS2C{
     pub xcoord: f32,
     pub ycoord: f32,
     pub velocity: Vec2,
-    pub animframe: u8,
     pub health: f32,
     pub crouch: bool,
     pub attack: bool,
@@ -89,7 +103,6 @@ pub struct EntityS2C{
     pub xcoord: f32,
     pub ycoord: f32,
     pub velocity: Vec2,
-    pub animframe: u8,
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct MapS2C{
@@ -100,7 +113,7 @@ pub struct MapS2C{
 pub struct IdPacket{
     pub head: Header
 }
-#[derive(Serialize,Deserialize, PartialEq, Debug)]
+#[derive(Component, Serialize,Deserialize, PartialEq, Debug)]
 pub struct Header{
     pub network_id: u8,
     pub sequence_num: u64,

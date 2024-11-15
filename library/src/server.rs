@@ -12,7 +12,8 @@ pub fn send_id(
     server_socket: &UdpSocket, 
     n_p: &mut PlayerCount,
     mut commands: Commands,
-    mut addresses: ResMut<AddressList>
+    mut addresses: ResMut<AddressList>,
+    mut server_seq: ResMut<ServerSequence>
 ) {
     /* assign id, update player count */
     let player_id: u8 = 255 - n_p.count;
@@ -22,9 +23,9 @@ pub fn send_id(
 
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
 
-    let id_packet = IdPacket{id: player_id};
+    let id_packet = IdPacket{head: Header{network_id: player_id, sequence_num: server_seq.get(), timestamp: 0 }};
 
-    let to_send = SendablePacket::IdPacket(id_packet);
+    let to_send = ServerPacket::IdPacket(id_packet);
 
     to_send.serialize(&mut serializer).unwrap();
 
@@ -47,7 +48,8 @@ pub fn listen(
     // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     mut players_new: Query<(&mut Velocity, &mut Transform, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), (With<Player>, Without<Enemy>)>,
     mut n_p: ResMut<PlayerCount>,
-    addresses: ResMut<AddressList>
+    addresses: ResMut<AddressList>,
+    mut server_seq: ResMut<ServerSequence>
 
 ) {
     /* to hold msg */
@@ -66,111 +68,112 @@ pub fn listen(
 
 
     let deserializer = flexbuffers::Reader::get_root(t_buf).unwrap();
-
-    let player_struct: SendablePacket = SendablePacket::deserialize(deserializer).unwrap();
+    // this shoulddd be a client packet right?
+    let player_struct: ClientPacket = ClientPacket::deserialize(deserializer).unwrap();
 
     match player_struct {
-        SendablePacket::IdPacket(_id_packet) => {
+        ClientPacket::IdPacket(_id_packet) => {
             info!("sending id to client");
-            send_id(src, &udp.socket, n_p.as_mut(), commands, addresses)},
-        SendablePacket::PlayerPacket(player_packet) => {
-
-            update_player_state(src, players, player_packet, commands);
-            //recieve_input()
-        }
-        SendablePacket::NewPlayerPacket(packet_bundle) => {
-            update_player_state_new(src, players_new, packet_bundle, commands);
+            send_id(src, &udp.socket, n_p.as_mut(), commands, addresses, server_seq)},
+        ClientPacket::PlayerPacket(player_packet) => {
+            // TODO: Fix this
+           // update_player_state(src, players, player_packet, commands);
+            recieve_input(player_packet);
         }
     }
 
 
+}
+
+fn recieve_input(player_struct: PlayerC2S){
+    // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
 }
 
 /* once we have our packeet, we must use it to update
  * the player specified, there's another in client.rs*/
 fn update_player_state(
-    src: SocketAddr,
-    /* fake query, passed from above system */
-    mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    player_struct: PlayerPacket,
-    mut commands: Commands,
+    // src: SocketAddr,
+    // /* fake query, passed from above system */
+    // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
+    // player_struct: PlayerPacket,
+    // mut commands: Commands,
 ) { 
-    // let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
-    // let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
-    let mut found = false;
-    for (mut velo, mut transform, network_id) in players.iter_mut(){
-        if network_id.id == player_struct.id{
-            transform.translation.x = player_struct.transform_x;
-            transform.translation.y = player_struct.transform_y;
-            velo.velocity.x = player_struct.velocity_x;
-            velo.velocity.y = player_struct.velocity_y;
-            found = true;
-        }
-    }
-    if !found{
-        let velo_vec = Vec2::new(player_struct.velocity_x, player_struct.velocity_y);
-        commands.spawn(ServerPlayerBundle{
-            velo: Velocity::from(velo_vec),
-            transform:
-                Transform::from_xyz(player_struct.transform_x, player_struct.transform_y, 0.),
-            id: NetworkId{
-                id: player_struct.id,
-                addr: src},
-            player: Player,   
-            health: Health::new(),
-            rolling: Roll::new(),
-            crouching: Crouch::new(),
-            sprinting: Sprint::new(),
-            attacking: Attack::new(),
-    });
-    }
-}
+//     // let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
+//     // let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
+//     let mut found = false;
+//     for (mut velo, mut transform, network_id) in players.iter_mut(){
+//         if network_id.id == player_struct.id{
+//             transform.translation.x = player_struct.transform_x;
+//             transform.translation.y = player_struct.transform_y;
+//             velo.velocity.x = player_struct.velocity_x;
+//             velo.velocity.y = player_struct.velocity_y;
+//             found = true;
+//         }
+//     }
+//     if !found{
+//         let velo_vec = Vec2::new(player_struct.velocity_x, player_struct.velocity_y);
+//         commands.spawn(ServerPlayerBundle{
+//             velo: Velocity::from(velo_vec),
+//             transform:
+//                 Transform::from_xyz(player_struct.transform_x, player_struct.transform_y, 0.),
+//             id: NetworkId{
+//                 id: player_struct.id,
+//                 addr: src},
+//             player: Player,   
+//             health: Health::new(),
+//             rolling: Roll::new(),
+//             crouching: Crouch::new(),
+//             sprinting: Sprint::new(),
+//             attacking: Attack::new(),
+//     });
+//     }
+// }
 
-fn update_player_state_new(
-    src: SocketAddr,
-    mut players: Query<(&mut Velocity,  &mut Transform, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), (With<Player>, Without<Enemy>)>,
-    player_struct: NewPlayerPacket,
-    mut commands: Commands
-){
-    let mut found = false;
-    for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id) in players.iter_mut(){
+// fn update_player_state_new(
+//     src: SocketAddr,
+//     mut players: Query<(&mut Velocity,  &mut Transform, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), (With<Player>, Without<Enemy>)>,
+//     player_struct: NewPlayerPacket,
+//     mut commands: Commands
+// ){
+//     let mut found = false;
+//     for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id) in players.iter_mut(){
 
-        if id.id == player_struct.client_bundle.id.id {
-            trans.translation.x = player_struct.client_bundle.transform.translation.x;
-            trans.translation.y = player_struct.client_bundle.transform.translation.y;
-            vel.velocity.x = player_struct.client_bundle.velo.velocity.x;
-            vel.velocity.y = player_struct.client_bundle.velo.velocity.y;
-            health.current = player_struct.client_bundle.health.current;
-            crouching.crouching = player_struct.client_bundle.crouching.crouching;
-            rolling.rolling = player_struct.client_bundle.rolling.rolling;
-            sprinting.sprinting = player_struct.client_bundle.sprinting.sprinting;
-            attacking.attacking = player_struct.client_bundle.attacking.attacking;
-            // *trans = player_struct.client_bundle.transform;
-            // *vel = player_struct.client_bundle.velo;
-            // *health = player_struct.client_bundle.health;
-            // *crouching = player_struct.client_bundle.crouching;
-            // *rolling = player_struct.client_bundle.rolling;
-            // *sprinting = player_struct.client_bundle.sprinting;
-            // *attacking = player_struct.client_bundle.attacking;
-            found = true;
-        }
+//         if id.id == player_struct.client_bundle.id.id {
+//             trans.translation.x = player_struct.client_bundle.transform.translation.x;
+//             trans.translation.y = player_struct.client_bundle.transform.translation.y;
+//             vel.velocity.x = player_struct.client_bundle.velo.velocity.x;
+//             vel.velocity.y = player_struct.client_bundle.velo.velocity.y;
+//             health.current = player_struct.client_bundle.health.current;
+//             crouching.crouching = player_struct.client_bundle.crouching.crouching;
+//             rolling.rolling = player_struct.client_bundle.rolling.rolling;
+//             sprinting.sprinting = player_struct.client_bundle.sprinting.sprinting;
+//             attacking.attacking = player_struct.client_bundle.attacking.attacking;
+//             // *trans = player_struct.client_bundle.transform;
+//             // *vel = player_struct.client_bundle.velo;
+//             // *health = player_struct.client_bundle.health;
+//             // *crouching = player_struct.client_bundle.crouching;
+//             // *rolling = player_struct.client_bundle.rolling;
+//             // *sprinting = player_struct.client_bundle.sprinting;
+//             // *attacking = player_struct.client_bundle.attacking;
+//             found = true;
+//         }
 
-    }
-    if !found {
-        let v = player_struct.client_bundle.velo;
-        commands.spawn(ServerPlayerBundle{
-            velo: v,
-            transform: player_struct.client_bundle.transform,
-            id: player_struct.client_bundle.id,
-            player: player_struct.client_bundle.player,
-            health: player_struct.client_bundle.health,
-            rolling: player_struct.client_bundle.rolling,
-            crouching: player_struct.client_bundle.crouching,
-            sprinting: player_struct.client_bundle.sprinting,
-            attacking: player_struct.client_bundle.attacking
+//     }
+//     if !found {
+//         let v = player_struct.client_bundle.velo;
+//         commands.spawn(ServerPlayerBundle{
+//             velo: v,
+//             transform: player_struct.client_bundle.transform,
+//             id: player_struct.client_bundle.id,
+//             player: player_struct.client_bundle.player,
+//             health: player_struct.client_bundle.health,
+//             rolling: player_struct.client_bundle.rolling,
+//             crouching: player_struct.client_bundle.crouching,
+//             sprinting: player_struct.client_bundle.sprinting,
+//             attacking: player_struct.client_bundle.attacking
             
-        });
-    }
+//         });
+//     }
 }
 
 // /* Transforms current player state into u8 array that
@@ -218,7 +221,8 @@ fn update_player_state_new(
  pub fn send_player(
     player : Query<(&Velocity, &Transform, &NetworkId, &Player, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
     socket : Res<UDP>,
-    addresses: ResMut<AddressList>
+    addresses: ResMut<AddressList>,
+    mut server_seq: ResMut<ServerSequence>
 )
 {
     /* Deconstruct out Query. */
@@ -226,19 +230,22 @@ fn update_player_state_new(
         for addressi in addresses.list.iter(){
             if *addressi != i.addr && (v.velocity.x != 0. || v.velocity.y != 0.)
             {
-                let outgoing_state = ServerPlayerBundle { 
-                    velo: v.clone(),
-                    transform: *t,
-                    player: *p,
-                    health: *h,
-                    crouching: *c,
-                    rolling: *r,
-                    sprinting: *s,
-                    attacking: *a,
-                    id: *i
+                let outgoing_state: PlayerS2C = PlayerS2C {
+                    xcoord: t.translation.x,
+                    ycoord: t.translation.y,
+                    head: Header{network_id: i.id, sequence_num: server_seq.get(), timestamp: 0},
+                    attack: a.attacking,
+                    velocity: v.velocity,
+                    health: h.current,
+                    crouch: c.crouching,
+                    roll: r.rolling,
+                    sprint: s.sprinting
+
+                    
                 };
+                server_seq.up();
                 let mut serializer = flexbuffers::FlexbufferSerializer::new();
-                let to_send: SendablePacket = SendablePacket::NewPlayerPacket(NewPlayerPacket {client_bundle: outgoing_state});
+                let to_send: ServerPacket = ServerPacket::PlayerPacket(outgoing_state);
                 to_send.serialize(&mut serializer).unwrap();
                 
                 // let opcode: &[u8] = std::slice::from_ref(&PLAYER_DATA);
