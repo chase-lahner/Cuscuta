@@ -89,7 +89,7 @@ pub struct ClientEnemy {
 }
 
 #[derive(Resource, Serialize, Deserialize, PartialEq, Clone, Debug)]
-struct EnemyId {
+pub struct EnemyId {
     id: u32,
     kind: EnemyKind,
 }

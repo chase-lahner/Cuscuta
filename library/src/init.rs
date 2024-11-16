@@ -25,7 +25,6 @@ pub fn client_setup(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
     mut room_manager: ResMut<RoomManager>,
 ) {
-    //let socket = SocketAddrV4::new(Ipv4Addr::new(sendable[0], sendable[1],sendable[2],sendable[3]), split_u16);
 
 
     // spawn the starting room & next room
@@ -59,6 +58,8 @@ pub fn server_setup(
     /* fuck you soket. */
     socket.set_nonblocking(true).unwrap();
     commands.insert_resource(UDP{socket:socket});
+
+    
     /* who we connected to again?*/
     commands.insert_resource(AddressList::new());
     /* lilk ordering action */

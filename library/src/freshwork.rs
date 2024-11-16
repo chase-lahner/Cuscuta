@@ -10,7 +10,7 @@ pub fn update_player(
 ){
     /* query establihsed, not active state */
     for (time, mut velocity, mut transform, queue, crouch, sprint) in player_q.iter_mut() {
-        let mut curr_time: u128 = time.time; // in nanoseconds
+        let mut curr_time: u64 = time.time; // in nanoseconds
         let mut curr_velo = velocity.into_inner();
         let mut curr_transform = transform.into_inner();
         for(input_time, key) in &queue.q{
@@ -43,8 +43,8 @@ pub fn update_player(
 
 /* move player a smidge up, called on keypress "W" */
 fn move_over(
-    curr_time:u128,
-    input_time:u128,
+    curr_time:u64,
+    input_time:u64,
     velocity:&mut Velocity,
     transform:&mut Transform,
     sprinting:bool,
@@ -54,7 +54,7 @@ fn move_over(
 
 
     /* calulate time between last input used */
-    let delta_time: u128 = curr_time - input_time;
+    let delta_time: u64 = curr_time - input_time;
     /* Use said time to calculate estimated acceleration rate */
     let mut acceleration: <f32 as Mul<f32>>::Output = ACCELERATION_RATE * delta_time as f32;
     let mut max_speed = PLAYER_SPEED;

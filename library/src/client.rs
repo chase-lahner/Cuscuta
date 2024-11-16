@@ -4,30 +4,22 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use bevy::input::keyboard::KeyboardInput;
 
-use crate::network::{ ClientPacket, Header, IdPacket, PlayerC2S, Sequence, ServerPacket, Timestamp, UDP};
+use crate::network::{ PlayerS2C, ClientPacket, Header, IdPacket, PlayerC2S, Sequence, ServerPacket, Timestamp, UDP};
 use crate::cuscuta_resources::*;
 use crate::player::*;
 
-pub fn recv_id(
-    source_addr: SocketAddr,
-    network_id: &mut NetworkId,
-    ds_struct: IdPacket,
-    mut _commands: Commands,
-    mut id: ResMut<ClientId>
-) {
-    info!("Recieving ID");
-    /* de-serialize the struct IdHeader which contains our id */
-    // let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
-    // let ds_struct = IdPacket::deserialize( deserializer).unwrap();
-
-    /* assign it to the player */
-    network_id.id = ds_struct.head.network_id;
-    network_id.addr = source_addr;
-    id.id = ds_struct.head.network_id;
-    
-
-    info!("ASSIGNED ID: {:?}", network_id.id);
-}
+// pub fn recv_id(
+//     source_addr: SocketAddr,
+//     network_id: &mut NetworkId,
+//     ds_struct: IdPacket,
+//     mut _commands: Commands,
+//     mut id: ResMut<ClientId>
+// ) {
+//     info!("Recieving ID");
+//     /* assign it to the player */
+//     id.id = ds_struct.head.network_id;
+//     info!("ASSIGNED ID: {:?}", id.id);
+// }
 
 /* Sends id request to the server */
 pub fn id_request(
@@ -36,17 +28,9 @@ pub fn id_request(
     mut sequence: ResMut<Sequence>
 ) {
 
-    /* plop network id into struct for serialization.
-     * Can assume no other players, as this is first
-     * networking communication, aka can't have told about
-     * any others yet AND BRO THIS ID AINT EVEN REAL
-     * WE HERE TO ASK FOR ONE ANYWAYS
-     * 
-     * still need something to shove over tho */
-    let i = player.single();
     let id_packet = IdPacket {
         head:Header{
-            network_id: i.id,
+            network_id: 0,
             sequence_num: sequence.geti(),
             timestamp:0
         }
@@ -139,7 +123,7 @@ pub fn listen(
     match player_struct{
     
         ServerPacket::IdPacket(id_packet) => {
-            recv_id(src, players_new.single_mut().8.as_mut(), id_packet, commands, id);
+           // recv_id(src, id_packet, commands, id);
         },
         ServerPacket::PlayerPacket(player_packet) => {
             info!("Matching Player Struct");
@@ -153,6 +137,52 @@ pub fn listen(
             //TODO
         }
     }
+}
+
+fn recive_player_packet(
+    mut commands: Commands,
+    mut players: Query<(&mut Velocity, &mut Transform, &mut Player, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), With<Player>>,
+    asset_server: &Res<AssetServer>,
+    saranpack: PlayerS2C,
+    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    us: ClientId
+){
+    let found = false;
+    for (v,t,p,h,c,r,s,a,id) in players.iter_mut(){
+        if id.id == us.id{
+            found = true;
+            // need 2 make this good and not laggy yk
+            
+            /*apply state to player pls
+             * needs to be some non-actual state (don't apply
+             * directly to v) so we can apply reprediction*/
+        }
+    }
+
+    if !found{
+        us.id = saranpack.head.network_id;
+
+        commands.spawn(ClientPlayerBundle{
+            sprite: ,
+            atlas: todo!(),
+            animation_timer: todo!(),
+            animation_frames: todo!(),
+            velo: todo!(),
+            id: todo!(),
+            player: Player,
+            health: todo!(),
+            crouching: todo!(),
+            rolling: todo!(),
+            sprinting: todo!(),
+            attacking: todo!(),
+            inputs: todo!(),
+        })
+
+    }
+    
+    
+
+
 }
 
 // /* once we have our packeet, we must use it to update
@@ -222,5 +252,4 @@ pub fn listen(
 //     }
 // }
 
-fn something(){}
 

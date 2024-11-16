@@ -9,7 +9,7 @@ use crate::cuscuta_resources::Health;
 
 #[derive(Component, Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
 pub struct Timestamp{
-    pub time: u128
+    pub time: u64
 }
 
 #[derive(Resource)]
@@ -119,10 +119,10 @@ pub struct IdPacket{
 pub struct Header{
     pub network_id: u8,
     pub sequence_num: u64,
-    pub timestamp: u128
+    pub timestamp: u64
 }
 impl Header{
-    pub fn new(id: u8, seq: u64, time: u128)-> Self{
+    pub fn new(id: u8, seq: u64, time: u64)-> Self{
         Self{
             network_id: id,
             sequence_num: seq,
