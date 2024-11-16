@@ -1,10 +1,6 @@
-use std::time::Instant;
-
+use std::ops::Mul;
 use bevy::prelude::{KeyCode::*, *};
-
-use serde::{Serialize, Deserialize};
-
-use crate::{ui::CarnageBar, cuscuta_resources::*, player::*};
+use crate::{ui::CarnageBar, cuscuta_resources::*, player::*, network::Timestamp};
 
 
 
@@ -14,11 +10,11 @@ pub fn update_player(
 ){
     /* query establihsed, not active state */
     for (time, mut velocity, mut transform, queue, crouch, sprint) in player_q.iter_mut() {
-        let mut curr_time: f32 = time.time;
+        let mut curr_time: u64 = time.time; // in nanoseconds
         let mut curr_velo = velocity.into_inner();
         let mut curr_transform = transform.into_inner();
         for(input_time, key) in &queue.q{
-            if time.time > input_time.time + 1.{// 
+            if time.time > input_time.time + 1{// 
                 //queue.q.remove(index)
                 //TODO remove
             }
@@ -47,8 +43,8 @@ pub fn update_player(
 
 /* move player a smidge up, called on keypress "W" */
 fn move_over(
-    curr_time:f32,
-    input_time:f32,
+    curr_time:u64,
+    input_time:u64,
     velocity:&mut Velocity,
     transform:&mut Transform,
     sprinting:bool,
@@ -58,19 +54,19 @@ fn move_over(
 
 
     /* calulate time between last input used */
-    let delta_time: f32 = curr_time - input_time;
+    let delta_time: u64 = curr_time - input_time;
     /* Use said time to calculate estimated acceleration rate */
-    let mut acceleration = ACCELERATION_RATE * delta_time;
+    let mut acceleration: <f32 as Mul<f32>>::Output = ACCELERATION_RATE * delta_time as f32;
     let mut max_speed = PLAYER_SPEED;
     let mut delta_velo = Vec2::splat(0.);
 
     /* Aply sprint/ crouch */
     if sprinting {
-        acceleration = acceleration * SPRINT_MULTIPLIER;
+        acceleration = acceleration * SPRINT_MULTIPLIER as f32;
         max_speed = max_speed * SPRINT_MULTIPLIER;
     }
     if crouching {
-        acceleration = acceleration * CROUCH_MULTIPLIER;
+        acceleration = acceleration * CROUCH_MULTIPLIER as f32;
         max_speed = max_speed * CROUCH_MULTIPLIER;
     }
 
@@ -93,7 +89,7 @@ fn move_over(
     };
 
     /* use velocity to calculate distance travelled */
-    let change = velocity.velocity * delta_time;
+    let change = velocity.velocity * delta_time as f32;
 
     /* unclamped at the moment. should do our collision work here before
      * creating position. Last implementation of move clamped to room bound but

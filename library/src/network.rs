@@ -3,13 +3,13 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 use std::{net::UdpSocket, time};
 use std::io;
-use crate::player::ServerPlayerBundle;
+use crate::player::{InputQueue, ServerPlayerBundle};
 use std::time::{Instant, Duration, SystemTime, UNIX_EPOCH};
+use crate::cuscuta_resources::Health;
 
-
-#[derive(Component, Serialize, Deserialize)]
+#[derive(Component, Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
 pub struct Timestamp{
-    pub time: u128
+    pub time: u64
 }
 
 #[derive(Resource)]
@@ -18,10 +18,29 @@ pub struct Sequence{
 }
 
 impl Sequence{
-    pub fn up(&mut self){
+    /* everytime we use a sequence # we should increment */ 
+    pub fn geti(&mut self) -> u64{
         self.num += 1;
+        self.num - 1
     }
     
+    pub fn new() -> Self{
+        Self{
+            num: 0
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct ServerSequence{
+    num: u64
+}
+
+impl ServerSequence{
+    pub fn up(&mut self){
+        self.num +=1;
+    }
+
     pub fn get(&mut self) -> u64{
         self.num
     }
@@ -72,11 +91,9 @@ pub struct PlayerC2S{
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PlayerS2C{
     pub head: Header,
-    pub xcoord: f32,
-    pub ycoord: f32,
+    pub transform: Transform,
     pub velocity: Vec2,
-    pub animframe: u8,
-    pub health: f32,
+    pub health: Health,
     pub crouch: bool,
     pub attack: bool,
     pub roll: bool,
@@ -86,10 +103,8 @@ pub struct PlayerS2C{
 pub struct EntityS2C{
     pub head: Header,
     pub entid: u8,
-    pub xcoord: f32,
-    pub ycoord: f32,
+    pub transform: Transform,
     pub velocity: Vec2,
-    pub animframe: u8,
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct MapS2C{
@@ -100,13 +115,22 @@ pub struct MapS2C{
 pub struct IdPacket{
     pub head: Header
 }
-#[derive(Serialize,Deserialize, PartialEq, Debug)]
+#[derive(Component, Serialize,Deserialize, PartialEq, Debug)]
 pub struct Header{
     pub network_id: u8,
     pub sequence_num: u64,
-    pub timestamp: u128
-
+    pub timestamp: u64
 }
+impl Header{
+    pub fn new(id: u8, seq: u64, time: u64)-> Self{
+        Self{
+            network_id: id,
+            sequence_num: seq,
+            timestamp: time,
+        }
+    }
+}
+
 
 /**#[derive(Serialize,Deserialize,PartialEq,Debug)]
 pub struct TimeIdPacket {
