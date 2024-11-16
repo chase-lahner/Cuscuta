@@ -4,7 +4,12 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network::{Header, PlayerS2C, Timestamp}, room_gen::*, ui::CarnageBar
+    collision::{self, *},
+    cuscuta_resources::*,
+    enemies::Enemy,
+    network::{Header, PlayerS2C, Timestamp},
+    room_gen::*,
+    ui::CarnageBar,
 };
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -24,11 +29,8 @@ impl NetworkId {
         }
     }
     /* one good thing about java is reusing fn name*/
-    pub fn new_s(id:u8, sock: SocketAddr) -> Self{
-        Self{
-            id: id,
-            addr: sock
-        }
+    pub fn new_s(id: u8, sock: SocketAddr) -> Self {
+        Self { id: id, addr: sock }
     }
 }
 
@@ -73,8 +75,8 @@ impl Attack {
 }
 
 #[derive(Component, Serialize, Deserialize, Clone, PartialEq, Debug)]
-pub struct InputQueue{
-    pub q: Vec<(Timestamp, KeyCode)>
+pub struct InputQueue {
+    pub q: Vec<(Timestamp, KeyCode)>,
 }
 
 impl InputQueue {
@@ -85,20 +87,19 @@ impl InputQueue {
 
 #[derive(Bundle)]
 pub struct ClientPlayerBundle {
-    sprite: SpriteBundle,
-    atlas: TextureAtlas,
-    animation_timer: AnimationTimer,
-    animation_frames: AnimationFrameCount,
-    velo: Velocity,
-    id: NetworkId,
-    player: Player,
-    health: Health,
-    crouching: Crouch,
-    rolling: Roll,
-    sprinting: Sprint,
-    attacking: Attack,
-    inputs: InputQueue
-
+    pub sprite: SpriteBundle,
+    pub atlas: TextureAtlas,
+    pub animation_timer: AnimationTimer,
+    pub animation_frames: AnimationFrameCount,
+    pub velo: Velocity,
+    pub id: NetworkId,
+    pub player: Player,
+    pub health: Health,
+    pub crouching: Crouch,
+    pub rolling: Roll,
+    pub sprinting: Sprint,
+    pub attacking: Attack,
+    pub inputs: InputQueue,
 }
 
 #[derive(Bundle, Serialize, Deserialize)]
@@ -283,8 +284,8 @@ pub fn client_spawn_other_player_new(
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     player: PlayerS2C,
-    source_ip:SocketAddr,
-){
+    source_ip: SocketAddr,
+) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
         UVec2::splat(TILE_SIZE),
@@ -297,28 +298,40 @@ pub fn client_spawn_other_player_new(
     let player_layout_handle = texture_atlases.add(player_layout);
     // spawn player at origin
     commands.spawn(ClientPlayerBundle {
-        sprite: SpriteBundle { 
+        sprite: SpriteBundle {
             texture: player_sheet_handle,
             transform: player.transform,
             ..default()
         },
-        rolling: Roll{rolling: player.roll},
+        rolling: Roll {
+            rolling: player.roll,
+        },
         atlas: TextureAtlas {
             layout: player_layout_handle,
             index: 0,
         },
         animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
         animation_frames: AnimationFrameCount(player_layout_len),
-        velo: Velocity{velocity: player.velocity},
-        id: NetworkId{id: player.head.network_id, addr: source_ip},
+        velo: Velocity {
+            velocity: player.velocity,
+        },
+        id: NetworkId {
+            id: player.head.network_id,
+            addr: source_ip,
+        },
         player: Player,
         health: player.health,
-        crouching: Crouch{ crouching: player.crouch},
-        sprinting: Sprint{sprinting: player.sprint},
-        attacking: Attack{attacking: player.attack},
+        crouching: Crouch {
+            crouching: player.crouch,
+        },
+        sprinting: Sprint {
+            sprinting: player.sprint,
+        },
+        attacking: Attack {
+            attacking: player.attack,
+        },
         inputs: InputQueue::new(),
     });
-
 }
 
 pub fn client_spawn_other_player(
@@ -343,7 +356,11 @@ pub fn client_spawn_other_player(
     commands.spawn(ClientPlayerBundle {
         sprite: SpriteBundle {
             texture: player_sheet_handle,
-            transform: Transform::from_xyz(player.transform.translation.x, player.transform.translation.y, 900.),
+            transform: Transform::from_xyz(
+                player.transform.translation.x,
+                player.transform.translation.y,
+                900.,
+            ),
             ..default()
         },
         rolling: Roll::new(),
@@ -363,7 +380,7 @@ pub fn client_spawn_other_player(
         crouching: Crouch { crouching: false },
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
-        inputs: InputQueue::new()
+        inputs: InputQueue::new(),
     });
 }
 
@@ -381,7 +398,7 @@ pub fn player_interact(
     client_id: Res<ClientId>,
     mut pot_q: Query<&mut Pot>,
     mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>,
-    mut texture_atlas: Query<&mut TextureAtlas, (With<Pot>, Without<Player>)>
+    mut texture_atlas: Query<&mut TextureAtlas, (With<Pot>, Without<Player>)>,
 ) {
     let mut pot = pot_q.single_mut();
     let pot_transform = pot_transform_q.single_mut();
@@ -404,9 +421,8 @@ pub fn player_interact(
                 info!("you got touched");
                 pot.touch += 1;
 
-                if pot.touch == 1
-                {
-                    pot_atlas.index = pot_atlas.index+1;
+                if pot.touch == 1 {
+                    pot_atlas.index = pot_atlas.index + 1;
                 }
                 //TODO
             }
@@ -588,7 +604,7 @@ pub fn move_player(
             1.0
         };
 
-        let crouch_multiplier = if input.pressed(KeyCode::KeyC){
+        let crouch_multiplier = if input.pressed(KeyCode::KeyC) {
             CROUCH_MULTIPLIER
         } else {
             1.0

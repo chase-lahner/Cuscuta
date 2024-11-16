@@ -35,9 +35,12 @@ fn main() {
             player::player_interact
         )) 
         /* networking shtuff. comment out if needed */
-        .add_systems(Update,
-            (client::gather_input,
-            client::listen
+
+        .add_systems(Update, (
+            client::gather_input,
+            client::listen,
+        
+        
         ))
         .run();
 }
