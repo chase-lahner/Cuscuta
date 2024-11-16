@@ -3,9 +3,29 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 use std::{net::UdpSocket, time};
 use std::io;
-use crate::freshwork::Timestamp;
 use crate::player::ServerPlayerBundle;
 use std::time::{Instant, Duration, SystemTime, UNIX_EPOCH};
+
+
+#[derive(Component, Serialize, Deserialize)]
+pub struct Timestamp{
+    pub time: u128
+}
+
+#[derive(Resource)]
+pub struct Sequence{
+    num: u64
+}
+
+impl Sequence{
+    pub fn up(&mut self){
+        self.num += 1;
+    }
+    
+    pub fn get(&mut self) -> u64{
+        self.num
+    }
+}
 
 #[derive(Resource, Component)]
 pub struct UDP {
@@ -22,35 +42,63 @@ pub struct BufSerializer {
 }
 
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+/*#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PlayerPacket{
     pub id: u8,
     pub transform_x: f32,
     pub transform_y: f32,
     pub velocity_x: f32,
     pub velocity_y: f32,
-}
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct InputPacket{
-    header: Header,
-    key_pressed: KeyCode,
-}
+}**/
 
-impl InputPacket{
-    pub fn new( header: Header, keycode: KeyCode) -> Self {
-        Self { header: header , key_pressed: keycode }
-    }
-    // SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct NewPlayerPacket{
+/**#[derive(Serialize, Deserialize)]
+pub struct NewPlayerC2S{
    pub client_bundle: ServerPlayerBundle
 }
 
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct NewPlayerPacket{
+    pub id: u8,
+    pub key: KeyCode,
+    pub room: u8,
+}*/
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct PlayerC2S{
+    pub head: Header,
+    pub key: KeyCode,
+}
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct PlayerS2C{
+    pub head: Header,
+    pub xcoord: f32,
+    pub ycoord: f32,
+    pub velocity: Vec2,
+    pub animframe: u8,
+    pub health: f32,
+    pub crouch: bool,
+    pub attack: bool,
+    pub roll: bool,
+    pub sprint: bool,
+}
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct EntityS2C{
+    pub head: Header,
+    pub entid: u8,
+    pub xcoord: f32,
+    pub ycoord: f32,
+    pub velocity: Vec2,
+    pub animframe: u8,
+}
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct MapS2C{
+    pub head: Header,
+    pub matrix: Vec<Vec<u8>>,
+}
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct IdPacket{
-    pub id: u8,
+    pub head: Header
 }
 #[derive(Serialize,Deserialize, PartialEq, Debug)]
 pub struct Header{
@@ -59,16 +107,37 @@ pub struct Header{
     pub timestamp: u128
 
 }
-#[derive(Serialize,Deserialize,PartialEq,Debug)]
+
+/**#[derive(Serialize,Deserialize,PartialEq,Debug)]
 pub struct TimeIdPacket {
     pub header: Header
+}*/
+
+/**#[derive(Component, Serialize, Deserialize, PartialEq, Debug)]
+pub struct InputPacket{
+    header: Header,
+    key_pressed: KeyCode,
+}*/
+
+/**impl InputPacket{
+    pub fn new( header: Header, keycode: KeyCode) -> Self {
+        Self { header: header , key_pressed: keycode }
+    }
+    // SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+}*/
+
+#[derive(Serialize, Deserialize)]
+pub enum ClientPacket{
+    PlayerPacket(PlayerC2S),
+    IdPacket(IdPacket),
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum SendablePacket{
-    PlayerPacket(PlayerPacket),
+pub enum ServerPacket{
+    PlayerPacket(PlayerS2C),
+    EntityPacket(EntityS2C),
+    MapPacket(MapS2C),
     IdPacket(IdPacket),
-    NewPlayerPacket(NewPlayerPacket)
 }
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array 

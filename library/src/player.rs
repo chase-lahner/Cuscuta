@@ -4,12 +4,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ui::CarnageBar,
-    collision::{self, *},
-    cuscuta_resources::*,
-    enemies::Enemy,
-    network::{self, PlayerPacket, NewPlayerPacket},
-    room_gen::*,
+    collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network::{PlayerS2C, Timestamp}, room_gen::*, ui::CarnageBar
 };
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -70,6 +65,11 @@ impl Attack {
     }
 }
 
+#[derive(Component, Serialize, Deserialize)]
+pub struct InputQueue{
+    pub q: Vec<(Timestamp, KeyCode),>
+}
+
 #[derive(Bundle)]
 pub struct ClientPlayerBundle {
     sprite: SpriteBundle,
@@ -84,6 +84,8 @@ pub struct ClientPlayerBundle {
     rolling: Roll,
     sprinting: Sprint,
     attacking: Attack,
+    inputs: InputQueue,
+
 }
 
 #[derive(Bundle, Serialize, Deserialize)]
@@ -97,6 +99,7 @@ pub struct ServerPlayerBundle {
     pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack,
+    inputs: InputQueue,
 }
 
 pub fn player_attack(
@@ -221,53 +224,53 @@ pub fn player_attack_enemy(
     }
 }
 
-/* Spawns in user player, uses PlayerBundle for some consistency*/
-pub fn client_spawn_user_player(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    _id: u8,
-) {
-    let player_sheet_handle = asset_server.load("player/4x12_player.png");
-    let player_layout = TextureAtlasLayout::from_grid(
-        UVec2::splat(TILE_SIZE),
-        PLAYER_SPRITE_COL,
-        PLAYER_SPRITE_ROW,
-        None,
-        None,
-    );
-    let player_layout_len = player_layout.textures.len();
-    let player_layout_handle = texture_atlases.add(player_layout);
+// /* Spawns in user player, uses PlayerBundle for some consistency*/
+// pub fn client_spawn_user_player(
+//     commands: &mut Commands,
+//     asset_server: &Res<AssetServer>,
+//     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+//     _id: u8,
+// ) {
+//     let player_sheet_handle = asset_server.load("player/4x12_player.png");
+//     let player_layout = TextureAtlasLayout::from_grid(
+//         UVec2::splat(TILE_SIZE),
+//         PLAYER_SPRITE_COL,
+//         PLAYER_SPRITE_ROW,
+//         None,
+//         None,
+//     );
+//     let player_layout_len = player_layout.textures.len();
+//     let player_layout_handle = texture_atlases.add(player_layout);
 
-    // spawn player at origin
-    commands.spawn(ClientPlayerBundle {
-        sprite: SpriteBundle {
-            texture: player_sheet_handle,
-            transform: Transform::from_xyz(0., 0., 900.),
-            ..default()
-        },
-        atlas: TextureAtlas {
-            layout: player_layout_handle,
-            index: 0,
-        },
-        animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
-        animation_frames: AnimationFrameCount(player_layout_len),
-        velo: Velocity::new(),
-        id:NetworkId::new(),
-        player: Player,
-        health: Health::new(),
-        crouching: Crouch{crouching:false},
-        rolling: Roll{rolling:false},
-        sprinting: Sprint{sprinting:false},
-        attacking: Attack{attacking:false}
-    });
-}
+//     // spawn player at origin
+//     commands.spawn(ClientPlayerBundle {
+//         sprite: SpriteBundle {
+//             texture: player_sheet_handle,
+//             transform: Transform::from_xyz(0., 0., 900.),
+//             ..default()
+//         },
+//         atlas: TextureAtlas {
+//             layout: player_layout_handle,
+//             index: 0,
+//         },
+//         animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+//         animation_frames: AnimationFrameCount(player_layout_len),
+//         velo: Velocity::new(),
+//         id:NetworkId::new(),
+//         player: Player,
+//         health: Health::new(),
+//         crouching: Crouch{crouching:false},
+//         rolling: Roll{rolling:false},
+//         sprinting: Sprint{sprinting:false},
+//         attacking: Attack{attacking:false}
+//     });
+// }
 
 pub fn client_spawn_other_player_new(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    player: NewPlayerPacket,
+    player: PlayerS2C,
     source_ip:SocketAddr,
 ){
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
