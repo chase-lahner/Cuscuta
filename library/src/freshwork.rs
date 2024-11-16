@@ -1,6 +1,6 @@
 use std::ops::Mul;
 use bevy::prelude::{KeyCode::*, *};
-use crate::{ui::CarnageBar, cuscuta_resources::*, player::*};
+use crate::{ui::CarnageBar, cuscuta_resources::*, player::*, network::Timestamp};
 
 
 
@@ -14,7 +14,7 @@ pub fn update_player(
         let mut curr_velo = velocity.into_inner();
         let mut curr_transform = transform.into_inner();
         for(input_time, key) in &queue.q{
-            if time.time > input_time.time + 1.{// 
+            if time.time > input_time.time + 1{// 
                 //queue.q.remove(index)
                 //TODO remove
             }
@@ -56,7 +56,7 @@ fn move_over(
     /* calulate time between last input used */
     let delta_time: u128 = curr_time - input_time;
     /* Use said time to calculate estimated acceleration rate */
-    let mut acceleration: <f32 as Mul<f32>>::Output = ACCELERATION_RATE * delta_time;
+    let mut acceleration: <f32 as Mul<f32>>::Output = ACCELERATION_RATE * delta_time as f32;
     let mut max_speed = PLAYER_SPEED;
     let mut delta_velo = Vec2::splat(0.);
 
@@ -89,7 +89,7 @@ fn move_over(
     };
 
     /* use velocity to calculate distance travelled */
-    let change = velocity.velocity * delta_time;
+    let change = velocity.velocity * delta_time as f32;
 
     /* unclamped at the moment. should do our collision work here before
      * creating position. Last implementation of move clamped to room bound but

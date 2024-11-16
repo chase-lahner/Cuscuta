@@ -26,7 +26,7 @@ pub fn send_id(
     let mut id_serializer = flexbuffers::FlexbufferSerializer::new();
 
     let id_send = ServerPacket::IdPacket(IdPacket{
-        head: Header::new(player_id,server_seq.get(), 0)});
+        head: Header::new(player_id,server_seq.geti(), 0)});
 
     id_send.serialize(&mut id_serializer).unwrap();
     
@@ -51,7 +51,7 @@ pub fn send_id(
     });
     /* same shit but now we sending off to the cleint */
     let playa = ServerPacket::PlayerPacket(PlayerS2C{
-        head: Header::new(player_id,server_seq.get(),0),//TODO TIMESTAMPS
+        head: Header::new(player_id,server_seq.geti(),0),//TODO TIMESTAMPS
         transform: Transform{
             translation: Vec3{
                 x: 0., y: 0., z: 900.,
@@ -120,6 +120,11 @@ fn recieve_input(player_struct: PlayerC2S){
     // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
 }
 
+pub fn send_enemies(
+    enemies: Query<(&mut Name), (With<Enemy>, Without<Player>)>,
+){
+    let e = enemies;
+}
 /* once we have our packeet, we must use it to update
  * the player specified, there's another in client.rs*/
 fn update_player_state(
@@ -263,7 +268,7 @@ fn update_player_state(
             {
                 let outgoing_state: PlayerS2C = PlayerS2C {
                     transform: *t,
-                    head: Header::new(i.id,server_seq.get(), 0),
+                    head: Header::new(i.id,server_seq.geti(), 0),
                     attack: a.attacking,
                     velocity: v.velocity,
                     health: *h,

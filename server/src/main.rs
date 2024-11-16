@@ -12,7 +12,8 @@ fn main() {
     .add_systems(FixedUpdate, (
         server::listen, 
         //player::update_player_position.after(server::listen),
-        server::send_player
+        server::send_player,
+        server::send_enemies,
     ))
     .run();
 }
