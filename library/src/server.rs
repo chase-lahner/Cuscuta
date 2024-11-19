@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, ClientId, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, enemies::Enemy, network, player::{self, Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
+use crate::{cuscuta_resources::{self, AddressList, ClientId, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{self, Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client */
@@ -48,6 +48,7 @@ pub fn send_id(
         sprinting: Sprint::new(),
         attacking: Attack::new(),
         inputs: InputQueue::new(),
+        time: Timestamp::new(0),//TODO set time properly
     });
     /* same shit but now we sending off to the cleint */
     let playa = ServerPacket::PlayerPacket(PlayerS2C{
@@ -77,7 +78,9 @@ pub fn listen(
     udp: Res<UDP>,
     mut commands: Commands,
     // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    mut players_new: Query<(&mut Velocity, &mut Transform, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), (With<Player>, Without<Enemy>)>,
+    mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
+         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
+          &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,//eek a lot
     mut n_p: ResMut<PlayerCount>,
     addresses: ResMut<AddressList>,
     mut server_seq: ResMut<Sequence>
@@ -109,21 +112,65 @@ pub fn listen(
         ClientPacket::PlayerPacket(player_packet) => {
             // TODO: Fix this
            // update_player_state(src, players, player_packet, commands);
-            recieve_input(player_packet);
+            recieve_input(player_packet, players_q);
         }
     }
 
 
 }
 
-fn recieve_input(player_struct: PlayerC2S){
+//TOTOTOODODODODODODODO--------------------------------
+fn recieve_input(
+    client_pack: PlayerC2S,
+    mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
+         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
+          &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,
+){
     // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
+    /* for all players in server game world */
+    for (v, t, h, c, r, s, a, id, mut iq, time) in players_q.iter_mut(){
+        /* if we find the one corresponding to our packet */
+        if client_pack.head.network_id == id.id {
+            /* for all the keys passed on the clients update */
+            for key in &client_pack.key {
+                /* append that hoe !!!!! */
+                iq.q.push((Timestamp::new(client_pack.head.timestamp), *key)); 
+            }
+            /* ok if we want to update immediately then we od it right here
+             * buuuuut the fn takes in diff args than we have (odd query). TBH
+             * i am down to plop in the main logic loop for now, no reaason to use
+             * any data longer than we have to, right?? (is not in main logic loop as of
+             * 11/19 3:31pm*/
+        }
+    }
 }
 
 pub fn send_enemies(
-    enemies: Query<(&mut Name), (With<Enemy>, Without<Player>)>,
+    enemies: Query<(& EnemyId, & EnemyMovement), 
+        (With<Enemy>, Without<Player>)>,
+    addresses: Res<AddressList>,
+    mut server_seq: ResMut<Sequence>,
+    server_socket: &UdpSocket, 
 ){
-    let e = enemies;
+    for (id, movement) in enemies.iter(){
+        let enemy: EnemyS2C = EnemyS2C{
+            head: Header::new(0,server_seq.geti(), 0),//TODO FIX TIME
+            movement: movement.clone(),
+            enemytype: id.clone(),
+        };
+        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+        let to_send: ServerPacket = ServerPacket::EnemyPacket(enemy);
+        to_send.serialize(&mut serializer).unwrap();
+
+        let packet: &[u8] = serializer.view();
+        for addr in addresses.list.iter() {  
+
+            server_socket.send_to(&packet, *addr).unwrap();
+        }
+
+    }
+
+    
 }
 /* once we have our packeet, we must use it to update
  * the player specified, there's another in client.rs*/

@@ -58,27 +58,32 @@ pub fn gather_input(
     mut sequence: ResMut<Sequence>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
-    /* Deconstruct out Query. SHould be client side so we can do single */
+    /* Deconstruct out Query. */
     for (i, mut q) in player.iter_mut() {
+        /* are we on us????? */
         if i.id == client_id.id {
+            /* create a vec of keypresses to send over wire */
+            let mut keys: Vec<KeyCode> = vec![];
             for key in input.get_pressed() {
-                let outgoing_state = PlayerC2S {
-                    head: Header {
-                        network_id: i.id,
-                        sequence_num: sequence.geti(),
-                        timestamp: 0, // TODODOODOOO
-                    },
-                    key: *key,
-                };
-                q.q.push((Timestamp { time: 0 }, *key));
-                let mut serializer = flexbuffers::FlexbufferSerializer::new();
-                let to_send: ClientPacket = ClientPacket::PlayerPacket(outgoing_state);
-                to_send.serialize(&mut serializer).unwrap();
-
-                let packet: &[u8] = serializer.view();
-
-                socket.socket.send_to(&packet, SERVER_ADR).unwrap();
+                keys.push(*key);
+                q.q.push((Timestamp { time: 0 }, *key));    
             }
+            let outgoing_state = PlayerC2S {
+                head: Header {
+                    network_id: i.id,
+                    sequence_num: sequence.geti(),
+                    timestamp: 0, // TODODOODOOO
+                },
+                key: keys,
+            };
+            let mut serializer = flexbuffers::FlexbufferSerializer::new();
+            let to_send: ClientPacket = ClientPacket::PlayerPacket(outgoing_state);
+            to_send.serialize(&mut serializer).unwrap();
+
+            let packet: &[u8] = serializer.view();
+
+            socket.socket.send_to(&packet, SERVER_ADR).unwrap();
+            
         }
     }
 }
@@ -137,10 +142,10 @@ pub fn listen(
             //TODODODODOODOOo
             //update_player_state_new(players_new, player_packet, commands, &asset_server, &mut texture_atlases, src);
         }
-        ServerPacket::MapPacket(player_packet) => {
+        ServerPacket::MapPacket(mapket) => {
             //TODO
         }
-        ServerPacket::EntityPacket(player_packet) => {
+        ServerPacket::EnemyPacket(enemy_packet) => {
             //TODO
         }
     }

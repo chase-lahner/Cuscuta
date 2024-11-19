@@ -113,6 +113,7 @@ pub struct ServerPlayerBundle {
     pub sprinting: Sprint,
     pub attacking: Attack,
     pub inputs: InputQueue,
+    pub time: Timestamp,
 }
 
 pub fn player_attack(

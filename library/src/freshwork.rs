@@ -51,11 +51,19 @@ fn move_over(
     crouching:bool,
     key:KeyCode
 ) -> (Velocity, Transform) {
-
+    /* TODODODODOD Idk if this logic is very sound...
+     * I'm a little worried about how we use time... We definitely
+     * need to know how long it's been since the last udpdate (bro we can soooo
+     * fix the client to 60fps tbh that might make our lives so much easier) ANYWAYS
+     * the way we are using time rn is iffy... GAHHH im overthinking...
+     * This whole blurb spawned out of my desire to use move_over() every key when
+     * we recieve data from client buuuuuut tbh we should just take it in and
+     * then do our standard update_player(), which calls this as needed.. 
+     * I shall return here at some point im sure */
 
     /* calulate time between last input used */
     let delta_time: u64 = curr_time - input_time;
-    /* Use said time to calculate estimated acceleration rate */
+    /* Use said timedelta to calculate estimated acceleration rate */
     let mut acceleration: <f32 as Mul<f32>>::Output = ACCELERATION_RATE * delta_time as f32;
     let mut max_speed = PLAYER_SPEED;
     let mut delta_velo = Vec2::splat(0.);
