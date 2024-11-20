@@ -11,11 +11,57 @@ const SK_SPRITE_H: u32 = 1;
 const SK_SPRITE_W: u32 = 1;
 const SK_MAX_SPEED: f32 = 160.;
 const SK_SPOT_DIST: f32 = 192.;
+const SK_HEALTH: u32 = 2;
+const SK_SIZE: u32 = 32;
+
+/* Set for berry rat */
+const BR_NAME: &str = "Berry";
+const BR_PATH: &str = "enemies/berry_rat.png";
+const BR_SPRITE_H: u32 = 1;
+const BR_SPRITE_W: u32 = 2;
+const BR_MAX_SPEED: f32 = 160.;
+const BR_SPOT_DIST: f32 = 256.;
+const BR_HEALTH: u32 = 2;
+const BR_SIZE: u32 = 32;
+
+/* Set for ninja */
+const N_NAME: &str = "Ninja";
+const N_PATH: &str = "enemies/ninja.png";
+const N_SPRITE_H: u32 = 1;
+const N_SPRITE_W: u32 = 1;
+const N_MAX_SPEED: f32 = 160.;
+const N_SPOT_DIST: f32 = 320.;
+const N_HEALTH: u32 = 1;
+const N_SIZE: u32 = 32;
+
+/* Set for splat monkey */
+const SP_NAME: &str = "Splatty";
+const SP_PATH: &str = "enemies/splatmonkey.png";
+const SP_SPRITE_H: u32 = 1;
+const SP_SPRITE_W: u32 = 2;
+const SP_MAX_SPEED: f32 = 100.;
+const SP_SPOT_DIST: f32 = 120.;
+const SP_HEALTH: u32 = 3;
+const SP_SIZE: u32 = 32;
+
+/* Set for boss */
+const B_NAME: &str = "Boss";
+const B_PATH: &str = "enemies/boss.png";
+const B_SPRITE_H: u32 = 1;
+const B_SPRITE_W: u32 = 1;
+const B_MAX_SPEED: f32 = 130.;
+const B_SPOT_DIST: f32 = 1000.;
+const B_HEALTH: u32 = 10;
+const B_SIZE: u32 = 64;
 
 /* Cute lil enum that allows us ezpz enemy match */
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum EnemyKind {
     Skeleton(Enemy),
+    BerryRat(Enemy),
+    Ninja(Enemy),
+    SplatMonkey(Enemy),
+    Boss(Enemy),
 }
 
 /* Constuctors for enemies, using const declared above */
@@ -28,6 +74,56 @@ impl EnemyKind {
             SK_SPRITE_W,
             SK_MAX_SPEED,
             SK_SPOT_DIST,
+            SK_HEALTH,
+            SK_SIZE,
+        ))
+    }
+    fn berry() -> Self {
+        EnemyKind::BerryRat(Enemy::new(
+            String::from(BR_NAME),
+            String::from(BR_PATH),
+            BR_SPRITE_H,
+            BR_SPRITE_W,
+            BR_MAX_SPEED,
+            BR_SPOT_DIST,
+            BR_HEALTH,
+            BR_SIZE,
+        ))
+    }
+    fn ninja() -> Self {
+        EnemyKind::Ninja(Enemy::new(
+            String::from(N_NAME),
+            String::from(N_PATH),
+            N_SPRITE_H,
+            N_SPRITE_W,
+            N_MAX_SPEED,
+            N_SPOT_DIST,
+            N_HEALTH,
+            N_SIZE,
+        ))
+    }
+    fn splatmonkey() -> Self {
+        EnemyKind::SplatMonkey(Enemy::new(
+            String::from(SP_NAME),
+            String::from(SP_PATH),
+            SP_SPRITE_H,
+            SP_SPRITE_W,
+            SP_MAX_SPEED,
+            SP_SPOT_DIST,
+            SP_HEALTH,
+            SP_SIZE,
+        ))
+    }
+    fn boss() -> Self {
+        EnemyKind::Boss(Enemy::new(
+            String::from(B_NAME),
+            String::from(B_PATH),
+            B_SPRITE_H,
+            B_SPRITE_W,
+            B_MAX_SPEED,
+            B_SPOT_DIST,
+            B_HEALTH,
+            B_SIZE,
         ))
     }
 }
@@ -36,16 +132,20 @@ impl EnemyKind {
 #[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct Enemy {
     /* he is he */
-    name: String,
+    pub name: String,
     /* assets/ local path */
-    filepath: String,
+    pub filepath: String,
     /* dimensions of sprite array */
-    sprite_row: u32,
-    sprite_column: u32,
+    pub sprite_row: u32,
+    pub sprite_column: u32,
     /* yk. fast */
-    max_speed: f32,
+    pub max_speed: f32,
     /* how far they can see*/
-    spot_distance: f32,
+    pub spot_distance: f32,
+    /* health */
+    pub health: u32,
+    /* size */
+    pub size: u32,
 }
 
 /* generic constructor for Enemy, can be used by enum
@@ -58,6 +158,8 @@ impl Enemy {
         column: u32,
         max_speed: f32,
         spot_distance: f32,
+        health: u32,
+        size: u32,
     ) -> Self {
         Self {
             name: name,
@@ -66,15 +168,17 @@ impl Enemy {
             sprite_column: column,
             max_speed: max_speed,
             spot_distance: spot_distance,
+            health: health,
+            size: size,
         }
     }
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct EnemyMovement {
-    direction: Vec2,
-    axis: i32,
-    lastseen: Vec3,
+   pub direction: Vec2,
+   pub axis: i32,
+    pub lastseen: Vec3,
 }
 impl EnemyMovement {
     pub fn new(d: Vec2, a: i32, seen: Vec3) -> Self {
@@ -102,17 +206,22 @@ pub struct EnemyTimer {
 
 /* client don't need much teebs */
 #[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
-pub struct ClientEnemyBundle {
-    id: EnemyId,
-    movement: EnemyMovement,
+pub struct ClientEnemy {
+    pub id: EnemyId,
+    pub movement: Vec<EnemyMovement>,
 }
 
 /* used by server to keep track of how many we got AND keep
  * track of individual monster types */
 #[derive(Resource, Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct EnemyId {
-    id: u32,
-    kind: EnemyKind,
+    pub id: u32,
+    pub kind: EnemyKind,
+}
+impl EnemyId{
+    pub fn get_id(&mut self) -> u32 {
+        self.id
+    }
 }
 
 impl EnemyId {

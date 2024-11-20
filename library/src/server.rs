@@ -150,7 +150,7 @@ pub fn send_enemies(
         (With<Enemy>, Without<Player>)>,
     addresses: Res<AddressList>,
     mut server_seq: ResMut<Sequence>,
-    server_socket: &UdpSocket, 
+    server_socket: Res<UDP>, 
 ){
     for (id, movement) in enemies.iter(){
         let enemy: EnemyS2C = EnemyS2C{
@@ -164,8 +164,7 @@ pub fn send_enemies(
 
         let packet: &[u8] = serializer.view();
         for addr in addresses.list.iter() {  
-
-            server_socket.send_to(&packet, *addr).unwrap();
+            server_socket.socket.send_to(&packet, *addr).unwrap();
         }
 
     }

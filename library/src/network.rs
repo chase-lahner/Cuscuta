@@ -91,7 +91,7 @@ pub struct MapS2C{
     pub head: Header,
     pub matrix: Vec<Vec<u8>>,
 }
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EnemyS2C{
     pub head: Header,
     pub enemytype: EnemyId,
@@ -102,7 +102,7 @@ pub struct EnemyS2C{
 pub struct IdPacket{
     pub head: Header
 }
-#[derive(Component, Serialize,Deserialize, PartialEq, Debug)]
+#[derive(Component, Serialize,Deserialize, PartialEq, Debug, Clone)]
 pub struct Header{
     pub network_id: u8,
     pub sequence_num: u64,
