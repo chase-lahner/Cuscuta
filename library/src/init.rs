@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 
 use bevy::prelude::*;
 
-use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, PlayerCount, TICKS_PER_SECOND}, network::*, player::*, room_gen::*, ui::client_spawn_ui};
+use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, PlayerCount, TICKS_PER_SECOND}, network::*, room_gen::*, ui::client_spawn_ui};
 
 pub fn ip_setup(
     mut commands: Commands

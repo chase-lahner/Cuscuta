@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, ClientId, Health, PlayerCount, Velocity, GET_PLAYER_ID_CODE, PLAYER_DATA}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{self, Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
+use crate::{cuscuta_resources::{AddressList, Health, PlayerCount, Velocity}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client */
@@ -76,14 +76,14 @@ pub fn send_id(
 /* Server side listener for packets,  */
 pub fn listen(
     udp: Res<UDP>,
-    mut commands: Commands,
+    commands: Commands,
     // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
+    players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
          &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
           &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,//eek a lot
     mut n_p: ResMut<PlayerCount>,
     addresses: ResMut<AddressList>,
-    mut server_seq: ResMut<Sequence>
+    server_seq: ResMut<Sequence>
 
 ) {
     /* to hold msg */

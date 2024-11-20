@@ -274,7 +274,7 @@ pub fn enemy_movement(
     mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement)>,
     mut player_query: Query<
         (&mut Transform, &Player, &mut Health),
-        (With<Player>),
+        With<Player>,
     >,
     wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<EnemyTimer>)>,
     time: Res<Time>,

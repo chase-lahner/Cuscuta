@@ -6,13 +6,13 @@ use crate::{ui::CarnageBar, cuscuta_resources::*, player::*, network::Timestamp}
 
 pub fn update_player(
     mut player_q: Query<(&Timestamp, &mut Velocity, &mut Transform, &mut InputQueue, &Crouch, &Sprint),With<Player>>,
-    mut carange_q: Query<&mut CarnageBar>
+    carange_q: Query<&mut CarnageBar>
 ){
     /* query establihsed, not active state */
-    for (time, mut velocity, mut transform, queue, crouch, sprint) in player_q.iter_mut() {
+    for (time, velocity, transform, queue, crouch, sprint) in player_q.iter_mut() {
         let mut curr_time: u64 = time.time; // in nanoseconds
-        let mut curr_velo = velocity.into_inner();
-        let mut curr_transform = transform.into_inner();
+        let curr_velo = velocity.into_inner();
+        let curr_transform = transform.into_inner();
         for(input_time, key) in &queue.q{
             if time.time > input_time.time + 1{// 
                 //queue.q.remove(index)
@@ -102,7 +102,7 @@ fn move_over(
     /* unclamped at the moment. should do our collision work here before
      * creating position. Last implementation of move clamped to room bound but
      * we should do it based on ACTUAL collision not assumed  */
-    let new_pos_x = (transform.translation.x + change.x);//.clamp();
+    let new_pos_x = transform.translation.x + change.x;//.clamp();
     let new_pos_y = transform.translation.y + change.y;
 
     /* set em up */

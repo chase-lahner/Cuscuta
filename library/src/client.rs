@@ -1,11 +1,10 @@
 use std::net::SocketAddr;
 
-use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::enemies::{ClientEnemy, Enemy, EnemyKind, EnemyMovement};
-use crate::{cuscuta_resources::*, player};
+use crate::cuscuta_resources::*;
 use crate::network::{
     ClientPacket, EnemyS2C, Header, IdPacket, PlayerC2S, PlayerS2C, Sequence, ServerPacket, Timestamp, UDP
 };
@@ -95,9 +94,9 @@ pub fn listen(
      * Would really love to get that spawn player fn out of here,
      * maybe event or stage??? */
     udp: Res<UDP>,
-    mut commands: Commands,
+    commands: Commands,
     // mut player: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    mut players_new: Query<
+    players_new: Query<
         (
             &mut Velocity,
             &mut Transform,
@@ -261,7 +260,7 @@ fn recieve_player_packet(
 */
 
 fn recv_enemy(
-    mut pack: &mut EnemyS2C,
+    pack: &mut EnemyS2C,
     mut commands: Commands,
     mut enemy_q: Query<&mut ClientEnemy>,//TODO make ecs
     asset_server: Res<AssetServer>,

@@ -7,7 +7,7 @@ use crate::{
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{Header, PlayerS2C, Timestamp},
+    network::{PlayerS2C, Timestamp},
     room_gen::*,
     ui::CarnageBar,
 };
