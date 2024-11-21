@@ -32,8 +32,10 @@ pub fn id_request(
     let id_packet = IdPacket {
         head: Header {
             network_id: 0,
+            /* this is called on startup, so we can 
+             * send + increment( honestly server will
+             * manhandle our sequence# on the recv lol)*/
             sequence_num: sequence.geti(),
-            timestamp: 0,
         },
     };
 
@@ -49,11 +51,9 @@ pub fn id_request(
     socket.socket.send_to(packet, SERVER_ADR).unwrap();
 }
 
-/* Transforms current player state into u8 array that
- * we can then send across the wire to be deserialized once it arrives */
+/* Parse player input, and apply it*/
 pub fn gather_input(
     mut player: Query<(&NetworkId, &mut InputQueue), With<Player>>,
-    socket: Res<UDP>,
     client_id: Res<ClientId>,
     mut sequence: ResMut<Sequence>,
     input: Res<ButtonInput<KeyCode>>,
@@ -62,27 +62,66 @@ pub fn gather_input(
     for (i, mut q) in player.iter_mut() {
         /* are we on us????? */
         if i.id == client_id.id {
-            /* create a vec of keypresses to send over wire */
+            /* create a vec of keypresses as our 'this tick'
+             * inputs */
             let mut keys: Vec<KeyCode> = vec![];
             for key in input.get_pressed() {
                 keys.push(*key);
-                q.q.push((Timestamp { time: 0 }, *key)); //TODOOODOOTOTO   
             }
-            let outgoing_state = PlayerC2S {
-                head: Header {
-                    network_id: i.id,
-                    sequence_num: sequence.geti(),
-                    timestamp: 0, // TODODOODOOO
-                },
-                key: keys,
-            };
-            let mut serializer = flexbuffers::FlexbufferSerializer::new();
-            let to_send: ClientPacket = ClientPacket::PlayerPacket(outgoing_state);
-            to_send.serialize(&mut serializer).unwrap();
 
-            let packet: &[u8] = serializer.view();
+            /* add to input queue @ timestamp */
 
-            socket.socket.send_to(&packet, SERVER_ADR).unwrap();
+            /* if last element in InputQueue has same sequence#, append
+             * lists together so we have 1 per stamp.
+             * This can happen because we gather_input() at
+             * an unfixed rate, however the game progresess it 
+             * progresses, while we only send/increment seq
+             * on fixedupdate, which is when we send. It's possible to have
+             * two++ gathers per send, we must make sure we are aware of this
+             * possibility. Maybe there's a better way to handle it, i'm
+             * down 2 adjust 
+             * 
+             * LONG STORY SHORT WE NEED CLIENT/SERVER CONSISTENCY,
+             * SO WE MUST PREEDICT HOW THE SERVER WILL. admittedly,
+             * this loses us some accuracy in movement. we will survive, currently
+             * @ 60hz that's not very human noticable. This means we will
+             * have descepancies in intantaneous prediction, the time @ which
+             * you press UP within the frame does have an effect, 
+             * although negligible (@max I think like 15ms for 64hz but then half
+             * that fo 7.5ms ohhh no whatever shall we do {GAH SUBTICK [i'd be down]}).
+             * Our reprediction should be pretty tho, as long as the server
+             * isn't missing out on packets, as any enforced state we should
+             * have already propely predicted!! Ideally we want the InputQueue
+             * of client and servers snapshot of client @ time t to be the same 
+             * - rorto */
+            
+            let len = q.q.len();
+            if q.q.get_mut(len).unwrap().0 == sequence.get(){
+                let (q_timey, mut q_keys) = q.q.pop().unwrap();
+                q_keys.append(&mut keys);
+                q_keys.dedup();
+                q.q.push((q_timey, q_keys));
+            }else{
+                q.q.push((sequence.get(), keys));
+            }
+
+            /* so now it's in our input queue!!! what do we want to do from here?
+             * 1. We need to make sure we send this tick's input next time we 
+             *      do a fixed update...
+             *  One thing I am thinking about as a potential error right now is
+             * what if we have an inputqueue made above^, and then end up recieving a 
+             * packet from the server with a higher sequence number. This would cause
+             * our sequence number to update to the higher value, throwing off our input
+             * queue. Maybe we should keep this in mind when changing the sequence number, so
+             * we have the ability to adjust within our input queue right now. We could also
+             * put in a "deprecated sequence" values, that we use to pair against good ones.
+             * Pair or maybe even just immediately change (i want to immediate teebs, more
+             * reasoning around Sequence impl) */
+
+            /* TODODO what?!? do we want another list? just query the inputqueue for
+             * sequence.get()?? Think we can really just do the latter. also key that
+             * we update player state right after this input gather happens.*/
+
             
         }
     }

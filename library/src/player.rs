@@ -76,7 +76,7 @@ impl Attack {
 
 #[derive(Component, Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct InputQueue {
-    pub q: Vec<(Timestamp, KeyCode)>,
+    pub q: Vec<(u64, Vec<KeyCode>)>,
 }
 
 impl InputQueue {

@@ -35,7 +35,14 @@ impl Timestamp {
  * treat it as whatever, we don't care. We will have empty inputs
  * if we truly didn't touch a key, this gap i was speaking of
  * probably occurs from clock updates from server or even other client
- * working it's way over (all come from server lol) */
+ * working it's way over (all come from server lol)
+ * - roto */
+
+
+ /* another aside on sequences, I think we should increment them AFTER we send.
+  * We want to be able to user a sequence value for the entirety of the tick, so...
+  * yah. Also think when assigning, we should +1 because event A of sending must
+  * happen BEFORE event B of receiving (A -> B) a la lamport  */
 #[derive(Resource)]
 pub struct Sequence{
     num: u64
@@ -43,11 +50,10 @@ pub struct Sequence{
 
 impl Sequence{
     /* everytime we use a sequence # we should increment 
-     * GAHHHH HMAYBE WE SHOULD SWITCH ORDERING REALLY JUST
-     * DEPENDS ON HOW WE USE IT BUT IDK WHATS EASIER */ 
+     * so this returns num+1 and does that work*/ 
     pub fn geti(&mut self) -> u64{
         self.num += 1;
-        self.num - 1
+        self.num
     }
 
     /* simple get */
@@ -56,11 +62,30 @@ impl Sequence{
     }
     
     /* takes the greater value and uses it */
+    /* I AM WORRIED ABOUT THIS FOR CLIENTS. 
+     * Setting the sequence value up would
+     * throw off the current state of our inputqueue, as it is
+     * a tuple of type (Sequence, Vec<KeyCode>). If we adjust
+     * 4 to = 6, we must make this apparent in the InputQueue.
+     * This shall be handled by another fn I make, which will take
+     * in Player query, clientid, old and new seq that will
+     * just update that one old inputqueue tuple's seq value
+     * we should alr be query-ing that in listen (i'd love to call this
+     * in listen, not in every packet handler, as this is universal. all server
+     * packets will send a sequence #)
+     * HAVENT DONE YET SO TODODODODODODOD*/
     pub fn assign(&mut self, val:u64){
         if val > self.num{
             self.num = val;
         }
-        //else nothing, keep old. We call geti after teebs
+        /* else nothing, keep old. think we may need
+         * to do some stuff to makke sure send happens BEFORE
+         * recv, so a +1 somewhere, implementation decision, i want
+         * this to be mechanism, the tools, not the policy too.
+         * Yk maybe we always want to do assign&geti() everytime,
+         * but that is our choice atm, I don't want to force.
+         * Could lead to an error in forgetting but ah. that's on us.
+         * not on this code or it's strategy */
     }
     
     pub fn new() -> Self{
@@ -122,14 +147,12 @@ pub struct IdPacket{
 pub struct Header{
     pub network_id: u8,
     pub sequence_num: u64,
-    pub timestamp: u64
 }
 impl Header{
-    pub fn new(id: u8, seq: u64, time: u64)-> Self{
+    pub fn new(id: u8, seq: u64)-> Self{
         Self{
             network_id: id,
             sequence_num: seq,
-            timestamp: time,
         }
     }
 }

@@ -26,7 +26,7 @@ pub fn send_id(
     let mut id_serializer = flexbuffers::FlexbufferSerializer::new();
 
     let id_send = ServerPacket::IdPacket(IdPacket{
-        head: Header::new(player_id,server_seq.geti(), 0)});
+        head: Header::new(player_id,server_seq.geti())});
 
     id_send.serialize(&mut id_serializer).unwrap();
     
