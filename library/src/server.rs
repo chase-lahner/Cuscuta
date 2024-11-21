@@ -1,6 +1,6 @@
 use std::net::{SocketAddr, UdpSocket};
 
-use bevy::prelude::*;
+use bevy::{input::keyboard::Key, prelude::*};
 use network::*;
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +20,7 @@ pub fn send_id(
     let player_id: u8 = 255 - n_p.count;
     n_p.count += 1;
     addresses.list.push(source_addr);
+    info!("pushing addresss");
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
     /* to send packets over wire we must serialize */
@@ -105,18 +106,23 @@ pub fn listen(
     match player_struct {
         ClientPacket::IdPacket(_id_packet) => {
             info!("sending id to client");
-            send_id(src, &udp.socket, n_p.as_mut(), commands, addresses, server_seq)},
+            send_id(src, &udp.socket, n_p.as_mut(), commands, addresses, server_seq)}, 
         ClientPacket::PlayerPacket(player_packet) => {
             // TODO: Fix this
            // update_player_state(src, players, player_packet, commands);
+           info!("rec'ing input");
             recieve_input(player_packet);
         }
+       
     }
 
 
 }
 
 fn recieve_input(player_struct: PlayerC2S){
+    info!("blah blah blah recing");
+    let key = player_struct.key;
+    info!("key pressed: {:?}", key);
     // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
 }
 

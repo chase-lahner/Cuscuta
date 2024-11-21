@@ -171,7 +171,9 @@ fn recieve_player_packet(
     let mut found = false;
     for (v, t, p, h, c, r, s, a, id) in players.iter_mut() {
         if id.id == us.id {
+           
             found = true;
+            info!("found");
             // need 2 make this good and not laggy yk
 
             /*apply state to player pls
