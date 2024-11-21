@@ -19,16 +19,48 @@ impl Timestamp {
 
 }
 
+/* simple stupid lamport clock. really just need
+ * to increment everytime we have a significant 'event'
+ * which still needs to be defined (send/recv?? aka fixed tickrate)
+ * Lamport works on our implementation being correct. Always
+ * assign when we recieve a packet, and then geti (maybe need to switch
+ * my ordering of events there, might want the +1 return) ANYWAYS
+ * and every event must increment (event for now can be FIXED TICKS).
+ * If we assign everytime we recieve, we can ensure ordering of events.
+ * When server sends back a 'past state', we should sttach the clock of
+ * the tick at which tha client sent state, alongside a typical sequence 
+ * with the server send. We can use these sequence numbers as ticks! 
+ * In our update player functionality, we can assume that inputs occurred 
+ * for the whole tick, and if theres a 2 tick gap (like we have 4, 6 but no 5),
+ * treat it as whatever, we don't care. We will have empty inputs
+ * if we truly didn't touch a key, this gap i was speaking of
+ * probably occurs from clock updates from server or even other client
+ * working it's way over (all come from server lol) */
 #[derive(Resource)]
 pub struct Sequence{
     num: u64
 }
 
 impl Sequence{
-    /* everytime we use a sequence # we should increment */ 
+    /* everytime we use a sequence # we should increment 
+     * GAHHHH HMAYBE WE SHOULD SWITCH ORDERING REALLY JUST
+     * DEPENDS ON HOW WE USE IT BUT IDK WHATS EASIER */ 
     pub fn geti(&mut self) -> u64{
         self.num += 1;
         self.num - 1
+    }
+
+    /* simple get */
+    pub fn get(&mut self) -> u64{
+        self.num
+    }
+    
+    /* takes the greater value and uses it */
+    pub fn assign(&mut self, val:u64){
+        if val > self.num{
+            self.num = val;
+        }
+        //else nothing, keep old. We call geti after teebs
     }
     
     pub fn new() -> Self{
@@ -38,20 +70,6 @@ impl Sequence{
     }
 }
 
-#[derive(Resource)]
-pub struct ServerSequence{
-    num: u64
-}
-
-impl ServerSequence{
-    pub fn up(&mut self){
-        self.num +=1;
-    }
-
-    pub fn get(&mut self) -> u64{
-        self.num
-    }
-}
 
 #[derive(Resource, Component)]
 pub struct UDP {

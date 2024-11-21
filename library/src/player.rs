@@ -85,6 +85,7 @@ impl InputQueue {
     }
 }
 
+/* pub */
 #[derive(Bundle)]
 pub struct ClientPlayerBundle {
     pub sprite: SpriteBundle,

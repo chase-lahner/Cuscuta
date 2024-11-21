@@ -45,7 +45,7 @@ const SP_HEALTH: u32 = 3;
 const SP_SIZE: u32 = 32;
 
 /* Set for boss */
-const B_NAME: &str = "Boss";
+const B_NAME: &str = "Elefante";
 const B_PATH: &str = "enemies/boss.png";
 const B_SPRITE_H: u32 = 1;
 const B_SPRITE_W: u32 = 1;
