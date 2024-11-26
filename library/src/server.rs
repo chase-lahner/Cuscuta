@@ -10,11 +10,11 @@ use crate::{cuscuta_resources::{AddressList, Health, PlayerCount, Velocity}, ene
  * punts player state off to client */
 pub fn send_id(
     source_addr : SocketAddr,
-    server_socket: &UdpSocket, 
     n_p: &mut PlayerCount,
     mut commands: Commands,
     mut addresses: ResMut<AddressList>,
-    mut server_seq: ResMut<Sequence>
+    mut server_seq: ResMut<Sequence>,
+    mut packet_q: ResMut<ServerPacketQueue>
 ) {
     /* assign id, update player count */
     let player_id: u8 = 255 - n_p.count;
@@ -22,18 +22,11 @@ pub fn send_id(
     addresses.list.push(source_addr);
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
-    /* to send packets over wire we must serialize */
-    let mut id_serializer = flexbuffers::FlexbufferSerializer::new();
-
     let id_send = ServerPacket::IdPacket(IdPacket{
-        head: Header::new(player_id,server_seq.geti())});
+        head: Header::new(player_id,server_seq.get())});
 
-    id_send.serialize(&mut id_serializer).unwrap();
-    
-    let id_packet: &[u8] = id_serializer.view();
-    
-    /* Send it on over! */
-    server_socket.send_to(id_packet, source_addr).unwrap(); // maybe &packet
+    /* put idpacket into 'to-send' queue */
+    packet_q.packets.push(id_send);
 
     /* now we must spawn in a new player */
     commands.spawn(ServerPlayerBundle{
@@ -52,7 +45,7 @@ pub fn send_id(
     });
     /* same shit but now we sending off to the cleint */
     let playa = ServerPacket::PlayerPacket(PlayerS2C{
-        head: Header::new(player_id,server_seq.geti(),0),//TODO TIMESTAMPS
+        head: Header::new(player_id,server_seq.get()),//TODO TIMESTAMPS
         transform: Transform{
             translation: Vec3{
                 x: 0., y: 0., z: 900.,
@@ -66,14 +59,12 @@ pub fn send_id(
         sprint: false,
     });
 
-    /* another serialize rq rq rq */
-    let mut player_serializer = flexbuffers::FlexbufferSerializer::new();
-    playa.serialize(&mut player_serializer).unwrap();
-    let player_packet = player_serializer.view();
-    server_socket.send_to(player_packet, source_addr).unwrap();
+    /* we send later, just plop into da queueueueueueueueueueueue yk yk yk  */
+    packet_q.packets.push(playa);
 }
 
 /* Server side listener for packets,  */
+// go thru again and make sure that every function fits within new framework
 pub fn listen(
     udp: Res<UDP>,
     commands: Commands,
@@ -83,8 +74,8 @@ pub fn listen(
           &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,//eek a lot
     mut n_p: ResMut<PlayerCount>,
     addresses: ResMut<AddressList>,
-    server_seq: ResMut<Sequence>
-
+    server_seq: ResMut<Sequence>,
+    packet_q: ResMut<ServerPacketQueue>
 ) {
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
@@ -108,7 +99,7 @@ pub fn listen(
     match player_struct {
         ClientPacket::IdPacket(_id_packet) => {
             info!("sending id to client");
-            send_id(src, &udp.socket, n_p.as_mut(), commands, addresses, server_seq)},
+            send_id(src,  n_p.as_mut(), commands, addresses, server_seq, packet_q)},
         ClientPacket::PlayerPacket(player_packet) => {
             // TODO: Fix this
            // update_player_state(src, players, player_packet, commands);
@@ -117,6 +108,24 @@ pub fn listen(
     }
 
 
+}
+
+fn send_packet_queue(
+    packet_q: ResMut<ServerPacketQueue>,
+    udp: Res<UDP>,
+    addresses: ResMut<AddressList>,
+){
+    /* for all packets in queue */
+    for packet in packet_q.packets.iter(){
+        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+        packet.serialize(&mut serializer).unwrap();
+        let packet: &[u8] = serializer.view();
+        /* send to all users */
+        for address in addresses.list.iter()
+        {
+            udp.socket.send_to(&packet, address).unwrap();
+        }
+    }
 }
 
 //TOTOTOODODODODODODODO--------------------------------
@@ -132,10 +141,8 @@ fn recieve_input(
         /* if we find the one corresponding to our packet */
         if client_pack.head.network_id == id.id {
             /* for all the keys passed on the clients update */
-            for key in &client_pack.key {
-                /* append that hoe !!!!! */
-                iq.q.push((Timestamp::new(client_pack.head.timestamp), *key)); 
-            }
+            iq.q.push((client_pack.head.sequence_num, client_pack.key.clone()));
+            
             /* ok if we want to update immediately then we od it right here
              * buuuuut the fn takes in diff args than we have (odd query). TBH
              * i am down to plop in the main logic loop for now, no reaason to use
@@ -148,29 +155,25 @@ fn recieve_input(
 pub fn send_enemies(
     enemies: Query<(& EnemyId, & EnemyMovement), 
         (With<Enemy>, Without<Player>)>,
-    addresses: Res<AddressList>,
     mut server_seq: ResMut<Sequence>,
-    server_socket: Res<UDP>, 
+    mut packet_q: ResMut<ServerPacketQueue>
 ){
+    /* for each enemy in the game world */
     for (id, movement) in enemies.iter(){
-        let enemy: EnemyS2C = EnemyS2C{
-            head: Header::new(0,server_seq.geti(), 0),//TODO FIX TIME
+        /* packet-ify it */
+        let enemy  = ServerPacket::EnemyPacket(
+        EnemyS2C{
+            head: Header::new(0,server_seq.get()),
             movement: movement.clone(),
             enemytype: id.clone(),
-        };
-        let mut serializer = flexbuffers::FlexbufferSerializer::new();
-        let to_send: ServerPacket = ServerPacket::EnemyPacket(enemy);
-        to_send.serialize(&mut serializer).unwrap();
+        });
 
-        let packet: &[u8] = serializer.view();
-        for addr in addresses.list.iter() {  
-            server_socket.socket.send_to(&packet, *addr).unwrap();
-        }
-
+        /* send off to our queue  */
+        packet_q.packets.push(enemy);
     }
-
-    
 }
+
+
 /* once we have our packeet, we must use it to update
  * the player specified, there's another in client.rs*/
 fn update_player_state(
@@ -301,41 +304,27 @@ fn update_player_state(
 /* Transforms current player state into u8 array that
  * we can then send across the wire to be deserialized once it arrives */
  pub fn send_player(
-    player : Query<(&Velocity, &Transform, &NetworkId, &Player, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
-    socket : Res<UDP>,
-    addresses: ResMut<AddressList>,
-    mut server_seq: ResMut<Sequence>
+    player : Query<(&Velocity, &Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
+    mut server_seq: ResMut<Sequence>,
+    mut packet_q: ResMut<ServerPacketQueue>,
 )
 {
-    /* Deconstruct out Query. */
-    for (v, t, i, p, h, c, r, s, a,)  in player.iter(){
-        for addressi in addresses.list.iter(){
-            if *addressi != i.addr && (v.velocity.x != 0. || v.velocity.y != 0.)
-            {
-                let outgoing_state: PlayerS2C = PlayerS2C {
-                    transform: *t,
-                    head: Header::new(i.id,server_seq.geti(), 0),
-                    attack: a.attacking,
-                    velocity: v.velocity,
-                    health: *h,
-                    crouch: c.crouching,
-                    roll: r.rolling,
-                    sprint: s.sprinting,
+    /* For each player in the game*/
+    for (v, t, i, h, c, r, s, a,)  in player.iter(){
+        /* packet-ify it */
+        let outgoing_state  = ServerPacket::PlayerPacket(PlayerS2C {
+            transform: *t,
+            head: Header::new(i.id,server_seq.get()),
+            attack: a.attacking,
+            velocity: v.velocity,
+            health: *h,
+            crouch: c.crouching,
+            roll: r.rolling,
+            sprint: s.sprinting,
 
-                    
-                };
-                let mut serializer = flexbuffers::FlexbufferSerializer::new();
-                let to_send: ServerPacket = ServerPacket::PlayerPacket(outgoing_state);
-                to_send.serialize(&mut serializer).unwrap();
-    
-                let packet: &[u8] = serializer.view();
-    
-                /* one for you, one for you, one for you, another for yough */
-                for address in &addresses.list {
-                        socket.socket.send_to(&packet, address).unwrap();
-                    
-                }
-            }
-        }   
+            
+        });
+        /* push onto the 'to-send' queue */
+        packet_q.packets.push(outgoing_state);
     }
-}
+}   

@@ -219,7 +219,7 @@ pub struct EnemyId {
     pub kind: EnemyKind,
 }
 impl EnemyId{
-    pub fn get_id(&mut self) -> u32 {
+    pub fn get_id(& self) -> u32 {
         self.id
     }
 }

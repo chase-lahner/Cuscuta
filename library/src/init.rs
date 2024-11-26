@@ -43,6 +43,8 @@ pub fn client_setup(
     client_spawn_ui(&mut commands, &asset_server);
     /* spawn pot to play with */
     client_spawn_pot(&mut commands, &asset_server, &mut texture_atlases);
+
+    commands.insert_resource(ClientPacketQueue::new());
     // spawn player, id 0 because it will be set later on
    //  client_spawn_other_player_new(&mut commands, &asset_server, &mut texture_atlases, 0);
    // WHAT DO WE WANT TO DO WITH THIS?
@@ -68,5 +70,7 @@ pub fn server_setup(
     commands.insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND));
     /* bum ass no friend ass lonely ahh */
     commands.insert_resource(PlayerCount{count:0});
+    /* to hold mid frame packeets, sent every tick */
+    commands.insert_resource(ServerPacketQueue::new());
     info!("done setup");
 }

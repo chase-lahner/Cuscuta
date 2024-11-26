@@ -1,54 +1,60 @@
 use std::net::SocketAddr;
 
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::enemies::{ClientEnemy, Enemy, EnemyKind, EnemyMovement};
 use crate::cuscuta_resources::*;
 use crate::network::{
-    ClientPacket, EnemyS2C, Header, IdPacket, PlayerC2S, PlayerS2C, Sequence, ServerPacket, Timestamp, UDP
+    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerS2C, Sequence, ServerPacket, Timestamp, UDP
 };
 use crate::player::*;
 
-// pub fn recv_id(
-//     source_addr: SocketAddr,
-//     network_id: &mut NetworkId,
-//     ds_struct: IdPacket,
-//     mut _commands: Commands,
-//     mut id: ResMut<ClientId>
-// ) {
-//     info!("Recieving ID");
-//     /* assign it to the player */
-//     id.id = ds_struct.head.network_id;
-//     info!("ASSIGNED ID: {:?}", id.id);
-// }
 
-/* Sends id request to the server */
-pub fn id_request(
-    player: Query<&NetworkId, With<Player>>,
-    socket: Res<UDP>,
+pub fn send_packets(
+udp: Res<UDP>,
+mut packets: ResMut<ClientPacketQueue>
+){
+    for pack in &packets.packets{
+
+    }
+
+}
+
+/* server send us an id so we can know we are we yk */
+pub fn recv_id(
+    ds_struct: &IdPacket,
     mut sequence: ResMut<Sequence>,
+    mut id: ResMut<ClientId>
 ) {
-    let id_packet = IdPacket {
+    info!("Recieving ID");
+    /* assign it to the player */
+    id.id = ds_struct.head.network_id;
+    /* IMPORTANTE!!! index lets Sequence know
+     * what of it's vector values is USSSSS. 
+     * Seq.index == Player.NetworkId == ClientId 
+     * for any given client user. Server == 0
+     * here we set index*/
+    sequence.new_index(ds_struct.head.network_id.into());
+    /* here we set the clock values */
+    sequence.assign(&ds_struct.head.sequence);
+    info!("ASSIGNED ID: {:?}", id.id);
+}
+
+/* Sends id request to the server 
+ * ID PLESASE */
+pub fn id_request(
+    mut packet_q: ResMut<ClientPacketQueue>
+) {
+    /* make an idpacket, server knows if it receives one of these
+     * what we really want */
+    let id_packet = ClientPacket::IdPacket(IdPacket {
         head: Header {
             network_id: 0,
-            /* this is called on startup, so we can 
-             * send + increment( honestly server will
-             * manhandle our sequence# on the recv lol)*/
-            sequence_num: sequence.geti(),
-        },
-    };
-
-    let to_send: ClientPacket = ClientPacket::IdPacket(id_packet);
-
-    let mut serializer = flexbuffers::FlexbufferSerializer::new();
-    /* Serializes, which makes a nice lil u8 array for us */
-    to_send.serialize(&mut serializer).unwrap();
-
-    let packet: &[u8] = serializer.view();
-
-    /* beam me up scotty */
-    socket.socket.send_to(packet, SERVER_ADR).unwrap();
+            sequence: Sequence::new(0),
+        }});
+    /* plop into 'to-send' list */
+    packet_q.packets.push(id_packet);//sneed
 }
 
 /* Parse player input, and apply it*/
@@ -127,15 +133,16 @@ pub fn gather_input(
     }
 }
 
-/* client listening function */
+/* client listening function. Takes in a packet, deserializes it
+ * into a ServerPacket (client here so from server). 
+ * Then we match against the packet
+ * to figure out what kind it is, passing to another function to properly handle.
+ * Important to note that we will Sequence::assign() on every packet
+ * within the match, to make sure we Lamport corectly */
 pub fn listen(
-    /* BROOOOOO TOO MANY ARGGGGGGGGGGGGS
-     * Would really love to get that spawn player fn out of here,
-     * maybe event or stage??? */
     udp: Res<UDP>,
     commands: Commands,
-    // mut player: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    players_new: Query<
+    players_q: Query<
         (
             &mut Velocity,
             &mut Transform,
@@ -146,52 +153,72 @@ pub fn listen(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
+            &mut InputQueue,
         ),
         With<Player>,
     >,
+    mut enemy_q: Query<&mut ClientEnemy>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    id: ResMut<ClientId>,
+    res_id: ResMut<ClientId>,
+    mut sequence: ResMut<Sequence>,
+    mut packets: ResMut<ClientPacketQueue>
 ) {
     //info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0; 1024];
+    /* grab dat shit */
     let packet = udp.socket.recv_from(&mut buf);
     match packet {
         Err(_e) => return,
-        _ => info!("read packet!"),
-    }
+        _ => info!("read packet!")}
     let (amt, src) = packet.unwrap();
-    /* opcode is last byte of anything we send */
-    // let opcode = buf[amt-1];
-
-    /* trim trailing 0s and opcode*/
+  
+    /* trim trailing 0s */
     let packet = &buf[..amt];
 
+    /* deserialize and turn into a ServerPacket */
     let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
     let rec_struct: ServerPacket = ServerPacket::deserialize(deserializer).unwrap();
 
+    /* we need the inputqueue of US, OUR PLAYER for an update when we recv
+     * a new sequence number. Might as well find that now to not pass an ugly
+     * Query */
+    let mut inputs: &mut InputQueue = &mut InputQueue::new();
+    for (v,t,p,h,c,r,s,a,id,iq) in players_q.iter_mut(){
+        if id.id == res_id.id{
+            inputs = iq.into_inner();2
+        }
+    }
+    /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
+     * packet!! is essential for lamportaging */
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
-            // recv_id(src, id_packet, commands, id);
+            recv_id(&id_packet, res_id);
+            sequence.assign(&id_packet.head.sequence);
+            client_seq_update(&id_packet.head.sequence, sequence, inputs, packets);
         }
         ServerPacket::PlayerPacket(player_packet) => {
             info!("Matching Player Struct");
-            recieve_player_packet(commands, players_new, &asset_server, player_packet, &mut texture_atlases, id, src);
-            //TODODODODOODOOo
-            //update_player_state_new(players_new, player_packet, commands, &asset_server, &mut texture_atlases, src);
+            receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, id, src);
+            sequence.assign(&player_packet.head.sequence);
+            client_seq_update(&player_packet.head.sequence, sequence, inputs, packets);
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
             receive_map_packet(commands, &asset_server, map_packet.matrix);
+            sequence.assign(&map_packet.head.sequence);
+            client_seq_update(&map_packet.head.sequence, sequence, inputs, packets);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
-            //TODO
+            recv_enemy(&enemy_packet,commands,enemy_q,asset_server,&mut texture_atlases);
+            sequence.assign(&enemy_packet.head.sequence);
+            client_seq_update(&enemy_packet.head.sequence, sequence, inputs, packets);
         }
     }
 }
 
-fn recieve_player_packet(
+fn receive_player_packet(
     mut commands: Commands,
     mut players: Query<
         (
@@ -204,17 +231,18 @@ fn recieve_player_packet(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
+            &mut InputQueue,
         ),
         With<Player>,
     >,
     asset_server: &Res<AssetServer>,
-    saranpack: PlayerS2C,
+    saranpack: &PlayerS2C,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     mut us: ResMut<ClientId>,
     source_ip: SocketAddr
 ) {
     let mut found = false;
-    for (v, t, p, h, c, r, s, a, id) in players.iter_mut() {
+    for (v, t, p, h, c, r, s, a, id, iq) in players.iter_mut() {
         if id.id == us.id {
             found = true;
             // need 2 make this good and not laggy yk
@@ -299,7 +327,7 @@ fn recieve_player_packet(
 */
 
 fn recv_enemy(
-    pack: &mut EnemyS2C,
+    pack: &EnemyS2C,
     mut commands: Commands,
     mut enemy_q: Query<&mut ClientEnemy>,//TODO make ecs
     asset_server: Res<AssetServer>,
