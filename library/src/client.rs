@@ -632,3 +632,17 @@ fn receive_map_packet (
         vertical = vertical + TILE_SIZE as f32;
     }
 }
+
+
+/* interpolate player/enemy
+
+use Res<ClientId> to find players that are not us. From there, use the
+PastStateQueue to get the average movement yk. We gotta do some queue squashing to
+make sure we don't have a bunch of repeats
+
+I dont think you need to worry about sequence, just use the implied order
+from our vec.push()
+
+
+
+can do same with enemy but a paststatequeue needs creted for their stuff yk yk yk*/
