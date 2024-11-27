@@ -325,6 +325,7 @@ pub fn player_attack_enemy(
 //     });
 // }
 
+/* deprecated */
 pub fn client_spawn_other_player_new(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -377,9 +378,11 @@ pub fn client_spawn_other_player_new(
             attacking: player.attack,
         },
         inputs: InputQueue::new(),
+        states: PastStateQueue::new()
     });
 }
 
+/*deprecated */
 pub fn client_spawn_other_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -427,6 +430,7 @@ pub fn client_spawn_other_player(
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
         inputs: InputQueue::new(),
+        states: PastStateQueue::new()
     });
 }
 

@@ -3,43 +3,43 @@ use bevy::prelude::{KeyCode::*, *};
 use crate::{ui::CarnageBar, cuscuta_resources::*, player::*, network::Timestamp};
 
 
-
-pub fn update_player(
-    mut player_q: Query<(&Timestamp, &mut Velocity, &mut Transform, &mut InputQueue, &Crouch, &Sprint),With<Player>>,
-    carange_q: Query<&mut CarnageBar>
-){
-    /* query establihsed, not active state */
-    for (time, velocity, transform, queue, crouch, sprint) in player_q.iter_mut() {
-        let mut curr_time: u64 = time.time; // in nanoseconds
-        let curr_velo = velocity.into_inner();
-        let curr_transform = transform.into_inner();
-        for(input_time, key) in &queue.q{
-            if time.time > input_time.time + 1{// 
-                //queue.q.remove(index)
-                //TODO remove
-            }
-            else if time.time <= input_time.time{// time <= input_time
-                match key{
-                    KeyW | KeyA | KeyS | KeyD 
-                    => (*curr_velo, *curr_transform) = 
-                        move_over(curr_time,input_time.time,
-                        curr_velo, curr_transform,
-                        sprint.sprinting, crouch.crouching,
-                        *key),
-                    CapsLock => crouchy(),
-                    ShiftLeft => roll(),
-                    KeyQ | KeyE => item_rotate(),// how are we doing items?
-                    Space => attack(),
-                    _ => todo!()//more keypresses! more actions!
-                }
-            }
-            //curr time is not accurate atm, it uses last commands, not last
-            //move etc etc
-            curr_time = input_time.time;
-        }//end input_queue
-        //more clapms? last minute checks on collision?????????
-    }
-}
+/* deprecated */
+// pub fn update_player(
+//     mut player_q: Query<(&Timestamp, &mut Velocity, &mut Transform, &mut InputQueue, &Crouch, &Sprint),With<Player>>,
+//     carange_q: Query<&mut CarnageBar>
+// ){
+//     /* query establihsed, not active state */
+//     for (time, velocity, transform, queue, crouch, sprint) in player_q.iter_mut() {
+//         let mut curr_time: u64 = time.time; // in nanoseconds
+//         let curr_velo = velocity.into_inner();
+//         let curr_transform = transform.into_inner();
+//         for(input_time, key) in &queue.q{
+//             if time.time > input_time.time + 1{// 
+//                 //queue.q.remove(index)
+//                 //TODO remove
+//             }
+//             else if time.time <= input_time.time{// time <= input_time
+//                 match key{
+//                     KeyW | KeyA | KeyS | KeyD 
+//                     => (*curr_velo, *curr_transform) = 
+//                         move_over(curr_time,input_time.time,
+//                         curr_velo, curr_transform,
+//                         sprint.sprinting, crouch.crouching,
+//                         *key),
+//                     CapsLock => crouchy(),
+//                     ShiftLeft => roll(),
+//                     KeyQ | KeyE => item_rotate(),// how are we doing items?
+//                     Space => attack(),
+//                     _ => todo!()//more keypresses! more actions!
+//                 }
+//             }
+//             //curr time is not accurate atm, it uses last commands, not last
+//             //move etc etc
+//             curr_time = input_time.time;
+//         }//end input_queue
+//         //more clapms? last minute checks on collision?????????
+//     }
+// }
 
 /* move player a smidge up, called on keypress "W" */
 fn move_over(
