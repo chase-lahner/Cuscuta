@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{cuscuta_resources::{AddressList, Health, PlayerCount, Velocity}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
 
 /* Upon request, sends an id to client, spawns a player, and
- * punts player state off to client */
+ * punts player state off to client via the packet queue */
 pub fn send_id(
     source_addr : SocketAddr,
     n_p: &mut PlayerCount,
@@ -110,8 +110,10 @@ pub fn listen(
 
 }
 
-fn send_packet_queue(
-    packet_q: ResMut<ServerPacketQueue>,
+/* uses items in packetQueue to send to all clients,
+ * and removes them from the list.  */
+fn server_send_packets(
+    mut packet_q: ResMut<ServerPacketQueue>,
     udp: Res<UDP>,
     addresses: ResMut<AddressList>,
 ){
@@ -125,7 +127,11 @@ fn send_packet_queue(
         {
             udp.socket.send_to(&packet, address).unwrap();
         }
+        /* I want to deleteteeeeeee. What's rust's free thing? We
+         * all good to just like make a new one? Or is that grim */
     }
+    packet_q.packets = Vec::new();
+    
 }
 
 //TOTOTOODODODODODODODO--------------------------------

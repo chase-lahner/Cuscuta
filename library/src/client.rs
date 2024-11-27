@@ -26,6 +26,8 @@ pub fn client_send_packets(
         let packet: &[u8] = serializer.view();
         udp.socket.send_to(&packet, SERVER_ADR).unwrap();
     }
+    /* i hope this is not fucking our code */
+    packets.packets = Vec::new();
 
 }
 
@@ -38,18 +40,30 @@ pub fn pack_up_input(
 ){
      /* for the input queue, we check to make sure that the last item
      * in it is the right inputs for this sequence value and send off if so */
+
+     /* for all players */
      for (id, iq) in player_q.iter(){
+        /* if we are us */
         if id.id == client_id.id{
+            /* grab last input, and check if correct seq */
             let (seq, keys) = &iq.q[iq.q.len()];
+
+            let pack:ClientPacket;
             if *seq != sequence.get(){
-                return;
+                pack = ClientPacket::PlayerPacket(
+                    PlayerC2S{
+                        head: Header::new(client_id.id, sequence.clone()),
+                        key: Vec::new(),
+                    }
+                )
+            }else{
+                pack = ClientPacket::PlayerPacket(
+                    PlayerC2S{
+                        head: Header::new(client_id.id, sequence.clone()),
+                        key: keys.clone(),
+                    }
+                );
             }
-            let pack = ClientPacket::PlayerPacket(
-                PlayerC2S{
-                    head: Header::new(client_id.id, sequence.clone()),
-                    key: keys.clone(),
-                }
-            );
             packets.packets.push(pack);
         }
     }
