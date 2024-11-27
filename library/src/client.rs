@@ -15,9 +15,6 @@ use crate::player::*;
 pub fn client_send_packets(
     udp: Res<UDP>,
     mut packets: ResMut<ClientPacketQueue>,
-    player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
-    client_id: Res<ClientId>,
-    sequence: Res<Sequence>
 ){
     /* for each packet in queue, we send to server*/
     for pack in &packets.packets{

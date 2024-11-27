@@ -161,6 +161,26 @@ pub struct PastState{
     pub attack: Attack,
 }
 
+pub fn update_player(
+    mut player_q: Query<(&mut Transform, &mut Velocity, &mut NetworkId, &mut InputQueue), With<Player>>,
+
+){
+    /* for all players in game world
+     * EEEEEK I WANT ONE FNNNNNNNn ugh. client only
+     * needs to do this update for themself, we interpolate others */
+    for(t,v,id,iq) in player_q.iter_mut(){
+
+    }
+
+    /* gah i must wait for chase buffer to know what i'm really doin w state */
+}
+
+
+
+
+
+
+
 pub fn player_attack(
     time: Res<Time>,
     input: Res<ButtonInput<MouseButton>>,
