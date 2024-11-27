@@ -40,8 +40,6 @@ fn main() {
         .add_systems(Update, (
             client::gather_input,
             client::listen,
-        
-        
         ))
         .run();
 }

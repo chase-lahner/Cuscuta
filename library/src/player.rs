@@ -7,7 +7,7 @@ use crate::{
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{Header, PlayerS2C, Timestamp},
+    network::{PlayerS2C, Timestamp},
     room_gen::*,
     ui::CarnageBar,
 };
@@ -42,6 +42,11 @@ impl Crouch {
     pub fn new() -> Self {
         Self { crouching: false }
     }
+    pub fn new_set(b:bool) ->Self{
+        Self{
+            crouching:b
+        }
+    }
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -52,7 +57,12 @@ impl Roll {
     pub fn new() -> Self {
         Self { rolling: false }
     }
-}
+    pub fn new_set(b:bool) -> Self{
+        Self{
+            rolling: b
+        }
+    }
+ }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Sprint {
@@ -61,6 +71,11 @@ pub struct Sprint {
 impl Sprint {
     pub fn new() -> Self {
         Self { sprinting: false }
+    }
+    pub fn new_set(b: bool) -> Self{
+        Self{
+            sprinting:b
+        }
     }
 }
 /* global boolean to not re-attack */
@@ -72,11 +87,16 @@ impl Attack {
     pub fn new() -> Self {
         Self { attacking: false }
     }
+    pub fn new_set(b:bool) -> Self{
+        Self{
+            attacking:b
+        }
+    }
 }
 
 #[derive(Component, Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct InputQueue {
-    pub q: Vec<(Timestamp, KeyCode)>,
+    pub q: Vec<(u64, Vec<KeyCode>)>,
 }
 
 impl InputQueue {
@@ -85,6 +105,7 @@ impl InputQueue {
     }
 }
 
+/* pub */
 #[derive(Bundle)]
 pub struct ClientPlayerBundle {
     pub sprite: SpriteBundle,
@@ -100,6 +121,7 @@ pub struct ClientPlayerBundle {
     pub sprinting: Sprint,
     pub attacking: Attack,
     pub inputs: InputQueue,
+    pub states: PastStateQueue
 }
 
 #[derive(Bundle, Serialize, Deserialize)]
@@ -113,6 +135,30 @@ pub struct ServerPlayerBundle {
     pub sprinting: Sprint,
     pub attacking: Attack,
     pub inputs: InputQueue,
+    pub time: Timestamp,
+}
+
+#[derive(Component, Serialize, Deserialize)]
+pub struct PastStateQueue{
+    pub q: Vec<PastState>
+}
+
+impl PastStateQueue{
+    pub fn new() -> Self{
+        Self{
+            q: Vec::new()
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct PastState{
+    pub velo: Velocity,
+    pub transform: Transform,
+    pub crouch: Crouch,
+    pub roll: Roll,
+    pub attack: Attack,
 }
 
 pub fn player_attack(
@@ -279,6 +325,7 @@ pub fn player_attack_enemy(
 //     });
 // }
 
+/* deprecated */
 pub fn client_spawn_other_player_new(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -331,9 +378,11 @@ pub fn client_spawn_other_player_new(
             attacking: player.attack,
         },
         inputs: InputQueue::new(),
+        states: PastStateQueue::new()
     });
 }
 
+/*deprecated */
 pub fn client_spawn_other_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -381,6 +430,7 @@ pub fn client_spawn_other_player(
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
         inputs: InputQueue::new(),
+        states: PastStateQueue::new()
     });
 }
 

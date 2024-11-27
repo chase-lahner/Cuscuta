@@ -1,97 +1,196 @@
 use std::net::SocketAddr;
 
-use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::*, player};
+use crate::enemies::{ClientEnemy, Enemy, EnemyKind, EnemyMovement};
+use crate::cuscuta_resources::*;
 use crate::network::{
-    ClientPacket, Header, IdPacket, PlayerC2S, PlayerS2C, Sequence, ServerPacket, Timestamp, UDP,
+    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerC2S, PlayerS2C, Sequence, ServerPacket, Timestamp, UDP
 };
 use crate::player::*;
 
-// pub fn recv_id(
-//     source_addr: SocketAddr,
-//     network_id: &mut NetworkId,
-//     ds_struct: IdPacket,
-//     mut _commands: Commands,
-//     mut id: ResMut<ClientId>
-// ) {
-//     info!("Recieving ID");
-//     /* assign it to the player */
-//     id.id = ds_struct.head.network_id;
-//     info!("ASSIGNED ID: {:?}", id.id);
-// }
 
-/* Sends id request to the server */
-pub fn id_request(
-    player: Query<&NetworkId, With<Player>>,
-    socket: Res<UDP>,
-    mut sequence: ResMut<Sequence>,
-) {
-    let id_packet = IdPacket {
-        head: Header {
-            network_id: 0,
-            sequence_num: sequence.geti(),
-            timestamp: 0,
-        },
-    };
+/* sends out all clientPackets from the ClientPacketQueue */
+pub fn client_send_packets(
+    udp: Res<UDP>,
+    mut packets: ResMut<ClientPacketQueue>,
+    player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
+    client_id: Res<ClientId>,
+    sequence: Res<Sequence>
+){
+    /* for each packet in queue, we send to server*/
+    for pack in &packets.packets{
+        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+        pack.serialize(&mut serializer).unwrap();
+        let packet: &[u8] = serializer.view();
+        udp.socket.send_to(&packet, SERVER_ADR).unwrap();
+    }
+    /* i hope this is not fucking our code */
+    packets.packets = Vec::new();
 
-    let to_send: ClientPacket = ClientPacket::IdPacket(id_packet);
-
-    let mut serializer = flexbuffers::FlexbufferSerializer::new();
-    /* Serializes, which makes a nice lil u8 array for us */
-    to_send.serialize(&mut serializer).unwrap();
-
-    let packet: &[u8] = serializer.view();
-
-    /* beam me up scotty */
-    socket.socket.send_to(packet, SERVER_ADR).unwrap();
 }
 
-/* Transforms current player state into u8 array that
- * we can then send across the wire to be deserialized once it arrives */
-pub fn gather_input(
-    mut player: Query<(&NetworkId, &mut InputQueue), With<Player>>,
-    socket: Res<UDP>,
+/* to be called right b4 sending packets */
+pub fn pack_up_input(
+    mut packets: ResMut<ClientPacketQueue>,
+    player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
     client_id: Res<ClientId>,
-    mut sequence: ResMut<Sequence>,
-    input: Res<ButtonInput<KeyCode>>,
-) {
-    /* Deconstruct out Query. SHould be client side so we can do single */
-    for (i, mut q) in player.iter_mut() {
-        if i.id == client_id.id {
-            for key in input.get_pressed() {
-                let outgoing_state = PlayerC2S {
-                    head: Header {
-                        network_id: i.id,
-                        sequence_num: sequence.geti(),
-                        timestamp: 0, // TODODOODOOO
-                    },
-                    key: *key,
-                };
-                q.q.push((Timestamp { time: 0 }, *key));
-                let mut serializer = flexbuffers::FlexbufferSerializer::new();
-                let to_send: ClientPacket = ClientPacket::PlayerPacket(outgoing_state);
-                to_send.serialize(&mut serializer).unwrap();
+    sequence: ResMut<Sequence>
+){
+     /* for the input queue, we check to make sure that the last item
+     * in it is the right inputs for this sequence value and send off if so */
 
-                let packet: &[u8] = serializer.view();
+     /* for all players */
+     for (id, iq) in player_q.iter(){
+        /* if we are us */
+        if id.id == client_id.id{
+            /* grab last input, and check if correct seq */
+            let (seq, keys) = &iq.q[iq.q.len()];
 
-                socket.socket.send_to(&packet, SERVER_ADR).unwrap();
+            let pack:ClientPacket;
+            if *seq != sequence.get(){
+                pack = ClientPacket::PlayerPacket(
+                    PlayerC2S{
+                        head: Header::new(client_id.id, sequence.clone()),
+                        key: Vec::new(),
+                    }
+                )
+            }else{
+                pack = ClientPacket::PlayerPacket(
+                    PlayerC2S{
+                        head: Header::new(client_id.id, sequence.clone()),
+                        key: keys.clone(),
+                    }
+                );
             }
+            packets.packets.push(pack);
         }
     }
 }
 
-/* client listening function */
+/* server send us an id so we can know we are we yk */
+pub fn recv_id(
+    ds_struct: &IdPacket,
+    sequence: &mut Sequence,
+    mut id: ResMut<ClientId>
+) {
+    info!("Recieving ID");
+    /* assign it to the player */
+    id.id = ds_struct.head.network_id;
+    /* IMPORTANTE!!! index lets Sequence know
+     * what of it's vector values is USSSSS. 
+     * Seq.index == Player.NetworkId == ClientId 
+     * for any given client user. Server == 0
+     * here we set index*/
+    sequence.new_index(ds_struct.head.network_id.into());
+    /* here we set the clock values */
+    sequence.assign(&ds_struct.head.sequence);
+    info!("ASSIGNED ID: {:?}", id.id);
+}
+
+/* Sends id request to the server 
+ * ID PLESASE */
+pub fn id_request(
+    mut packet_q: ResMut<ClientPacketQueue>
+) {
+    /* make an idpacket, server knows if it receives one of these
+     * what we really want */
+    let id_packet = ClientPacket::IdPacket(IdPacket {
+        head: Header {
+            network_id: 0,
+            sequence: Sequence::new(0),
+        }});
+    /* plop into 'to-send' list */
+    packet_q.packets.push(id_packet);//sneed
+}
+
+/* Parse player input, and apply it*/
+pub fn gather_input(
+    mut player: Query<(&NetworkId, &mut InputQueue), With<Player>>,
+    client_id: Res<ClientId>,
+    sequence: ResMut<Sequence>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    /* Deconstruct out Query. */
+    for (i, mut q) in player.iter_mut() {
+        /* are we on us????? */
+        if i.id == client_id.id {
+            /* create a vec of keypresses as our 'this tick'
+             * inputs */
+            let mut keys: Vec<KeyCode> = vec![];
+            for key in input.get_pressed() {
+                keys.push(*key);
+            }
+
+            /* add to input queue @ timestamp */
+
+            /* if last element in InputQueue has same sequence#, append
+             * lists together so we have 1 per stamp.
+             * This can happen because we gather_input() at
+             * an unfixed rate, however the game progresess it 
+             * progresses, while we only send/increment seq
+             * on fixedupdate, which is when we send. It's possible to have
+             * two++ gathers per send, we must make sure we are aware of this
+             * possibility. Maybe there's a better way to handle it, i'm
+             * down 2 adjust 
+             * 
+             * LONG STORY SHORT WE NEED CLIENT/SERVER CONSISTENCY,
+             * SO WE MUST PREEDICT HOW THE SERVER WILL. admittedly,
+             * this loses us some accuracy in movement. we will survive, currently
+             * @ 60hz that's not very human noticable. This means we will
+             * have descepancies in intantaneous prediction, the time @ which
+             * you press UP within the frame does have an effect, 
+             * although negligible (@max I think like 15ms for 64hz but then half
+             * that fo 7.5ms ohhh no whatever shall we do {GAH SUBTICK [i'd be down]}).
+             * Our reprediction should be pretty tho, as long as the server
+             * isn't missing out on packets, as any enforced state we should
+             * have already propely predicted!! Ideally we want the InputQueue
+             * of client and servers snapshot of client @ time t to be the same 
+             * - rorto */
+            
+            let len = q.q.len();
+            if q.q.get_mut(len).unwrap().0 == sequence.get(){
+                let (q_timey, mut q_keys) = q.q.pop().unwrap();
+                q_keys.append(&mut keys);
+                q_keys.dedup();
+                q.q.push((q_timey, q_keys));
+            }else{
+                q.q.push((sequence.get(), keys));
+            }
+
+            /* so now it's in our input queue!!! what do we want to do from here?
+             * 1. We need to make sure we send this tick's input next time we 
+             *      do a fixed update...
+             *  One thing I am thinking about as a potential error right now is
+             * what if we have an inputqueue made above^, and then end up recieving a 
+             * packet from the server with a higher sequence number. This would cause
+             * our sequence number to update to the higher value, throwing off our input
+             * queue. Maybe we should keep this in mind when changing the sequence number, so
+             * we have the ability to adjust within our input queue right now. We could also
+             * put in a "deprecated sequence" values, that we use to pair against good ones.
+             * Pair or maybe even just immediately change (i want to immediate teebs, more
+             * reasoning around Sequence impl) */
+
+            /* TODODO what?!? do we want another list? just query the inputqueue for
+             * sequence.get()?? Think we can really just do the latter. also key that
+             * we update player state right after this input gather happens.*/
+
+            
+        }
+    }
+}
+
+/* client listening function. Takes in a packet, deserializes it
+ * into a ServerPacket (client here so from server). 
+ * Then we match against the packet
+ * to figure out what kind it is, passing to another function to properly handle.
+ * Important to note that we will Sequence::assign() on every packet
+ * within the match, to make sure we Lamport corectly */
 pub fn listen(
-    /* BROOOOOO TOO MANY ARGGGGGGGGGGGGS
-     * Would really love to get that spawn player fn out of here,
-     * maybe event or stage??? */
     udp: Res<UDP>,
-    mut commands: Commands,
-    // mut player: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    mut players_new: Query<
+    commands: Commands,
+    mut players_q: Query<
         (
             &mut Velocity,
             &mut Transform,
@@ -102,52 +201,79 @@ pub fn listen(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
+            &mut InputQueue,
         ),
         With<Player>,
     >,
+    mut enemy_q: Query<&mut ClientEnemy>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    id: ResMut<ClientId>,
+    client_id: ResMut<ClientId>,
+    mut sequence: ResMut<Sequence>,
+    mut packets: ResMut<ClientPacketQueue>
 ) {
     //info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0; 1024];
+    /* grab dat shit */
     let packet = udp.socket.recv_from(&mut buf);
     match packet {
         Err(_e) => return,
-        _ => info!("read packet!"),
-    }
+        _ => info!("read packet!")}
     let (amt, src) = packet.unwrap();
-    /* opcode is last byte of anything we send */
-    // let opcode = buf[amt-1];
-
-    /* trim trailing 0s and opcode*/
+  
+    /* trim trailing 0s */
     let packet = &buf[..amt];
 
+    /* deserialize and turn into a ServerPacket */
     let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
     let rec_struct: ServerPacket = ServerPacket::deserialize(deserializer).unwrap();
 
+    /* we need the inputqueue of US, OUR PLAYER for an update when we recv
+     * a new sequence number. Might as well find that now to not pass an ugly
+     * Query */
+    let mut inputs: &mut InputQueue = &mut InputQueue::new();
+
+    /*GOD todo AS FUCK. I want to grab the input queue of US... but then also
+     * need to still be able to query later in recv_player_packeet...
+     * damn you borrow checker!!!!! */
+    for (v,t,p,h,c,r,s,a,id,iq) in players_q.iter_mut(){
+        if id.id == client_id.id{
+            inputs = iq.into_inner();
+        }
+    }
+
+    /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
+     * packet!! is essential for lamportaging */
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
-            // recv_id(src, id_packet, commands, id);
+            recv_id(&id_packet, &mut sequence, client_id);
+            sequence.assign(&id_packet.head.sequence);
+            client_seq_update(&id_packet.head.sequence, sequence, inputs, packets);
         }
         ServerPacket::PlayerPacket(player_packet) => {
             info!("Matching Player Struct");
-            recieve_player_packet(commands, players_new, &asset_server, player_packet, &mut texture_atlases, id, src);
-            //TODODODODOODOOo
-            //update_player_state_new(players_new, player_packet, commands, &asset_server, &mut texture_atlases, src);
+            /*  must fix players_q borrow checking (see above) TODODOD */
+            //receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src, sequence);
+            sequence.assign(&player_packet.head.sequence);
+            client_seq_update(&player_packet.head.sequence, sequence, inputs, packets);
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
             receive_map_packet(commands, &asset_server, map_packet.matrix);
+            sequence.assign(&map_packet.head.sequence);
+            client_seq_update(&map_packet.head.sequence, sequence, inputs, packets);
         }
-        ServerPacket::EntityPacket(player_packet) => {
-            //TODO
+        ServerPacket::EnemyPacket(enemy_packet) => {
+            info!{"Matching Enemy Struct"};
+            recv_enemy(&enemy_packet,commands,enemy_q,asset_server,&mut texture_atlases);
+            sequence.assign(&enemy_packet.head.sequence);
+            client_seq_update(&enemy_packet.head.sequence, sequence, inputs, packets);
         }
     }
 }
 
-fn recieve_player_packet(
+fn receive_player_packet(
     mut commands: Commands,
     mut players: Query<
         (
@@ -160,32 +286,77 @@ fn recieve_player_packet(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
+            &mut InputQueue,
+            &mut PastStateQueue
         ),
         With<Player>,
     >,
     asset_server: &Res<AssetServer>,
-    saranpack: PlayerS2C,
+    saranpack: &PlayerS2C,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     mut us: ResMut<ClientId>,
-    source_ip: SocketAddr
+    source_ip: SocketAddr,
+    mut sequence: ResMut<Sequence>
 ) {
-    let mut found = false;
-    for (v, t, p, h, c, r, s, a, id) in players.iter_mut() {
-        if id.id == us.id {
-           
-            found = true;
-            info!("found");
-            // need 2 make this good and not laggy yk
+    /* need to know if we were sent a player we don't currently have */
+    let mut found_packet = false;
+    let mut found_us = false;
+    /* for all players, find what was sent */
+    for (v, t, p, h, c, r, s, a, id, iq, mut psq) in players.iter_mut() {
+        if id.id == saranpack.head.network_id {
+            /* we found! */
+            found_packet = true;
+            /* create a lil 'past me' struct */
+            let past = PastState{
+                velo: Velocity::from(saranpack.velocity),
+                transform: saranpack.transform,
+                crouch: Crouch::new_set(saranpack.crouch),
+                roll: Roll::new_set(saranpack.roll),
+                attack: Attack::new_set(saranpack.attack),
+            };
+            /* plop em in, handle elsewhere teeeeebs, could be user or
+             * another client, we handle these cases differently */
+            psq.q.push(past);
+        }
 
-            /*apply state to player pls
-             * needs to be some non-actual state (don't apply
-             * directly to v) so we can apply reprediction*/
+        /* do we even exist?!?! */
+        if id.id == us.id{
+            found_us = true;
         }
     }
 
-    if !found {
-        us.id = saranpack.head.network_id;
+    /* we don't have this player!!!!!! Oh no!! whatever
+     * shall we do?!?!
+     * 
+     * Actually a qustion. there are three scenarios here. So, when we
+     * ask the server for an id, it will send us an establishing id packet,
+     * and then also punt over a newly spawned player.
+     * Scenario 1: We already have the userplayer, this is someone else.
+     *          In this case, we need to create a new clientplayerbundle
+     * Scenario 2: We recvieve userplayer, and have recieved the id packet first
+     *              Id is all good, we can check against the 'us' variable of id
+     * Scenario 3: We recv player **before** the id packet. lil iffy.
+     *              I think the only way to know of this is to  check if clientID
+     *              'us' is still @ default value (0).
+     * 
+     * 
+     * We have a lil check above to see if we have found 'us' in our
+     * query of the game world. if we did not find, we can lowk merge 
+     * scenarios 2&3, with just doin a lil 'make sure we set our id'
+     * in scenario 3
+     * 
+     * 
+     * GAHHHH all the scenarios are the same we must just do some setting (to be sure that
+     * shit works even if we failed to get a id packet) */
+    if !found_packet {
 
+        /* ok lowk all good just do the recv_id sets if its us */
+        if !found_us{
+            us.id = saranpack.head.network_id;
+            sequence.new_index(saranpack.head.network_id.into());
+            /* here we set the clock values */
+            sequence.assign(&saranpack.head.sequence);
+        }
         let player_sheet_handle = asset_server.load("player/4x8_player.png");
         let player_layout = TextureAtlasLayout::from_grid(
             UVec2::splat(TILE_SIZE),
@@ -218,9 +389,107 @@ fn recieve_player_packet(
             sprinting: Sprint{sprinting: saranpack.sprint},
             attacking: Attack{attacking:saranpack.attack},
             inputs: InputQueue::new(),
-
+            states: PastStateQueue::new(),
         });
-    }}
+    }
+}
+
+/*
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡀⠴⠤⠤⠴⠄⡄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⣠⠄⠒⠉⠀⠀⠀⠀⠀⠀⠀⠀⠁⠃⠆⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⢀⡜⠁⠀⠀⠀⢠⡄⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠑⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⢈⠁⠀⠀⠠⣿⠿⡟⣀⡹⠆⡿⣃⣰⣆⣤⣀⠀⠀⠹⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⣼⠀⠀⢀⣀⣀⣀⣀⡈⠁⠙⠁⠘⠃⠡⠽⡵⢚⠱⠂⠛⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⡆⠀⠀⠀⠀⢐⣢⣤⣵⡄⢀⠀⢀⢈⣉⠉⠉⠒⠤⠀⠿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠘⡇⠀⠀⠀⠀⠀⠉⠉⠁⠁⠈⠀⠸⢖⣿⣿⣷⠀⠀⢰⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⢀⠃⠀⡄⠀⠈⠉⠀⠀⠀⢴⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⢈⣇⠀⠀⠀⠀⠀⠀⠀⢰⠉⠀⠀⠱⠀⠀⠀⠀⠀⢠⡄⠀⠀⠀⠀⠀⣀⠔⠒⢒⡩⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣴⣿⣤⢀⠀⠀⠀⠀⠀⠈⠓⠒⠢⠔⠀⠀⠀⠀⠀⣶⠤⠄⠒⠒⠉⠁⠀⠀⠀⢸⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⡄⠤⠒⠈⠈⣿⣿⣽⣦⠀⢀⢀⠰⢰⣀⣲⣿⡐⣤⠀⠀⢠⡾⠃⠀⠀⠀⠀⠀⠀⠀⣀⡄⣠⣵⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠘⠏⢿⣿⡁⢐⠶⠈⣰⣿⣿⣿⣿⣷⢈⣣⢰⡞⠀⠀⠀⠀⠀⠀⢀⡴⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠈⢿⣿⣍⠀⠀⠸⣿⣿⣿⣿⠃⢈⣿⡎⠁⠀⠀⠀⠀⣠⠞⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠈⢙⣿⣆⠀⠀⠈⠛⠛⢋⢰⡼⠁⠁⠀⠀⠀⢀⠔⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠚⣷⣧⣷⣤⡶⠎⠛⠁⠀⠀⠀⢀⡤⠊⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠈⠁⠀⠀⠀⠀⠀⠠⠊⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+*/
+
+fn recv_enemy(
+    pack: &EnemyS2C,
+    mut commands: Commands,
+    mut enemy_q: Query<&mut ClientEnemy>,//TODO make ecs
+    asset_server: Res<AssetServer>,
+    tex_atlas: &mut ResMut<Assets<TextureAtlasLayout>>
+){
+    let mut found = false;
+    for mut enemy in enemy_q.iter_mut(){
+        if pack.enemytype.get_id() == enemy.id.id{ 
+            enemy.movement.push(pack.movement.clone());
+            found = true;
+            break;
+        }
+    }
+
+    if !found {
+        let the_enemy: &Enemy;
+        match &pack.enemytype.kind{
+            EnemyKind::Skeleton(enemy) => the_enemy = enemy,
+            EnemyKind::BerryRat(enemy) => the_enemy = enemy,
+            EnemyKind::Ninja(enemy) => the_enemy = enemy,
+            EnemyKind::SplatMonkey(enemy) => the_enemy = enemy,
+            EnemyKind::Boss(enemy) => the_enemy = enemy,
+        };
+
+        let enemy_layout = 
+        TextureAtlasLayout::from_grid(
+            UVec2::splat(the_enemy.size),
+            the_enemy.sprite_column,
+            the_enemy.sprite_row,
+            None,
+            None
+        );
+
+        let enemy_layout_handle = tex_atlas.add(enemy_layout);
+
+        let mut vec: Vec<EnemyMovement> = Vec::new();
+        vec.push(pack.movement.clone());
+        let x = pack.movement.direction.x;
+        let y = pack.movement.direction.y;
+        commands.spawn(
+            (SpriteBundle{
+                transform: Transform::from_xyz(x, y, 900.),
+                texture: asset_server.load(the_enemy.filepath.clone()),
+                
+                ..default()
+            },
+            TextureAtlas{
+                layout: enemy_layout_handle,
+                index:0
+            },
+            ClientEnemy{
+                id: pack.enemytype.clone(),
+                movement: vec,
+            })
+
+        );
+
+    };
+}
+
+
 
 // /* once we have our packeet, we must use it to update
 //  * the player specified, there's another in server.rs */

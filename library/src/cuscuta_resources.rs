@@ -8,6 +8,8 @@ use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
 
 
+pub const CLIENT_ID_DEFAULT: u8 = 0;
+
 pub const TICKS_PER_SECOND: f64 = 60.;
 pub const SERVER_ADR: &str = "10.4.16.215:5001"; //136.142.159.86:5001
 
@@ -96,6 +98,14 @@ pub struct FlexSerializer{
 #[derive(Resource)]
 pub struct ClientId{
     pub id: u8
+}
+
+impl ClientId{
+    pub fn new() -> Self{
+        Self{
+            id: CLIENT_ID_DEFAULT
+        }
+    }
 }
 
 #[derive(Resource)]
