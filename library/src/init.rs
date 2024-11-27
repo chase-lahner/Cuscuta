@@ -32,7 +32,7 @@ pub fn client_setup(
 
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */
-    commands.insert_resource(ClientId{id:0});
+    commands.insert_resource(ClientId::new());
     
     /* sequence number! gives us a lil ordering... we put 0
      * for now, which is the server's id but we will reassign

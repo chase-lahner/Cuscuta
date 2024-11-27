@@ -253,8 +253,8 @@ pub fn listen(
         }
         ServerPacket::PlayerPacket(player_packet) => {
             info!("Matching Player Struct");
-            /* TODO must fix players_q borrow checking (see above) */
-            //receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src);
+            /*  must fix players_q borrow checking (see above) */
+            //receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src, sequence);
             sequence.assign(&player_packet.head.sequence);
             client_seq_update(&player_packet.head.sequence, sequence, inputs, packets);
         }
@@ -295,15 +295,17 @@ fn receive_player_packet(
     saranpack: &PlayerS2C,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     mut us: ResMut<ClientId>,
-    source_ip: SocketAddr
+    source_ip: SocketAddr,
+    mut sequence: ResMut<Sequence>
 ) {
     /* need to know if we were sent a player we don't currently have */
-    let mut found = false;
+    let mut found_packet = false;
+    let mut found_us = false;
     /* for all players, find what was sent */
     for (v, t, p, h, c, r, s, a, id, iq, mut psq) in players.iter_mut() {
-        if id.id == us.id {
+        if id.id == saranpack.head.network_id {
             /* we found! */
-            found = true;
+            found_packet = true;
             /* create a lil 'past me' struct */
             let past = PastState{
                 velo: Velocity::from(saranpack.velocity),
@@ -315,6 +317,11 @@ fn receive_player_packet(
             /* plop em in, handle elsewhere teeeeebs, could be user or
              * another client, we handle these cases differently */
             psq.q.push(past);
+        }
+
+        /* do we even exist?!?! */
+        if id.id == us.id{
+            found_us = true;
         }
     }
 
@@ -330,10 +337,21 @@ fn receive_player_packet(
      *              Id is all good, we can check against the 'us' variable of id
      * Scenario 3: We recv player **before** the id packet. lil iffy.
      *              I think the only way to know of this is to  check if clientID
-     *              'us' is still @ default value (0). */
-    if !found {
-        us.id = saranpack.head.network_id;
+     *              'us' is still @ default value (0).
+     * 
+     * 
+     * We have a lil check above to see if we have found 'us' in our
+     * query of the game world. if we did not find, we can lowk merge 
+     * scenarios 2&3, with just doin a lil 'make sure we set our id'
+     * in scenario 3 */
+    if !found_packet {
 
+        if !found_us{
+            us.id = saranpack.head.network_id;
+            sequence.new_index(saranpack.head.network_id.into());
+            /* here we set the clock values */
+            sequence.assign(&saranpack.head.sequence);
+        }
         let player_sheet_handle = asset_server.load("player/4x8_player.png");
         let player_layout = TextureAtlasLayout::from_grid(
             UVec2::splat(TILE_SIZE),
