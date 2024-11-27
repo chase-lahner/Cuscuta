@@ -253,7 +253,7 @@ pub fn listen(
         }
         ServerPacket::PlayerPacket(player_packet) => {
             info!("Matching Player Struct");
-            /*  must fix players_q borrow checking (see above) */
+            /*  must fix players_q borrow checking (see above) TODODOD */
             //receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src, sequence);
             sequence.assign(&player_packet.head.sequence);
             client_seq_update(&player_packet.head.sequence, sequence, inputs, packets);
@@ -343,9 +343,14 @@ fn receive_player_packet(
      * We have a lil check above to see if we have found 'us' in our
      * query of the game world. if we did not find, we can lowk merge 
      * scenarios 2&3, with just doin a lil 'make sure we set our id'
-     * in scenario 3 */
+     * in scenario 3
+     * 
+     * 
+     * GAHHHH all the scenarios are the same we must just do some setting (to be sure that
+     * shit works even if we failed to get a id packet) */
     if !found_packet {
 
+        /* ok lowk all good just do the recv_id sets if its us */
         if !found_us{
             us.id = saranpack.head.network_id;
             sequence.new_index(saranpack.head.network_id.into());
