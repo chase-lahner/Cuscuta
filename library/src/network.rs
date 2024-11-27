@@ -140,13 +140,14 @@ impl Sequence{
 pub fn client_seq_update(
     seq_new: &Sequence,
     mut sequence: ResMut<Sequence>,
-    player: &mut InputQueue,
+    mut input_q: &mut InputQueue,
     mut packet_q: ResMut<ClientPacketQueue>,
 ){
     /* We must assign.
      * Sequence::assign() is juuuust above^^^^, takes and
      * does another check to see is seq-new is greater, and 
      * then assigns it so our Resource Sequence is ready to go */
+    let old_seq = sequence.get();
     sequence.assign(seq_new);
 
     /* Now we must check, do we have any packets here on the old
@@ -177,7 +178,13 @@ pub fn client_seq_update(
         }
     }// ok now we have made out PacketQueue pretty. now for InputQueue
 
-    for ()
+    /* input queue pls.
+     * If the most recent input is using the old sequence,
+     * we should update!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+    let input_len = input_q.q.len();
+    if input_q.q[input_len].0 == old_seq{
+        input_q.q[input_len].0 = sequence.get();
+    }
 
 
 

@@ -34,8 +34,10 @@ pub fn client_setup(
      * will be assigned when given one from server */
     commands.insert_resource(ClientId{id:0});
     
-    /* sequence number! gives us a lil ordering */
-    commands.insert_resource(Sequence::new());
+    /* sequence number! gives us a lil ordering... we put 0
+     * for now, which is the server's id but we will reassign
+     * when we recv a packet from the server */
+    commands.insert_resource(Sequence::new(0));
 
     // spawn camera
     spawn_camera(&mut commands, &asset_server);
@@ -64,8 +66,8 @@ pub fn server_setup(
     
     /* who we connected to again?*/
     commands.insert_resource(AddressList::new());
-    /* lilk ordering action */
-    commands.insert_resource(Sequence::new());
+    /* lilk ordering action. 0 is server's Sequence index/id */
+    commands.insert_resource(Sequence::new(0));
     /* tha rate ehhh this could need to be called before init idk*/
     commands.insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND));
     /* bum ass no friend ass lonely ahh */

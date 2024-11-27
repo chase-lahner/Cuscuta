@@ -1,30 +1,64 @@
 use std::net::SocketAddr;
 
 use bevy::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::enemies::{ClientEnemy, Enemy, EnemyKind, EnemyMovement};
 use crate::cuscuta_resources::*;
 use crate::network::{
-    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerS2C, Sequence, ServerPacket, Timestamp, UDP
+    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerC2S, PlayerS2C, Sequence, ServerPacket, Timestamp, UDP
 };
 use crate::player::*;
 
 
-pub fn send_packets(
-udp: Res<UDP>,
-mut packets: ResMut<ClientPacketQueue>
+/* sends out all clientPackets from the ClientPacketQueue */
+pub fn client_send_packets(
+    udp: Res<UDP>,
+    mut packets: ResMut<ClientPacketQueue>,
+    player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
+    client_id: Res<ClientId>,
+    sequence: Res<Sequence>
 ){
+    /* for each packet in queue, we send to server*/
     for pack in &packets.packets{
-
+        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+        pack.serialize(&mut serializer).unwrap();
+        let packet: &[u8] = serializer.view();
+        udp.socket.send_to(&packet, SERVER_ADR).unwrap();
     }
 
+}
+
+/* to be called right b4 sending packets */
+pub fn pack_up_input(
+    mut packets: ResMut<ClientPacketQueue>,
+    player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
+    client_id: Res<ClientId>,
+    sequence: ResMut<Sequence>
+){
+     /* for the input queue, we check to make sure that the last item
+     * in it is the right inputs for this sequence value and send off if so */
+     for (id, iq) in player_q.iter(){
+        if id.id == client_id.id{
+            let (seq, keys) = &iq.q[iq.q.len()];
+            if *seq != sequence.get(){
+                return;
+            }
+            let pack = ClientPacket::PlayerPacket(
+                PlayerC2S{
+                    head: Header::new(client_id.id, sequence.clone()),
+                    key: keys.clone(),
+                }
+            );
+            packets.packets.push(pack);
+        }
+    }
 }
 
 /* server send us an id so we can know we are we yk */
 pub fn recv_id(
     ds_struct: &IdPacket,
-    mut sequence: ResMut<Sequence>,
+    sequence: &mut Sequence,
     mut id: ResMut<ClientId>
 ) {
     info!("Recieving ID");
@@ -61,7 +95,7 @@ pub fn id_request(
 pub fn gather_input(
     mut player: Query<(&NetworkId, &mut InputQueue), With<Player>>,
     client_id: Res<ClientId>,
-    mut sequence: ResMut<Sequence>,
+    sequence: ResMut<Sequence>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
     /* Deconstruct out Query. */
@@ -142,7 +176,7 @@ pub fn gather_input(
 pub fn listen(
     udp: Res<UDP>,
     commands: Commands,
-    players_q: Query<
+    mut players_q: Query<
         (
             &mut Velocity,
             &mut Transform,
@@ -160,7 +194,7 @@ pub fn listen(
     mut enemy_q: Query<&mut ClientEnemy>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    res_id: ResMut<ClientId>,
+    client_id: ResMut<ClientId>,
     mut sequence: ResMut<Sequence>,
     mut packets: ResMut<ClientPacketQueue>
 ) {
@@ -185,22 +219,28 @@ pub fn listen(
      * a new sequence number. Might as well find that now to not pass an ugly
      * Query */
     let mut inputs: &mut InputQueue = &mut InputQueue::new();
+
+    /*GOD todo AS FUCK. I want to grab the input queue of US... but then also
+     * need to still be able to query later in recv_player_packeet...
+     * damn you borrow checker!!!!! */
     for (v,t,p,h,c,r,s,a,id,iq) in players_q.iter_mut(){
-        if id.id == res_id.id{
-            inputs = iq.into_inner();2
+        if id.id == client_id.id{
+            inputs = iq.into_inner();
         }
     }
+
     /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
      * packet!! is essential for lamportaging */
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
-            recv_id(&id_packet, res_id);
+            recv_id(&id_packet, &mut sequence, client_id);
             sequence.assign(&id_packet.head.sequence);
             client_seq_update(&id_packet.head.sequence, sequence, inputs, packets);
         }
         ServerPacket::PlayerPacket(player_packet) => {
             info!("Matching Player Struct");
-            receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, id, src);
+            /* TODO must fix players_q borrow checking (see above) */
+            //receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src);
             sequence.assign(&player_packet.head.sequence);
             client_seq_update(&player_packet.head.sequence, sequence, inputs, packets);
         }
@@ -211,6 +251,7 @@ pub fn listen(
             client_seq_update(&map_packet.head.sequence, sequence, inputs, packets);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
+            info!{"Matching Enemy Struct"};
             recv_enemy(&enemy_packet,commands,enemy_q,asset_server,&mut texture_atlases);
             sequence.assign(&enemy_packet.head.sequence);
             client_seq_update(&enemy_packet.head.sequence, sequence, inputs, packets);

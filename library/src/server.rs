@@ -17,13 +17,13 @@ pub fn send_id(
     mut packet_q: ResMut<ServerPacketQueue>
 ) {
     /* assign id, update player count */
-    let player_id: u8 = 255 - n_p.count;
     n_p.count += 1;
+    let player_id: u8 = n_p.count;
     addresses.list.push(source_addr);
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
     let id_send = ServerPacket::IdPacket(IdPacket{
-        head: Header::new(player_id,server_seq.get())});
+        head: Header::new(player_id,server_seq.clone())});
 
     /* put idpacket into 'to-send' queue */
     packet_q.packets.push(id_send);
@@ -45,7 +45,7 @@ pub fn send_id(
     });
     /* same shit but now we sending off to the cleint */
     let playa = ServerPacket::PlayerPacket(PlayerS2C{
-        head: Header::new(player_id,server_seq.get()),//TODO TIMESTAMPS
+        head: Header::new(player_id,server_seq.clone()),//TODO TIMESTAMPS
         transform: Transform{
             translation: Vec3{
                 x: 0., y: 0., z: 900.,
@@ -141,7 +141,7 @@ fn recieve_input(
         /* if we find the one corresponding to our packet */
         if client_pack.head.network_id == id.id {
             /* for all the keys passed on the clients update */
-            iq.q.push((client_pack.head.sequence_num, client_pack.key.clone()));
+            iq.q.push((client_pack.head.sequence.get(), client_pack.key.clone()));
             
             /* ok if we want to update immediately then we od it right here
              * buuuuut the fn takes in diff args than we have (odd query). TBH
@@ -163,7 +163,7 @@ pub fn send_enemies(
         /* packet-ify it */
         let enemy  = ServerPacket::EnemyPacket(
         EnemyS2C{
-            head: Header::new(0,server_seq.get()),
+            head: Header::new(0,server_seq.clone()),
             movement: movement.clone(),
             enemytype: id.clone(),
         });
@@ -314,7 +314,7 @@ fn update_player_state(
         /* packet-ify it */
         let outgoing_state  = ServerPacket::PlayerPacket(PlayerS2C {
             transform: *t,
-            head: Header::new(i.id,server_seq.get()),
+            head: Header::new(i.id,server_seq.clone()),
             attack: a.attacking,
             velocity: v.velocity,
             health: *h,
