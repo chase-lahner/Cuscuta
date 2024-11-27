@@ -287,6 +287,7 @@ fn receive_player_packet(
             &mut Attack,
             &mut NetworkId,
             &mut InputQueue,
+            &mut PastStateQueue
         ),
         With<Player>,
     >,
@@ -296,18 +297,40 @@ fn receive_player_packet(
     mut us: ResMut<ClientId>,
     source_ip: SocketAddr
 ) {
+    /* need to know if we were sent a player we don't currently have */
     let mut found = false;
-    for (v, t, p, h, c, r, s, a, id, iq) in players.iter_mut() {
+    /* for all players, find what was sent */
+    for (v, t, p, h, c, r, s, a, id, iq, mut psq) in players.iter_mut() {
         if id.id == us.id {
+            /* we found! */
             found = true;
-            // need 2 make this good and not laggy yk
-
-            /*apply state to player pls
-             * needs to be some non-actual state (don't apply
-             * directly to v) so we can apply reprediction*/
+            /* create a lil 'past me' struct */
+            let past = PastState{
+                velo: Velocity::from(saranpack.velocity),
+                transform: saranpack.transform,
+                crouch: Crouch::new_set(saranpack.crouch),
+                roll: Roll::new_set(saranpack.roll),
+                attack: Attack::new_set(saranpack.attack),
+            };
+            /* plop em in, handle elsewhere teeeeebs, could be user or
+             * another client, we handle these cases differently */
+            psq.q.push(past);
         }
     }
 
+    /* we don't have this player!!!!!! Oh no!! whatever
+     * shall we do?!?!
+     * 
+     * Actually a qustion. there are three scenarios here. So, when we
+     * ask the server for an id, it will send us an establishing id packet,
+     * and then also punt over a newly spawned player.
+     * Scenario 1: We already have the userplayer, this is someone else.
+     *          In this case, we need to create a new clientplayerbundle
+     * Scenario 2: We recvieve userplayer, and have recieved the id packet first
+     *              Id is all good, we can check against the 'us' variable of id
+     * Scenario 3: We recv player **before** the id packet. lil iffy.
+     *              I think the only way to know of this is to  check if clientID
+     *              'us' is still @ default value (0). */
     if !found {
         us.id = saranpack.head.network_id;
 
@@ -343,7 +366,7 @@ fn receive_player_packet(
             sprinting: Sprint{sprinting: saranpack.sprint},
             attacking: Attack{attacking:saranpack.attack},
             inputs: InputQueue::new(),
-
+            states: PastStateQueue::new(),
         });
     }
 }

@@ -42,6 +42,11 @@ impl Crouch {
     pub fn new() -> Self {
         Self { crouching: false }
     }
+    pub fn new_set(b:bool) ->Self{
+        Self{
+            crouching:b
+        }
+    }
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -52,7 +57,12 @@ impl Roll {
     pub fn new() -> Self {
         Self { rolling: false }
     }
-}
+    pub fn new_set(b:bool) -> Self{
+        Self{
+            rolling: b
+        }
+    }
+ }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Sprint {
@@ -61,6 +71,11 @@ pub struct Sprint {
 impl Sprint {
     pub fn new() -> Self {
         Self { sprinting: false }
+    }
+    pub fn new_set(b: bool) -> Self{
+        Self{
+            sprinting:b
+        }
     }
 }
 /* global boolean to not re-attack */
@@ -71,6 +86,11 @@ pub struct Attack {
 impl Attack {
     pub fn new() -> Self {
         Self { attacking: false }
+    }
+    pub fn new_set(b:bool) -> Self{
+        Self{
+            attacking:b
+        }
     }
 }
 
@@ -101,6 +121,7 @@ pub struct ClientPlayerBundle {
     pub sprinting: Sprint,
     pub attacking: Attack,
     pub inputs: InputQueue,
+    pub states: PastStateQueue
 }
 
 #[derive(Bundle, Serialize, Deserialize)]
@@ -117,14 +138,27 @@ pub struct ServerPlayerBundle {
     pub time: Timestamp,
 }
 
+#[derive(Component, Serialize, Deserialize)]
 pub struct PastStateQueue{
-    q: Vec<
+    pub q: Vec<PastState>
 }
 
-pub struct PastState{
-    velo: Velocity,
-    transform: Transform,
+impl PastStateQueue{
+    pub fn new() -> Self{
+        Self{
+            q: Vec::new()
+        }
+    }
+}
 
+
+#[derive(Serialize, Deserialize)]
+pub struct PastState{
+    pub velo: Velocity,
+    pub transform: Transform,
+    pub crouch: Crouch,
+    pub roll: Roll,
+    pub attack: Attack,
 }
 
 pub fn player_attack(
