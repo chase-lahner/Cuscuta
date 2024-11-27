@@ -1,4 +1,3 @@
-use cuscuta_resources::PlayerCount;
 use library::*;
 use bevy::prelude::*;
 
@@ -11,8 +10,7 @@ fn main() {
     .add_systems(Startup, init::server_setup)
     .add_systems(FixedUpdate, (
         server::listen, 
-        //player::update_player_position.after(server::listen),
-        server::send_player,
+        server::send_player.after(server::listen),
         server::send_enemies,
     ))
     .run();
