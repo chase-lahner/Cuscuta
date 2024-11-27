@@ -117,6 +117,16 @@ pub struct ServerPlayerBundle {
     pub time: Timestamp,
 }
 
+pub struct PastStateQueue{
+    q: Vec<
+}
+
+pub struct PastState{
+    velo: Velocity,
+    transform: Transform,
+
+}
+
 pub fn player_attack(
     time: Res<Time>,
     input: Res<ButtonInput<MouseButton>>,
