@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::network::Sequence;
 use crate::{
     collision::{self, *},
     cuscuta_resources::*,
@@ -160,6 +161,20 @@ pub struct PastState{
     pub crouch: Crouch,
     pub roll: Roll,
     pub attack: Attack,
+    pub seq: Sequence,
+}
+
+impl PastState{
+    pub fn new() -> Self{
+        Self{
+            velo: Velocity::new(),
+            transform: Transform::from_xyz(0.,0.,0.),
+            crouch: Crouch::new(),
+            roll: Roll::new(),
+            attack: Attack::new(),
+            seq: Sequence::new(0)
+        }
+    }
 }
 
 /* we want to have a singular update fn, so we can call it from both the client
@@ -167,17 +182,21 @@ pub struct PastState{
  * so it makes it a bit more general. I think I may also have it return a tuple
  * of player, so we can apply as we feel necessary. */
 pub fn update_player(
-    mut player_q: (&mut Transform, &mut Velocity, &mut NetworkId, &mut InputQueue),
+    mut player: (&mut Transform, &mut Velocity, &mut NetworkId, &mut InputQueue, &PastStateQueue),
 
 ){
-    /* for all players in game world
-     * EEEEEK I WANT ONE FNNNNNNNn ugh. client only
-     * needs to do this update for themself, we interpolate others */
-    for(t,v,id,iq) in player_q.iter_mut(){
+    /* de tup-ify */
+    let (transform, velo, id, iq, psq) = player;
 
+    /* does this buff give us any "use this index rn" type stuff??
+     * Didn't see, so I am just iterating to find most recent state to use
+     * PastState::new() establishes Sequence with 0 index  */
+    let recent_state = PastState::new();
+    for state in psq.q.iter(){
+        if state.seq.get() > recent_state.seq.get(){
+            
+        }
     }
-
-    /* gah i must wait for chase buffer to know what i'm really doin w state */
 }
 
 

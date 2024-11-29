@@ -68,10 +68,10 @@ impl Timestamp {
  * - roto */
 
 
- /* another aside on sequences, I think we should increment them AFTER we send.
-  * We want to be able to user a sequence value for the entirety of the tick, so...
-  * yah. Also think when assigning, we should +1 because event A of sending must
-  * happen BEFORE event B of receiving (A -> B) a la lamport  */
+/* another aside on sequences, I think we should increment them AFTER we send.
+ * We want to be able to user a sequence value for the entirety of the tick, so...
+ * yah. Also think when assigning, we should +1 because event A of sending must
+ * happen BEFORE event B of receiving (A -> B) a la lamport  */
 
 /* Shifted towards vector clock, all above should stay the same, we are just
  * now trying to use one clock value per interconnected process, and our index
@@ -128,7 +128,7 @@ impl Sequence{
     
     pub fn new(index:usize) -> Self{
         Self{
-            nums: Vec::new(),
+            nums: Vec::with_capacity(index),
             index: index 
         }
     }
