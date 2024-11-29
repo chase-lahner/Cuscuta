@@ -184,13 +184,13 @@ pub fn send_enemies(
 
 /* once we have our packeet, we must use it to update
  * the player specified, there's another in client.rs*/
-fn update_player_state(
+//fn update_player_state(
     // src: SocketAddr,
     // /* fake query, passed from above system */
     // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     // player_struct: PlayerPacket,
     // mut commands: Commands,
-) { 
+//) { 
 //     // let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
 //     // let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
 //     let mut found = false;
@@ -267,7 +267,7 @@ fn update_player_state(
             
 //         });
 //     }
-}
+//}
 
 // /* Transforms current player state into u8 array that
 //  * we can then send across the wire to be deserialized once it arrives */
