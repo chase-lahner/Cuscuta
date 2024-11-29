@@ -161,8 +161,12 @@ pub struct PastState{
     pub attack: Attack,
 }
 
+/* we want to have a singular update fn, so we can call it from both the client
+ * and player. I'm gonna have us pass the tuple deconstructed from a query,
+ * so it makes it a bit more general. I think I may also have it return a tuple
+ * of player, so we can apply as we feel necessary. */
 pub fn update_player(
-    mut player_q: Query<(&mut Transform, &mut Velocity, &mut NetworkId, &mut InputQueue), With<Player>>,
+    mut player_q: (&mut Transform, &mut Velocity, &mut NetworkId, &mut InputQueue),
 
 ){
     /* for all players in game world
