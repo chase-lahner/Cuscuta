@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 pub const CLIENT_ID_DEFAULT: u8 = 0;
 
 pub const TICKS_PER_SECOND: f64 = 60.;
-pub const SERVER_ADR: &str = "192.168.0.46"; 
+
+pub const SERVER_ADR: &str = "192.168.1.122:5001"; //136.142.159.86:5001
+
 
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;
