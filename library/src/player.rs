@@ -1,4 +1,5 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::collections::VecDeque;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -140,13 +141,13 @@ pub struct ServerPlayerBundle {
 
 #[derive(Component, Serialize, Deserialize)]
 pub struct PastStateQueue{
-    pub q: Vec<PastState>
+    pub q: VecDeque<PastState> // double ended queue, will wrap around when full
 }
 
 impl PastStateQueue{
     pub fn new() -> Self{
         Self{
-            q: Vec::new()
+            q: VecDeque::with_capacity(2) // store current and previous states
         }
     }
 }
