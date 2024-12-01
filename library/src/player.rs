@@ -9,7 +9,7 @@ use crate::{
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{PlayerS2C, Timestamp},
+    network::{PlayerSendable, Timestamp},
     room_gen::*,
     ui::CarnageBar,
 };
@@ -136,8 +136,9 @@ pub struct ServerPlayerBundle {
     pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack,
-    pub inputs: InputQueue,
-    pub time: Timestamp,
+    pub player: Player
+    //pub inputs: InputQueue,
+    //pub time: Timestamp,
 }
 
 #[derive(Component, Serialize, Deserialize)]
@@ -380,7 +381,7 @@ pub fn client_spawn_other_player_new(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    player: PlayerS2C,
+    player: PlayerSendable,
     source_ip: SocketAddr,
 ) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
@@ -437,7 +438,7 @@ pub fn client_spawn_other_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    player: PlayerS2C,
+    player: PlayerSendable,
     source_ip: SocketAddr,
 ) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");

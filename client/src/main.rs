@@ -45,7 +45,9 @@ fn main() {
         ))
 
 
-        .add_systems(FixedUpdate,client::client_send_packets
+        .add_systems(FixedUpdate,
+            (client::send_player,
+            client::client_send_packets)
         )
         .run();
 }

@@ -200,13 +200,13 @@ pub struct BufSerializer {
     pub serializer: FlexbufferSerializer,
 }
 
+// #[derive(Serialize, Deserialize, PartialEq, Debug)]
+// pub struct PlayerC2S{
+//     pub head: Header,
+//     pub key: Vec<KeyCode>,
+// }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct PlayerC2S{
-    pub head: Header,
-    pub key: Vec<KeyCode>,
-}
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct PlayerS2C{
+pub struct PlayerSendable{
     pub head: Header,
     pub transform: Transform,
     pub velocity: Vec2,
@@ -249,13 +249,13 @@ impl Header{
 
 #[derive(Serialize, Deserialize)]
 pub enum ClientPacket{
-    PlayerPacket(PlayerC2S),
+    PlayerPacket(PlayerSendable),
     IdPacket(IdPacket),
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum ServerPacket{
-    PlayerPacket(PlayerS2C),
+    PlayerPacket(PlayerSendable),
     MapPacket(MapS2C),
     IdPacket(IdPacket),
     EnemyPacket(EnemyS2C),

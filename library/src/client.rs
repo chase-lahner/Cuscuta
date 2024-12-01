@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::enemies::{ClientEnemy, Enemy, EnemyKind, EnemyMovement};
 use crate::cuscuta_resources::*;
 use crate::network::{
-    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerC2S, PlayerS2C, Sequence, ServerPacket, Timestamp, UDP
+    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerSendable, Sequence, ServerPacket, Timestamp, UDP
 };
 use crate::player::*;
 
@@ -29,43 +29,45 @@ pub fn client_send_packets(
 
 }
 
-/* to be called right b4 sending packets */
-pub fn pack_up_input(
-    mut packets: ResMut<ClientPacketQueue>,
-    player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
-    client_id: Res<ClientId>,
-    sequence: ResMut<Sequence>
-){
-     /* for the input queue, we check to make sure that the last item
-     * in it is the right inputs for this sequence value and send off if so */
 
-     /* for all players */
-     for (id, iq) in player_q.iter(){
-        /* if we are us */
-        if id.id == client_id.id{
-            /* grab last input, and check if correct seq */
-            let (seq, keys) = &iq.q[iq.q.len()];
+/* what could have beennnnn.............. goodbye client side prediction */
+// /* to be called right b4 sending packets */
+// pub fn pack_up_input(
+//     mut packets: ResMut<ClientPacketQueue>,
+//     player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
+//     client_id: Res<ClientId>,
+//     sequence: ResMut<Sequence>
+// ){
+//      /* for the input queue, we check to make sure that the last item
+//      * in it is the right inputs for this sequence value and send off if so */
 
-            let pack:ClientPacket;
-            if *seq != sequence.get(){
-                pack = ClientPacket::PlayerPacket(
-                    PlayerC2S{
-                        head: Header::new(client_id.id, sequence.clone()),
-                        key: Vec::new(),
-                    }
-                )
-            }else{
-                pack = ClientPacket::PlayerPacket(
-                    PlayerC2S{
-                        head: Header::new(client_id.id, sequence.clone()),
-                        key: keys.clone(),
-                    }
-                );
-            }
-            packets.packets.push(pack);
-        }
-    }
-}
+//      /* for all players */
+//      for (id, iq) in player_q.iter(){
+//         /* if we are us */
+//         if id.id == client_id.id{
+//             /* grab last input, and check if correct seq */
+//             let (seq, keys) = &iq.q[iq.q.len()];
+
+//             let pack:ClientPacket;
+//             if *seq != sequence.get(){
+//                 pack = ClientPacket::PlayerPacket(
+//                     PlayerSendable{
+//                         head: Header::new(client_id.id, sequence.clone()),
+//                         key: Vec::new(),
+//                     }
+//                 )
+//             }else{
+//                 pack = ClientPacket::PlayerPacket(
+//                     PlayerC2S{
+//                         head: Header::new(client_id.id, sequence.clone()),
+//                         key: keys.clone(),
+//                     }
+//                 );
+//             }
+//             packets.packets.push(pack);
+//         }
+//     }
+// }
 
 /* server send us an id so we can know we are we yk */
 pub fn recv_id(
@@ -292,7 +294,7 @@ fn receive_player_packet(
         With<Player>,
     >,
     asset_server: &Res<AssetServer>,
-    saranpack: &PlayerS2C,
+    saranpack: &PlayerSendable,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     mut us: ResMut<ClientId>,
     source_ip: SocketAddr,
@@ -631,6 +633,29 @@ fn receive_map_packet (
             horizontal = horizontal + TILE_SIZE as f32;
         }
         vertical = vertical + TILE_SIZE as f32;
+    }
+}
+
+pub fn send_player(
+    player_q: Query<(&NetworkId, &Velocity, &Transform, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
+    mut packet_queue: ResMut<ClientPacketQueue>,
+    seq: Res<Sequence>,
+    clientid: Res<ClientId>
+){
+    for (id, velo, trans, heal, crouch, roll, sprint, attack) in player_q.iter(){
+        if id.id == clientid.id{
+            let to_send = ClientPacket::PlayerPacket(PlayerSendable{
+                head: Header{ network_id: id.id, sequence: seq.clone() },
+                transform: trans.clone(),
+                velocity: velo.velocity,
+                health: heal.clone(),
+                crouch: crouch.crouching,
+                attack: attack.attacking,
+                roll: roll.rolling,
+                sprint: sprint.sprinting,
+            });
+            packet_queue.packets.push(to_send);
+        }
     }
 }
 

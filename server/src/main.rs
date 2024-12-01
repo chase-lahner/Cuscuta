@@ -14,7 +14,7 @@ fn main() {
         server::listen, 
         server::send_player.after(server::listen),
         server::send_enemies,
-        server::server_send_packets
+        server::server_send_packets.after(server::send_player)
     ))
     .run();
 }
