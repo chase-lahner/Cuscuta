@@ -191,12 +191,18 @@ pub fn update_player(
     /* does this buff give us any "use this index rn" type stuff??
      * Didn't see, so I am just iterating to find most recent state to use
      * PastState::new() establishes Sequence with 0 index  */
-    let recent_state = PastState::new();
+    let mut recent_state = &PastState::new();
     for state in psq.q.iter(){
         if state.seq.get() > recent_state.seq.get(){
-            
+            recent_state = state;
         }
     }
+
+    /* we now have the most recent state sent by the server in recent_state */
+    
+
+
+
 }
 
 
