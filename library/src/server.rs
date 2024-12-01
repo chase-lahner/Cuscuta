@@ -23,6 +23,7 @@ pub fn send_id(
     info!("pushing addresss");
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
+    server_seq.nums.push(0);
     let id_send = ServerPacket::IdPacket(IdPacket{
         head: Header::new(player_id,server_seq.clone())});
 
@@ -114,7 +115,7 @@ pub fn listen(
 
 /* uses items in packetQueue to send to all clients,
  * and removes them from the list.  */
-fn server_send_packets(
+pub fn server_send_packets(
     mut packet_q: ResMut<ServerPacketQueue>,
     udp: Res<UDP>,
     addresses: ResMut<AddressList>,

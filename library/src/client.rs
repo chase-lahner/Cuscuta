@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::ops::Deref;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -110,7 +111,7 @@ pub fn gather_input(
     input: Res<ButtonInput<KeyCode>>,
 ) {
     /* Deconstruct out Query. */
-    for (i, mut q) in player.iter_mut() {
+    for (i, mut iq) in player.iter_mut() {
         /* are we on us????? */
         if i.id == client_id.id {
             /* create a vec of keypresses as our 'this tick'
@@ -146,14 +147,17 @@ pub fn gather_input(
              * of client and servers snapshot of client @ time t to be the same 
              * - rorto */
             
-            let len = q.q.len();
-            if q.q.get_mut(len).unwrap().0 == sequence.get(){
-                let (q_timey, mut q_keys) = q.q.pop().unwrap();
+            let len = iq.q.len();
+            if len == 0{
+                iq.q.push((sequence.get(), keys));
+            }
+            else if iq.q.get_mut(len-1).unwrap().0 == sequence.get(){
+                let (q_timey, mut q_keys) = iq.q.pop().unwrap();
                 q_keys.append(&mut keys);
                 q_keys.dedup();
-                q.q.push((q_timey, q_keys));
+                iq.q.push((q_timey, q_keys));
             }else{
-                q.q.push((sequence.get(), keys));
+                iq.q.push((sequence.get(), keys));
             }
 
             /* so now it's in our input queue!!! what do we want to do from here?
@@ -199,6 +203,7 @@ pub fn listen(
             &mut Attack,
             &mut NetworkId,
             &mut InputQueue,
+            &mut PastStateQueue
         ),
         With<Player>,
     >,
@@ -209,7 +214,7 @@ pub fn listen(
     mut sequence: ResMut<Sequence>,
     mut packets: ResMut<ClientPacketQueue>
 ) {
-    //info!("Listening!!!");
+    info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0; 1024];
     /* grab dat shit */
@@ -231,41 +236,39 @@ pub fn listen(
      * Query */
     let mut inputs: &mut InputQueue = &mut InputQueue::new();
 
-    /*GOD todo AS FUCK. I want to grab the input queue of US... but then also
-     * need to still be able to query later in recv_player_packeet...
-     * damn you borrow checker!!!!! */
-    for (v,t,p,h,c,r,s,a,id,iq) in players_q.iter_mut(){
-        if id.id == client_id.id{
-            inputs = iq.into_inner();
-        }
-    }
+    // /*GOD todo AS FUCK. I want to grab the input queue of US... but then also
+    //  * need to still be able to query later in recv_player_packeet...
+    //  * damn you borrow checker!!!!! */
+    // for (v,t,p,h,c,r,s,a,id,iq, psq) in players_q.iter_mut(){
+    //     if id.id == client_id.id{
+    //         inputs = iq.into_inner();
+    //     }
+    // }
 
     /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
      * packet!! is essential for lamportaging */
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
+            info!("matching idpacket");
             recv_id(&id_packet, &mut sequence, client_id);
-            sequence.assign(&id_packet.head.sequence);
-            client_seq_update(&id_packet.head.sequence, sequence, inputs, packets);
+            client_seq_update(&id_packet.head.sequence, sequence, packets);
         }
         ServerPacket::PlayerPacket(player_packet) => {
             info!("Matching Player Struct");
-            /*  must fix players_q borrow checking (see above) TODODOD */
-            //receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src, sequence);
-            sequence.assign(&player_packet.head.sequence);
-            client_seq_update(&player_packet.head.sequence, sequence, inputs, packets);
+            /*  gahhhh sequence borrow checker is giving me hell */
+            /* if we encounter porblems, it's herer fs */ 
+            receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src, &mut sequence);
+            client_seq_update(&player_packet.head.sequence, sequence, packets);
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
             receive_map_packet(commands, &asset_server, map_packet.matrix);
-            sequence.assign(&map_packet.head.sequence);
-            client_seq_update(&map_packet.head.sequence, sequence, inputs, packets);
+            client_seq_update(&map_packet.head.sequence, sequence, packets);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
             info!{"Matching Enemy Struct"};
-            recv_enemy(&enemy_packet,commands,enemy_q,asset_server,&mut texture_atlases);
-            sequence.assign(&enemy_packet.head.sequence);
-            client_seq_update(&enemy_packet.head.sequence, sequence, inputs, packets);
+            recv_enemy(&enemy_packet, commands, enemy_q, asset_server, &mut texture_atlases);
+            client_seq_update(&enemy_packet.head.sequence, sequence, packets);
         }
     }
 }
@@ -293,7 +296,7 @@ fn receive_player_packet(
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     mut us: ResMut<ClientId>,
     source_ip: SocketAddr,
-    mut sequence: ResMut<Sequence>
+    sequence: &mut ResMut<Sequence>
 ) {
     /* need to know if we were sent a player we don't currently have */
     let mut found_packet = false;
@@ -310,7 +313,8 @@ fn receive_player_packet(
                 crouch: Crouch::new_set(saranpack.crouch),
                 roll: Roll::new_set(saranpack.roll),
                 attack: Attack::new_set(saranpack.attack),
-            };
+                seq: saranpack.head.sequence.clone()
+            }; 
             /* plop em in, handle elsewhere teeeeebs, could be user or
              * another client, we handle these cases differently */
             psq.q.push_back(past);
@@ -350,7 +354,7 @@ fn receive_player_packet(
         /* ok lowk all good just do the recv_id sets if its us */
         if !found_us{
             us.id = saranpack.head.network_id;
-            sequence.new_index(saranpack.head.network_id.into());
+            sequence.new_index(us.id as usize);
             /* here we set the clock values */
             sequence.assign(&saranpack.head.sequence);
         }

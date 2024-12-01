@@ -79,7 +79,7 @@ impl Timestamp {
  * a lil bit */
 #[derive(Resource,Serialize,Deserialize, PartialEq, Debug, Clone)]
 pub struct Sequence{
-    nums: Vec<u64>,
+    pub nums: Vec<u64>,
     index: usize,
 }
 
@@ -95,6 +95,9 @@ impl Sequence{
     /* changes index value */
     pub fn new_index(&mut self, index:usize){
         self.index = index;
+        while index+1 > self.nums.len(){
+            self.nums.push(0);
+        }
     }
     /* simple get, our index if where WE are in vec.
      * gets OUR sequence # */
@@ -106,11 +109,11 @@ impl Sequence{
      * the Vec */
     pub fn assign(&mut self, other:&Sequence){
         /* they have more than we do! */
-        let other_len = other.nums.len();
-        let mut my_len = self.nums.len();
+        let other_len: usize = other.nums.len();
+        let mut my_len: usize = self.nums.len();
         /* iterate over, making sure we have '0' spaces for new clock values */
         if other_len > my_len{
-            while my_len < other_len{
+            while my_len < other_len+1{
                 self.nums.push(0);
                 my_len+=1;
             }
@@ -127,8 +130,10 @@ impl Sequence{
     }
     
     pub fn new(index:usize) -> Self{
+        let mut vec = Vec::new();
+        while vec.len() < index+1{vec.push(0)}
         Self{
-            nums: Vec::with_capacity(index),
+            nums: vec,
             index: index 
         }
     }
@@ -140,14 +145,12 @@ impl Sequence{
 pub fn client_seq_update(
     seq_new: &Sequence,
     mut sequence: ResMut<Sequence>,
-    mut input_q: &mut InputQueue,
     mut packet_q: ResMut<ClientPacketQueue>,
 ){
     /* We must assign.
      * Sequence::assign() is juuuust above^^^^, takes and
      * does another check to see is seq-new is greater, and 
      * then assigns it so our Resource Sequence is ready to go */
-    let old_seq = sequence.get();
     sequence.assign(seq_new);
 
     /* Now we must check, do we have any packets here on the old
@@ -177,14 +180,6 @@ pub fn client_seq_update(
                 => id_packet.head.sequence.assign(seq_new),
         }
     }// ok now we have made out PacketQueue pretty. now for InputQueue
-
-    /* input queue pls.
-     * If the most recent input is using the old sequence,
-     * we should update!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
-    let input_len = input_q.q.len();
-    if input_q.q[input_len].0 == old_seq{
-        input_q.q[input_len].0 = sequence.get();
-    }
 
 
 
