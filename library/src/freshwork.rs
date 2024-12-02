@@ -114,7 +114,7 @@ fn move_over(
 
 fn roll(){}
 
-fn crouchy(){}
+fn crouch(){}
 
 fn item_rotate(){}
 

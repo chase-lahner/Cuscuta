@@ -1,6 +1,6 @@
 use std::net::{SocketAddr, UdpSocket};
 
-use bevy::prelude::*;
+use bevy::{input::keyboard::Key, prelude::*};
 use network::*;
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +20,7 @@ pub fn send_id(
     n_p.count += 1;
     let player_id: u8 = n_p.count;
     addresses.list.push(source_addr);
+    info!("pushing addresss");
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
     let id_send = ServerPacket::IdPacket(IdPacket{
@@ -105,6 +106,7 @@ pub fn listen(
            // update_player_state(src, players, player_packet, commands);
             recieve_input(player_packet, players_q);
         }
+       
     }
 
 
@@ -182,13 +184,13 @@ pub fn send_enemies(
 
 /* once we have our packeet, we must use it to update
  * the player specified, there's another in client.rs*/
-fn update_player_state(
+//fn update_player_state(
     // src: SocketAddr,
     // /* fake query, passed from above system */
     // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     // player_struct: PlayerPacket,
     // mut commands: Commands,
-) { 
+//) { 
 //     // let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
 //     // let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
 //     let mut found = false;
@@ -265,7 +267,7 @@ fn update_player_state(
             
 //         });
 //     }
-}
+//}
 
 // /* Transforms current player state into u8 array that
 //  * we can then send across the wire to be deserialized once it arrives */
