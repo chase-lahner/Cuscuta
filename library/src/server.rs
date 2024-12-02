@@ -365,6 +365,7 @@ fn send_map_packet (
     mut background_query: Query<&Transform, With<Background>>,
     mut potion_query: Query<&Transform, With<Potion>>,
     mut packet_q: ResMut<ServerPacketQueue>,
+    server_seq: ResMut<Sequence>,
 ) {
     let mut map_array: Vec<Vec<u8>>;
     let room_w = 10; //need to grab these values from roomgen fn()
@@ -411,4 +412,5 @@ fn send_map_packet (
         matrix: map_array
     });
 
+    packet_q.packets.push(mappy);
 }
