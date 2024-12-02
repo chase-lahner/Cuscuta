@@ -216,7 +216,7 @@ pub fn listen(
     mut sequence: ResMut<Sequence>,
     mut packets: ResMut<ClientPacketQueue>
 ) {
-    info!("Listening!!!");
+    //info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0; 1024];
     /* grab dat shit */
