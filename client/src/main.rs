@@ -1,8 +1,10 @@
 use bevy::{prelude::*, window::PresentMode};
 use cuscuta_resources::TICKS_PER_SECOND;
 use library::*;
+use std::env;
 
 fn main() {
+    env::set_var("RUST_BACKTRACE", "1");
     App::new()
         /* room manager necessary? */
         .insert_resource(room_gen::RoomManager::new())
@@ -41,5 +43,11 @@ fn main() {
             client::gather_input,
             client::listen,
         ))
+
+
+        .add_systems(FixedUpdate,
+            (client::send_player,
+            client::client_send_packets)
+        )
         .run();
 }

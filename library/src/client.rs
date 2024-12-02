@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::ops::Deref;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -6,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::enemies::{ClientEnemy, Enemy, EnemyKind, EnemyMovement};
 use crate::cuscuta_resources::*;
 use crate::network::{
-    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerC2S, PlayerS2C, Sequence, ServerPacket, Timestamp, UDP
+    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerSendable, Sequence, ServerPacket, Timestamp, UDP
 };
 use crate::player::*;
 
@@ -15,9 +16,6 @@ use crate::player::*;
 pub fn client_send_packets(
     udp: Res<UDP>,
     mut packets: ResMut<ClientPacketQueue>,
-    player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
-    client_id: Res<ClientId>,
-    sequence: Res<Sequence>
 ){
     /* for each packet in queue, we send to server*/
     for pack in &packets.packets{
@@ -31,43 +29,45 @@ pub fn client_send_packets(
 
 }
 
-/* to be called right b4 sending packets */
-pub fn pack_up_input(
-    mut packets: ResMut<ClientPacketQueue>,
-    player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
-    client_id: Res<ClientId>,
-    sequence: ResMut<Sequence>
-){
-     /* for the input queue, we check to make sure that the last item
-     * in it is the right inputs for this sequence value and send off if so */
 
-     /* for all players */
-     for (id, iq) in player_q.iter(){
-        /* if we are us */
-        if id.id == client_id.id{
-            /* grab last input, and check if correct seq */
-            let (seq, keys) = &iq.q[iq.q.len()];
+/* what could have beennnnn.............. goodbye client side prediction */
+// /* to be called right b4 sending packets */
+// pub fn pack_up_input(
+//     mut packets: ResMut<ClientPacketQueue>,
+//     player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
+//     client_id: Res<ClientId>,
+//     sequence: ResMut<Sequence>
+// ){
+//      /* for the input queue, we check to make sure that the last item
+//      * in it is the right inputs for this sequence value and send off if so */
 
-            let pack:ClientPacket;
-            if *seq != sequence.get(){
-                pack = ClientPacket::PlayerPacket(
-                    PlayerC2S{
-                        head: Header::new(client_id.id, sequence.clone()),
-                        key: Vec::new(),
-                    }
-                )
-            }else{
-                pack = ClientPacket::PlayerPacket(
-                    PlayerC2S{
-                        head: Header::new(client_id.id, sequence.clone()),
-                        key: keys.clone(),
-                    }
-                );
-            }
-            packets.packets.push(pack);
-        }
-    }
-}
+//      /* for all players */
+//      for (id, iq) in player_q.iter(){
+//         /* if we are us */
+//         if id.id == client_id.id{
+//             /* grab last input, and check if correct seq */
+//             let (seq, keys) = &iq.q[iq.q.len()];
+
+//             let pack:ClientPacket;
+//             if *seq != sequence.get(){
+//                 pack = ClientPacket::PlayerPacket(
+//                     PlayerSendable{
+//                         head: Header::new(client_id.id, sequence.clone()),
+//                         key: Vec::new(),
+//                     }
+//                 )
+//             }else{
+//                 pack = ClientPacket::PlayerPacket(
+//                     PlayerC2S{
+//                         head: Header::new(client_id.id, sequence.clone()),
+//                         key: keys.clone(),
+//                     }
+//                 );
+//             }
+//             packets.packets.push(pack);
+//         }
+//     }
+// }
 
 /* server send us an id so we can know we are we yk */
 pub fn recv_id(
@@ -113,7 +113,7 @@ pub fn gather_input(
     input: Res<ButtonInput<KeyCode>>,
 ) {
     /* Deconstruct out Query. */
-    for (i, mut q) in player.iter_mut() {
+    for (i, mut iq) in player.iter_mut() {
         /* are we on us????? */
         if i.id == client_id.id {
             /* create a vec of keypresses as our 'this tick'
@@ -149,14 +149,17 @@ pub fn gather_input(
              * of client and servers snapshot of client @ time t to be the same 
              * - rorto */
             
-            let len = q.q.len();
-            if q.q.get_mut(len).unwrap().0 == sequence.get(){
-                let (q_timey, mut q_keys) = q.q.pop().unwrap();
+            let len = iq.q.len();
+            if len == 0{
+                iq.q.push((sequence.get(), keys));
+            }
+            else if iq.q.get_mut(len-1).unwrap().0 == sequence.get(){
+                let (q_timey, mut q_keys) = iq.q.pop().unwrap();
                 q_keys.append(&mut keys);
                 q_keys.dedup();
-                q.q.push((q_timey, q_keys));
+                iq.q.push((q_timey, q_keys));
             }else{
-                q.q.push((sequence.get(), keys));
+                iq.q.push((sequence.get(), keys));
             }
 
             /* so now it's in our input queue!!! what do we want to do from here?
@@ -202,6 +205,7 @@ pub fn listen(
             &mut Attack,
             &mut NetworkId,
             &mut InputQueue,
+            &mut PastStateQueue
         ),
         With<Player>,
     >,
@@ -212,7 +216,7 @@ pub fn listen(
     mut sequence: ResMut<Sequence>,
     mut packets: ResMut<ClientPacketQueue>
 ) {
-    //info!("Listening!!!");
+    info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0; 1024];
     /* grab dat shit */
@@ -234,41 +238,39 @@ pub fn listen(
      * Query */
     let mut inputs: &mut InputQueue = &mut InputQueue::new();
 
-    /*GOD todo AS FUCK. I want to grab the input queue of US... but then also
-     * need to still be able to query later in recv_player_packeet...
-     * damn you borrow checker!!!!! */
-    for (v,t,p,h,c,r,s,a,id,iq) in players_q.iter_mut(){
-        if id.id == client_id.id{
-            inputs = iq.into_inner();
-        }
-    }
+    // /*GOD todo AS FUCK. I want to grab the input queue of US... but then also
+    //  * need to still be able to query later in recv_player_packeet...
+    //  * damn you borrow checker!!!!! */
+    // for (v,t,p,h,c,r,s,a,id,iq, psq) in players_q.iter_mut(){
+    //     if id.id == client_id.id{
+    //         inputs = iq.into_inner();
+    //     }
+    // }
 
     /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
      * packet!! is essential for lamportaging */
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
+            info!("matching idpacket");
             recv_id(&id_packet, &mut sequence, client_id);
-            sequence.assign(&id_packet.head.sequence);
-            client_seq_update(&id_packet.head.sequence, sequence, inputs, packets);
+            client_seq_update(&id_packet.head.sequence, sequence, packets);
         }
         ServerPacket::PlayerPacket(player_packet) => {
             info!("Matching Player Struct");
-            /*  must fix players_q borrow checking (see above) TODODOD */
-            //receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src, sequence);
-            sequence.assign(&player_packet.head.sequence);
-            client_seq_update(&player_packet.head.sequence, sequence, inputs, packets);
+            /*  gahhhh sequence borrow checker is giving me hell */
+            /* if we encounter porblems, it's herer fs */ 
+            receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src, &mut sequence);
+            client_seq_update(&player_packet.head.sequence, sequence, packets);
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
             receive_map_packet(commands, &asset_server, map_packet.matrix);
-            sequence.assign(&map_packet.head.sequence);
-            client_seq_update(&map_packet.head.sequence, sequence, inputs, packets);
+            client_seq_update(&map_packet.head.sequence, sequence, packets);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
             info!{"Matching Enemy Struct"};
-            recv_enemy(&enemy_packet,commands,enemy_q,asset_server,&mut texture_atlases);
-            sequence.assign(&enemy_packet.head.sequence);
-            client_seq_update(&enemy_packet.head.sequence, sequence, inputs, packets);
+            recv_enemy(&enemy_packet, commands, enemy_q, asset_server, &mut texture_atlases);
+            client_seq_update(&enemy_packet.head.sequence, sequence, packets);
         }
     }
 }
@@ -292,11 +294,11 @@ fn receive_player_packet(
         With<Player>,
     >,
     asset_server: &Res<AssetServer>,
-    saranpack: &PlayerS2C,
+    saranpack: &PlayerSendable,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     mut us: ResMut<ClientId>,
     source_ip: SocketAddr,
-    mut sequence: ResMut<Sequence>
+    sequence: &mut ResMut<Sequence>
 ) {
     /* need to know if we were sent a player we don't currently have */
     let mut found_packet = false;
@@ -313,7 +315,8 @@ fn receive_player_packet(
                 crouch: Crouch::new_set(saranpack.crouch),
                 roll: Roll::new_set(saranpack.roll),
                 attack: Attack::new_set(saranpack.attack),
-            };
+                seq: saranpack.head.sequence.clone()
+            }; 
             /* plop em in, handle elsewhere teeeeebs, could be user or
              * another client, we handle these cases differently */
             psq.q.push_back(past);
@@ -353,7 +356,7 @@ fn receive_player_packet(
         /* ok lowk all good just do the recv_id sets if its us */
         if !found_us{
             us.id = saranpack.head.network_id;
-            sequence.new_index(saranpack.head.network_id.into());
+            sequence.new_index(us.id as usize);
             /* here we set the clock values */
             sequence.assign(&saranpack.head.sequence);
         }
@@ -632,3 +635,40 @@ fn receive_map_packet (
         vertical = vertical + TILE_SIZE as f32;
     }
 }
+
+pub fn send_player(
+    player_q: Query<(&NetworkId, &Velocity, &Transform, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
+    mut packet_queue: ResMut<ClientPacketQueue>,
+    seq: Res<Sequence>,
+    clientid: Res<ClientId>
+){
+    for (id, velo, trans, heal, crouch, roll, sprint, attack) in player_q.iter(){
+        if id.id == clientid.id{
+            let to_send = ClientPacket::PlayerPacket(PlayerSendable{
+                head: Header{ network_id: id.id, sequence: seq.clone() },
+                transform: trans.clone(),
+                velocity: velo.velocity,
+                health: heal.clone(),
+                crouch: crouch.crouching,
+                attack: attack.attacking,
+                roll: roll.rolling,
+                sprint: sprint.sprinting,
+            });
+            packet_queue.packets.push(to_send);
+        }
+    }
+}
+
+
+/* interpolate player/enemy
+
+use Res<ClientId> to find players that are not us. From there, use the
+PastStateQueue to get the average movement yk. We gotta do some queue squashing to
+make sure we don't have a bunch of repeats
+
+I dont think you need to worry about sequence, just use the implied order
+from our vec.push()
+
+
+
+can do same with enemy but a paststatequeue needs creted for their stuff yk yk yk*/

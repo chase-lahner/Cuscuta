@@ -43,8 +43,6 @@ use crate::{ui::CarnageBar, cuscuta_resources::*, player::*, network::Timestamp}
 
 /* move player a smidge up, called on keypress "W" */
 fn move_over(
-    curr_time:u64,
-    input_time:u64,
     velocity:&mut Velocity,
     transform:&mut Transform,
     sprinting:bool,
@@ -62,7 +60,7 @@ fn move_over(
      * I shall return here at some point im sure */
 
     /* calulate time between last input used */
-    let delta_time: u64 = curr_time - input_time;
+    let delta_time: f64 = 1. / TICKS_PER_SECOND;
     /* Use said timedelta to calculate estimated acceleration rate */
     let mut acceleration: <f32 as Mul<f32>>::Output = ACCELERATION_RATE * delta_time as f32;
     let mut max_speed = PLAYER_SPEED;

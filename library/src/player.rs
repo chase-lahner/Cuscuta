@@ -4,11 +4,12 @@ use std::collections::VecDeque;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::network::Sequence;
 use crate::{
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{PlayerS2C, Timestamp},
+    network::{PlayerSendable, Timestamp},
     room_gen::*,
     ui::CarnageBar,
 };
@@ -135,8 +136,9 @@ pub struct ServerPlayerBundle {
     pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack,
-    pub inputs: InputQueue,
-    pub time: Timestamp,
+    pub player: Player
+    //pub inputs: InputQueue,
+    //pub time: Timestamp,
 }
 
 #[derive(Component, Serialize, Deserialize)]
@@ -160,7 +162,55 @@ pub struct PastState{
     pub crouch: Crouch,
     pub roll: Roll,
     pub attack: Attack,
+    pub seq: Sequence,
 }
+
+impl PastState{
+    pub fn new() -> Self{
+        Self{
+            velo: Velocity::new(),
+            transform: Transform::from_xyz(0.,0.,0.),
+            crouch: Crouch::new(),
+            roll: Roll::new(),
+            attack: Attack::new(),
+            seq: Sequence::new(0)
+        }
+    }
+}
+
+/* we want to have a singular update fn, so we can call it from both the client
+ * and player. I'm gonna have us pass the tuple deconstructed from a query,
+ * so it makes it a bit more general. I think I may also have it return a tuple
+ * of player, so we can apply as we feel necessary. */
+pub fn update_player(
+    mut player: (&mut Transform, &mut Velocity, &mut NetworkId, &mut InputQueue, &PastStateQueue),
+
+){
+    /* de tup-ify */
+    let (transform, velo, id, iq, psq) = player;
+
+    /* does this buff give us any "use this index rn" type stuff??
+     * Didn't see, so I am just iterating to find most recent state to use
+     * PastState::new() establishes Sequence with 0 index  */
+    let mut recent_state = &PastState::new();
+    for state in psq.q.iter(){
+        if state.seq.get() > recent_state.seq.get(){
+            recent_state = state;
+        }
+    }
+
+    /* we now have the most recent state sent by the server in recent_state */
+    
+
+
+
+}
+
+
+
+
+
+
 
 pub fn player_attack(
     time: Res<Time>,
@@ -331,7 +381,7 @@ pub fn client_spawn_other_player_new(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    player: PlayerS2C,
+    player: PlayerSendable,
     source_ip: SocketAddr,
 ) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
@@ -388,7 +438,7 @@ pub fn client_spawn_other_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    player: PlayerS2C,
+    player: PlayerSendable,
     source_ip: SocketAddr,
 ) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
