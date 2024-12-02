@@ -4,7 +4,7 @@ use bevy::{input::keyboard::Key, prelude::*};
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{AddressList, Health, PlayerCount, Velocity}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
+use crate::{cuscuta_resources::{self, AddressList, Health, PlayerCount, Velocity}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client via the packet queue */
@@ -23,6 +23,7 @@ pub fn send_id(
     info!("pushing addresss");
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
+    server_seq.nums.push(0);
     let id_send = ServerPacket::IdPacket(IdPacket{
         head: Header::new(player_id,server_seq.clone())});
 
@@ -41,11 +42,10 @@ pub fn send_id(
         rolling: Roll::new(),
         sprinting: Sprint::new(),
         attacking: Attack::new(),
-        inputs: InputQueue::new(),
-        time: Timestamp::new(0),//TODO set time properly
+        player: Player
     });
     /* same shit but now we sending off to the cleint */
-    let playa = ServerPacket::PlayerPacket(PlayerS2C{
+    let playa = ServerPacket::PlayerPacket(PlayerSendable{
         head: Header::new(player_id,server_seq.clone()),//TODO TIMESTAMPS
         transform: Transform{
             translation: Vec3{
@@ -103,8 +103,7 @@ pub fn listen(
             send_id(src,  n_p.as_mut(), commands, addresses, server_seq, packet_q)},
         ClientPacket::PlayerPacket(player_packet) => {
             // TODO: Fix this
-           // update_player_state(src, players, player_packet, commands);
-            recieve_input(player_packet, players_q);
+            update_player_state(src, players_q, player_packet, commands);
         }
        
     }
@@ -114,7 +113,7 @@ pub fn listen(
 
 /* uses items in packetQueue to send to all clients,
  * and removes them from the list.  */
-fn server_send_packets(
+pub fn server_send_packets(
     mut packet_q: ResMut<ServerPacketQueue>,
     udp: Res<UDP>,
     addresses: ResMut<AddressList>,
@@ -136,29 +135,29 @@ fn server_send_packets(
     
 }
 
-//TOTOTOODODODODODODODO--------------------------------
-fn recieve_input(
-    client_pack: PlayerC2S,
-    mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
-         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
-          &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,
-){
-    // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
-    /* for all players in server game world */
-    for (v, t, h, c, r, s, a, id, mut iq, time) in players_q.iter_mut(){
-        /* if we find the one corresponding to our packet */
-        if client_pack.head.network_id == id.id {
-            /* for all the keys passed on the clients update */
-            iq.q.push((client_pack.head.sequence.get(), client_pack.key.clone()));
+// //TOTOTOODODODODODODODO--------------------------------
+// fn recieve_input(
+//     client_pack: PlayerC2S,
+//     mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
+//          &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
+//           &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,
+// ){
+//     // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
+//     /* for all players in server game world */
+//     for (v, t, h, c, r, s, a, id, mut iq, time) in players_q.iter_mut(){
+//         /* if we find the one corresponding to our packet */
+//         if client_pack.head.network_id == id.id {
+//             /* for all the keys passed on the clients update */
+//             iq.q.push((client_pack.head.sequence.get(), client_pack.key.clone()));
             
-            /* ok if we want to update immediately then we od it right here
-             * buuuuut the fn takes in diff args than we have (odd query). TBH
-             * i am down to plop in the main logic loop for now, no reaason to use
-             * any data longer than we have to, right?? (is not in main logic loop as of
-             * 11/19 3:31pm*/
-        }
-    }
-}
+//             /* ok if we want to update immediately then we od it right here
+//              * buuuuut the fn takes in diff args than we have (odd query). TBH
+//              * i am down to plop in the main logic loop for now, no reaason to use
+//              * any data longer than we have to, right?? (is not in main logic loop as of
+//              * 11/19 3:31pm*/
+//         }
+//     }
+// }
 
 pub fn send_enemies(
     enemies: Query<(& EnemyId, & EnemyMovement), 
@@ -182,15 +181,15 @@ pub fn send_enemies(
 }
 
 
-/* once we have our packeet, we must use it to update
- * the player specified, there's another in client.rs*/
-//fn update_player_state(
-    // src: SocketAddr,
-    // /* fake query, passed from above system */
-    // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    // player_struct: PlayerPacket,
-    // mut commands: Commands,
-//) { 
+// /* once we have our packeet, we must use it to update
+//  * the player specified, there's another in client.rs*/
+// fn update_player_state_OLD_AND_BROKEN(
+//     src: SocketAddr,
+//     /* fake query, passed from above system */
+//     mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
+//     player_struct: PlayerPacket,
+//     mut commands: Commands,
+// ) { 
 //     // let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
 //     // let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
 //     let mut found = false;
@@ -222,52 +221,56 @@ pub fn send_enemies(
 //     }
 // }
 
-// fn update_player_state_new(
-//     src: SocketAddr,
-//     mut players: Query<(&mut Velocity,  &mut Transform, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), (With<Player>, Without<Enemy>)>,
-//     player_struct: NewPlayerPacket,
-//     mut commands: Commands
-// ){
-//     let mut found = false;
-//     for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id) in players.iter_mut(){
+fn update_player_state(
+    src: SocketAddr,
+    mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
+        &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
+         &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,
+    player_struct: PlayerSendable,
+    mut commands: Commands
+){
+    let mut found = false;
+    for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id, iq, t) in players_q.iter_mut(){
 
-//         if id.id == player_struct.client_bundle.id.id {
-//             trans.translation.x = player_struct.client_bundle.transform.translation.x;
-//             trans.translation.y = player_struct.client_bundle.transform.translation.y;
-//             vel.velocity.x = player_struct.client_bundle.velo.velocity.x;
-//             vel.velocity.y = player_struct.client_bundle.velo.velocity.y;
-//             health.current = player_struct.client_bundle.health.current;
-//             crouching.crouching = player_struct.client_bundle.crouching.crouching;
-//             rolling.rolling = player_struct.client_bundle.rolling.rolling;
-//             sprinting.sprinting = player_struct.client_bundle.sprinting.sprinting;
-//             attacking.attacking = player_struct.client_bundle.attacking.attacking;
-//             // *trans = player_struct.client_bundle.transform;
-//             // *vel = player_struct.client_bundle.velo;
-//             // *health = player_struct.client_bundle.health;
-//             // *crouching = player_struct.client_bundle.crouching;
-//             // *rolling = player_struct.client_bundle.rolling;
-//             // *sprinting = player_struct.client_bundle.sprinting;
-//             // *attacking = player_struct.client_bundle.attacking;
-//             found = true;
-//         }
+        if id.id == player_struct.head.network_id {
+            info!("updaetd");
+            trans.translation.x = player_struct.transform.translation.x;
+            trans.translation.y = player_struct.transform.translation.y;
+            vel.velocity.x = player_struct.velocity.x;
+            vel.velocity.y = player_struct.velocity.y;
+            health.current = player_struct.health.current;
+            crouching.crouching = player_struct.crouch;
+            rolling.rolling = player_struct.roll;
+            sprinting.sprinting = player_struct.sprint;
+            attacking.attacking = player_struct.attack;
+            // *trans = player_struct.client_bundle.transform;
+            // *vel = player_struct.client_bundle.velo;
+            // *health = player_struct.client_bundle.health;
+            // *crouching = player_struct.client_bundle.crouching;
+            // *rolling = player_struct.client_bundle.rolling;
+            // *sprinting = player_struct.client_bundle.sprinting;
+            // *attacking = player_struct.client_bundle.attacking;
+            found = true;
+        }
 
-//     }
-//     if !found {
-//         let v = player_struct.client_bundle.velo;
-//         commands.spawn(ServerPlayerBundle{
-//             velo: v,
-//             transform: player_struct.client_bundle.transform,
-//             id: player_struct.client_bundle.id,
-//             player: player_struct.client_bundle.player,
-//             health: player_struct.client_bundle.health,
-//             rolling: player_struct.client_bundle.rolling,
-//             crouching: player_struct.client_bundle.crouching,
-//             sprinting: player_struct.client_bundle.sprinting,
-//             attacking: player_struct.client_bundle.attacking
-            
-//         });
-//     }
-//}
+    }
+    if !found {
+        info!("spawning anew with id{}", player_struct.head.network_id);
+        let v = cuscuta_resources::Velocity { velocity: player_struct.velocity };
+        commands.spawn(ServerPlayerBundle {
+            velo: v,
+            transform: player_struct.transform,
+            id: NetworkId::new_s(player_struct.head.network_id, src),
+            health: player_struct.health,
+            rolling: Roll::new_set(player_struct.roll),
+            crouching: Crouch::new_set(player_struct.crouch),
+            sprinting: Sprint::new_set(player_struct.sprint),
+            attacking: Attack::new_set(player_struct.attack), 
+            player: Player
+        });
+    }
+}
+
 
 // /* Transforms current player state into u8 array that
 //  * we can then send across the wire to be deserialized once it arrives */
@@ -313,14 +316,14 @@ pub fn send_enemies(
  * we can then send across the wire to be deserialized once it arrives */
  pub fn send_player(
     player : Query<(&Velocity, &Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
-    mut server_seq: ResMut<Sequence>,
+    server_seq: ResMut<Sequence>,
     mut packet_q: ResMut<ServerPacketQueue>,
 )
 {
     /* For each player in the game*/
     for (v, t, i, h, c, r, s, a,)  in player.iter(){
         /* packet-ify it */
-        let outgoing_state  = ServerPacket::PlayerPacket(PlayerS2C {
+        let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
             transform: *t,
             head: Header::new(i.id,server_seq.clone()),
             attack: a.attacking,
@@ -329,8 +332,6 @@ pub fn send_enemies(
             crouch: c.crouching,
             roll: r.rolling,
             sprint: s.sprinting,
-
-            
         });
         /* push onto the 'to-send' queue */
         packet_q.packets.push(outgoing_state);
