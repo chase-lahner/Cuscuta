@@ -43,6 +43,18 @@ impl CarnageBar{
         self.carnage = (self.carnage - amount).clamp(0. , 100.);
         self.stealth = 100. - self.carnage;
     }
+
+    pub fn get_carnage(&mut self) -> f32 {
+       return self.carnage;
+    }
+
+    pub fn get_stealth(&mut self) -> f32 {
+        return self.stealth;
+    }
+
+    pub fn get_overall_percentage(&mut self) -> f32 {
+        return self.stealth / 100.;
+    }
 }
 
 #[derive(Component)]

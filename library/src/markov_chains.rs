@@ -1,6 +1,7 @@
 use std::vec::Vec;
 use crate::cuscuta_resources::*;
-use crate::ui:CarnageBar;
+use crate::ui::CarnageBar;
+use bevy::prelude::*;
 
 pub enum Room_Attributes{
     Room_Size,
@@ -11,39 +12,102 @@ pub enum Room_Attributes{
 }
 
 impl Room_Attributes {
-    fn get_preset_vector(&self) -> Vec<Vec<f32>> {
-        match self {
-            Room_Attributes::Room_Size => vec![
-                //Large, Medium, Small
+    pub fn get_preset_matrix() -> [Vec<Vec<f32>>; 5] {
+        [
+            vec![
+                // Room_Size: Large, Medium, Small
                 vec![0.2, 0.3, 0.5],
                 vec![0.25, 0.5, 0.25],
                 vec![0.4, 0.5, 0.1],
             ],
-            Room_Attributes::Inner_Walls => vec![
-                //Some, Little, None
+            vec![
+                // Inner_Walls: Some, Little, None
                 vec![0.0, 0.35, 0.65],
                 vec![0.25, 0.5, 0.25],
                 vec![0.10, 0.8, 0.10],
             ],
-            Room_Attributes::Enemy_Count => vec![
-                //Many, Some, Few
+            vec![
+                // Enemy_Count: Many, Some, Few
                 vec![0.0, 0.35, 0.65],
                 vec![0.25, 0.5, 0.25],
                 vec![0.10, 0.8, 0.10],
             ],
-            Room_Attributes::Enemy_Type => vec![
-                //Stealth, Both, Carnage
+            vec![
+                // Enemy_Type: Stealth, Both, Carnage
                 vec![0.0, 0.35, 0.65],
                 vec![0.25, 0.5, 0.25],
                 vec![0.10, 0.8, 0.10],
             ],
-            Room_Attributes::Item_Count => vec![
-                //Some, Little, None
+            vec![
+                // Item_Count: Some, Little, None
                 vec![0.0, 0.35, 0.65],
                 vec![0.25, 0.5, 0.25],
                 vec![0.10, 0.8, 0.10],
             ],
+        ]
+    }
+
+    pub fn get_matrix_for_attribute(attribute: Room_Attributes) -> Vec<Vec<f32>> {
+        let all_vectors = Room_Attributes::get_preset_matrix();
+        match attribute {
+            Room_Attributes::Room_Size => all_vectors[0].clone(),
+            Room_Attributes::Inner_Walls => all_vectors[1].clone(),
+            Room_Attributes::Enemy_Count => all_vectors[2].clone(),
+            Room_Attributes::Enemy_Type => all_vectors[3].clone(),
+            Room_Attributes::Item_Count => all_vectors[4].clone(),
         }
+    }
+}
+
+#[derive(Resource)]
+pub struct LastAttributeArray {
+    pub attributes: [u8; 5], 
+}
+
+impl LastAttributeArray {
+    // Constructor to initialize all values to 0 (default to "high")
+    pub fn new() -> Self {
+        Self { attributes: [1; 5] }
+    }
+
+    // Method to set a specific attribute
+    pub fn set_attribute(&mut self, index: usize, value: u8) {
+        if index < self.attributes.len() && value <= 2 {
+            self.attributes[index] = value;
+        } else {
+            println!("Invalid index or value!");
+        }
+    }
+
+    // Method to get the value of a specific attribute
+    pub fn get_attribute(&self, index: usize) -> Option<u8> {
+        self.attributes.get(index).copied()
+    }
+}
+
+#[derive(Resource)]
+pub struct NextAttributeArray {
+    pub attributes: [u8; 5], 
+}
+
+impl NextAttributeArray {
+    // Constructor to initialize all values to 0 (default to "high")
+    pub fn new() -> Self {
+        Self { attributes: [0; 5] }
+    }
+
+    // Method to set a specific attribute
+    pub fn set_next_attribute(&mut self, index: usize, value: u8) {
+        if index < self.attributes.len() && value <= 2 {
+            self.attributes[index] = value;
+        } else {
+            println!("Invalid index or value!");
+        }
+    }
+
+    // Method to get the value of a specific attribute
+    pub fn get_attribute(&self, index: usize) -> Option<u8> {
+        self.attributes.get(index).copied()
     }
 }
 
@@ -72,18 +136,19 @@ pub fn Skew(input_matrix: Vec<Vec<f32>>, carnage_percent:f32) -> Vec<Vec<f32>> {
     if up_flag == 0{
         for (i, row) in input_matrix.iter().enumerate() {
             for (j, &value) in row.iter().enumerate() {
-                skewed_matrix[i][j] = (1-2*(carnage_percent))*skew_vec[j]+(2*carnage_percent)*value;
+                skewed_matrix[i][j] = (1.-2.*(carnage_percent))*skew_vec[j]+(2.*carnage_percent)*value;
             }
         }
     }else{
         for (i, row) in input_matrix.iter().enumerate() {
             for (j, &value) in row.iter().enumerate() {
-                skewed_matrix[i][j] = (1-2*(carnage_percent-0.5))*value+(2*(carnage_percent-0.5))*skew_vec[j];
+                skewed_matrix[i][j] = (1.-2.*(carnage_percent-0.5))*value+(2.*(carnage_percent-0.5))*skew_vec[j];
             }
         }
     }
     skewed_matrix
 }
+
 
 
 

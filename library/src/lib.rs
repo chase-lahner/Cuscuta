@@ -10,3 +10,4 @@ pub mod room_gen;
 pub mod server;
 pub mod freshwork;
 pub mod client;
+pub mod markov_chains;
