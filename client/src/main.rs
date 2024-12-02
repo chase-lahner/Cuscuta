@@ -4,6 +4,7 @@ use library::*;
 
 fn main() {
     App::new()
+        /* room manager necessary? */
         .insert_resource(room_gen::RoomManager::new())
         .insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND))
         .add_systems(PreStartup, init::ip_setup) // should run before we spawn / send data to server
@@ -18,10 +19,10 @@ fn main() {
          }))
          .add_systems(Startup,(
             init::client_setup, 
-            client::id_request.after(init::client_setup),
-            enemies::spawn_enemies)
+            client::id_request.after(init::client_setup))
         )
         .add_systems(Update, (
+            client::gather_input,
             player::move_player,
             //player::player_input,
             //player::update_player_position.after(player::player_input),
@@ -35,9 +36,10 @@ fn main() {
             player::player_interact
         )) 
         /* networking shtuff. comment out if needed */
-        .add_systems(FixedUpdate,
-            (client::send_player,
-            client::listen
+
+        .add_systems(Update, (
+            client::gather_input,
+            client::listen,
         ))
         .run();
 }

@@ -1,10 +1,16 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::collections::VecDeque;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    collision::{self, *}, cuscuta_resources::*, enemies::Enemy, network::{PlayerS2C, Timestamp}, room_gen::*, ui::CarnageBar
+    collision::{self, *},
+    cuscuta_resources::*,
+    enemies::Enemy,
+    network::{PlayerS2C, Timestamp},
+    room_gen::*,
+    ui::CarnageBar,
 };
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -16,12 +22,16 @@ pub struct NetworkId {
     pub addr: SocketAddr,
 }
 impl NetworkId {
-    pub fn new() -> Self {
+    pub fn new(id: u8) -> Self {
         Self {
-            id: 0,
+            id: id,
             /* stupid fake NULL(not really) ass address. dont use this. is set when connection established */
             addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
         }
+    }
+    /* one good thing about java is reusing fn name*/
+    pub fn new_s(id: u8, sock: SocketAddr) -> Self {
+        Self { id: id, addr: sock }
     }
 }
 
@@ -33,6 +43,11 @@ impl Crouch {
     pub fn new() -> Self {
         Self { crouching: false }
     }
+    pub fn new_set(b:bool) ->Self{
+        Self{
+            crouching:b
+        }
+    }
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -43,7 +58,12 @@ impl Roll {
     pub fn new() -> Self {
         Self { rolling: false }
     }
-}
+    pub fn new_set(b:bool) -> Self{
+        Self{
+            rolling: b
+        }
+    }
+ }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Sprint {
@@ -52,6 +72,11 @@ pub struct Sprint {
 impl Sprint {
     pub fn new() -> Self {
         Self { sprinting: false }
+    }
+    pub fn new_set(b: bool) -> Self{
+        Self{
+            sprinting:b
+        }
     }
 }
 /* global boolean to not re-attack */
@@ -63,35 +88,32 @@ impl Attack {
     pub fn new() -> Self {
         Self { attacking: false }
     }
+    pub fn new_set(b:bool) -> Self{
+        Self{
+            attacking:b
+        }
+    }
 }
 
-#[derive(Component, Serialize, Deserialize)]
-pub struct InputQueue{
-    pub q: Vec<(Timestamp, KeyCode),>
+#[derive(Component, Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct InputQueue {
+    pub q: Vec<(u64, Vec<KeyCode>)>,
 }
 
+impl InputQueue {
+    pub fn new() -> Self {
+        Self { q: Vec::new() }
+    }
+}
+
+/* pub */
 #[derive(Bundle)]
 pub struct ClientPlayerBundle {
-    sprite: SpriteBundle,
-    atlas: TextureAtlas,
-    animation_timer: AnimationTimer,
-    animation_frames: AnimationFrameCount,
-    velo: Velocity,
-    id: NetworkId,
-    player: Player,
-    health: Health,
-    crouching: Crouch,
-    rolling: Roll,
-    sprinting: Sprint,
-    attacking: Attack,
-    inputs: InputQueue,
-
-}
-
-#[derive(Bundle, Serialize, Deserialize)]
-pub struct ServerPlayerBundle {
+    pub sprite: SpriteBundle,
+    pub atlas: TextureAtlas,
+    pub animation_timer: AnimationTimer,
+    pub animation_frames: AnimationFrameCount,
     pub velo: Velocity,
-    pub transform: Transform,
     pub id: NetworkId,
     pub player: Player,
     pub health: Health,
@@ -99,7 +121,45 @@ pub struct ServerPlayerBundle {
     pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack,
-    inputs: InputQueue,
+    pub inputs: InputQueue,
+    pub states: PastStateQueue
+}
+
+#[derive(Bundle, Serialize, Deserialize)]
+pub struct ServerPlayerBundle {
+    pub id: NetworkId,
+    pub velo: Velocity,
+    pub transform: Transform,
+    pub health: Health,
+    pub crouching: Crouch,
+    pub rolling: Roll,
+    pub sprinting: Sprint,
+    pub attacking: Attack,
+    pub inputs: InputQueue,
+    pub time: Timestamp,
+}
+
+#[derive(Component, Serialize, Deserialize)]
+pub struct PastStateQueue{
+    pub q: VecDeque<PastState> // double ended queue, will wrap around when full
+}
+
+impl PastStateQueue{
+    pub fn new() -> Self{
+        Self{
+            q: VecDeque::with_capacity(2) // store current and previous states
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct PastState{
+    pub velo: Velocity,
+    pub transform: Transform,
+    pub crouch: Crouch,
+    pub roll: Roll,
+    pub attack: Attack,
 }
 
 pub fn player_attack(
@@ -266,13 +326,14 @@ pub fn player_attack_enemy(
 //     });
 // }
 
+/* deprecated */
 pub fn client_spawn_other_player_new(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     player: PlayerS2C,
-    source_ip:SocketAddr,
-){
+    source_ip: SocketAddr,
+) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
     let player_layout = TextureAtlasLayout::from_grid(
         UVec2::splat(TILE_SIZE),
@@ -285,34 +346,49 @@ pub fn client_spawn_other_player_new(
     let player_layout_handle = texture_atlases.add(player_layout);
     // spawn player at origin
     commands.spawn(ClientPlayerBundle {
-        sprite: SpriteBundle { 
+        sprite: SpriteBundle {
             texture: player_sheet_handle,
-            transform: player.client_bundle.transform,
+            transform: player.transform,
             ..default()
         },
-        rolling: player.client_bundle.rolling,
+        rolling: Roll {
+            rolling: player.roll,
+        },
         atlas: TextureAtlas {
             layout: player_layout_handle,
             index: 0,
         },
         animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
         animation_frames: AnimationFrameCount(player_layout_len),
-        velo: player.client_bundle.velo,
-        id:player.client_bundle.id,
+        velo: Velocity {
+            velocity: player.velocity,
+        },
+        id: NetworkId {
+            id: player.head.network_id,
+            addr: source_ip,
+        },
         player: Player,
-        health: player.client_bundle.health,
-        crouching: player.client_bundle.crouching,
-        sprinting: player.client_bundle.sprinting,
-        attacking: player.client_bundle.attacking,
+        health: player.health,
+        crouching: Crouch {
+            crouching: player.crouch,
+        },
+        sprinting: Sprint {
+            sprinting: player.sprint,
+        },
+        attacking: Attack {
+            attacking: player.attack,
+        },
+        inputs: InputQueue::new(),
+        states: PastStateQueue::new()
     });
-
 }
 
+/*deprecated */
 pub fn client_spawn_other_player(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    player: PlayerPacket,
+    player: PlayerS2C,
     source_ip: SocketAddr,
 ) {
     let player_sheet_handle = asset_server.load("player/4x8_player.png");
@@ -330,7 +406,11 @@ pub fn client_spawn_other_player(
     commands.spawn(ClientPlayerBundle {
         sprite: SpriteBundle {
             texture: player_sheet_handle,
-            transform: Transform::from_xyz(player.transform_x, player.transform_y, 900.),
+            transform: Transform::from_xyz(
+                player.transform.translation.x,
+                player.transform.translation.y,
+                900.,
+            ),
             ..default()
         },
         rolling: Roll::new(),
@@ -342,7 +422,7 @@ pub fn client_spawn_other_player(
         animation_frames: AnimationFrameCount(player_layout_len),
         velo: Velocity::new(),
         id: NetworkId {
-            id: player.id,
+            id: player.head.network_id,
             addr: source_ip,
         },
         player: Player,
@@ -350,6 +430,8 @@ pub fn client_spawn_other_player(
         crouching: Crouch { crouching: false },
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
+        inputs: InputQueue::new(),
+        states: PastStateQueue::new()
     });
 }
 
@@ -367,7 +449,7 @@ pub fn player_interact(
     client_id: Res<ClientId>,
     mut pot_q: Query<&mut Pot>,
     mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>,
-    mut texture_atlas: Query<&mut TextureAtlas, (With<Pot>, Without<Player>)>
+    mut texture_atlas: Query<&mut TextureAtlas, (With<Pot>, Without<Player>)>,
 ) {
     let mut pot = pot_q.single_mut();
     let pot_transform = pot_transform_q.single_mut();
@@ -390,9 +472,8 @@ pub fn player_interact(
                 info!("you got touched");
                 pot.touch += 1;
 
-                if pot.touch == 1
-                {
-                    pot_atlas.index = pot_atlas.index+1;
+                if pot.touch == 1 {
+                    pot_atlas.index = pot_atlas.index + 1;
                 }
                 //TODO
             }
@@ -574,7 +655,7 @@ pub fn move_player(
             1.0
         };
 
-        let crouch_multiplier = if input.pressed(KeyCode::KeyC){
+        let crouch_multiplier = if input.pressed(KeyCode::KeyC) {
             CROUCH_MULTIPLIER
         } else {
             1.0
