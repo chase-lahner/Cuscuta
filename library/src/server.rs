@@ -4,7 +4,7 @@ use bevy::{input::keyboard::Key, prelude::*};
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, Health, PlayerCount, Velocity}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}};
+use crate::{cuscuta_resources::{self, AddressList, Health, PlayerCount, Velocity}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::Room};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client via the packet queue */
@@ -71,8 +71,7 @@ pub fn listen(
     commands: Commands,
     // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
-         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
-          &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,//eek a lot
+         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), (With<Player>, Without<Enemy>)>,//eek a lot
     mut n_p: ResMut<PlayerCount>,
     addresses: ResMut<AddressList>,
     server_seq: ResMut<Sequence>,
@@ -116,17 +115,27 @@ pub fn listen(
 pub fn server_send_packets(
     mut packet_q: ResMut<ServerPacketQueue>,
     udp: Res<UDP>,
-    addresses: ResMut<AddressList>,
+    addresses: Query<(&NetworkId)>,
 ){
     /* for all packets in queue */
     for packet in packet_q.packets.iter(){
         let mut serializer = flexbuffers::FlexbufferSerializer::new();
         packet.serialize(&mut serializer).unwrap();
-        let packet: &[u8] = serializer.view();
+        let packet_crunch: &[u8] = serializer.view();
         /* send to all users */
-        for address in addresses.list.iter()
-        {
-            udp.socket.send_to(&packet, address).unwrap();
+        for address in addresses.iter(){
+            /* buuuuuut if its a person don't send it to them,
+             * who needs server authority anyways!? */
+
+            match packet{
+                ServerPacket::PlayerPacket(play) => {
+                    if address.id == play.head.network_id{
+                        continue;
+                    }
+                }
+                _ => {}//fine{}
+            }
+            udp.socket.send_to(&packet_crunch, address.addr).unwrap();
         }
         /* I want to deleteteeeeeee. What's rust's free thing? We
          * all good to just like make a new one? Or is that grim */
@@ -233,7 +242,7 @@ fn update_player_state(
     for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id) in players_q.iter_mut(){
 
         if id.id == player_struct.head.network_id {
-            info!("updaetd");
+         //   info!("updaetd");
             trans.translation.x = player_struct.transform.translation.x;
             trans.translation.y = player_struct.transform.translation.y;
             vel.velocity.x = player_struct.velocity.x;
@@ -351,8 +360,55 @@ fn update_player_state(
 9 - bottom wall */
 fn send_map_packet (
     mut commands: Commands,
-    mut room_query: Query<Entity, With<Room>>, 
-    map_array: Vec<Vec<u8>>
+    mut door_query: Query<&Transform &DoorType, With<Door>>, 
+    mut wall_query: Query<&Transform, With<Wall>>, 
+    mut background_query: Query<&Transform, With<Background>>,
+    mut potion_query: Query<&Transform, With<Potion>>,
+    mut packet_q: ResMut<ServerPacketQueue>,
 ) {
-    
+    let mut map_array: Vec<Vec<u8>>;
+    let room_w = 10; //need to grab these values from roomgen fn()
+    let room_h = 5;
+
+    for tile in background_query.iter()
+    {
+        let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
+        let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
+        map_array[arr_x][arr_y] = 0;
+    }
+
+    for tile in door_query.iter()
+    {
+        let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
+        let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
+        match tile.doortype{
+            0 => map_array[arr_x][arr_y] = 5,
+            1 => map_array[arr_x][arr_y] = 4,
+            2 => map_array[arr_x][arr_y] = 6,
+            3 => map_array[arr_x][arr_y] = 7
+        }
+    }
+
+    for tile in wall_query.iter()
+    {
+        let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
+        let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
+        if(arr_x == 0){map_array[arr_x][arr_y] = 1;}
+        else if(arr_y == 0){map_array[arr_x][arr_y] = 9;}
+        else if(arr_x == room_w/32){map_array[arr_x][arr_y] = 2;}
+        else {map_array[arr_x][arr_y] = 8;}
+    }
+
+    for tile in potion_query.iter()
+    {
+        let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
+        let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
+        map_array[arr_x][arr_y] = 3;
+    }
+
+    let mappy = ServerPacket::MapPacket(MapS2C{
+        head: Header::new(i.id,server_seq.clone()),
+        matrix: map_array
+    });
+
 }

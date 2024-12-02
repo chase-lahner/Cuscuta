@@ -66,7 +66,7 @@ pub enum EnemyKind {
 
 /* Constuctors for enemies, using const declared above */
 impl EnemyKind {
-    fn skeleton() -> Self {
+    pub fn skeleton() -> Self {
         EnemyKind::Skeleton(Enemy::new(
             String::from(SK_NAME),
             String::from(SK_PATH),
@@ -78,7 +78,7 @@ impl EnemyKind {
             SK_SIZE,
         ))
     }
-    fn berry() -> Self {
+    pub fn berry() -> Self {
         EnemyKind::BerryRat(Enemy::new(
             String::from(BR_NAME),
             String::from(BR_PATH),
@@ -90,7 +90,7 @@ impl EnemyKind {
             BR_SIZE,
         ))
     }
-    fn ninja() -> Self {
+    pub fn ninja() -> Self {
         EnemyKind::Ninja(Enemy::new(
             String::from(N_NAME),
             String::from(N_PATH),
@@ -102,7 +102,7 @@ impl EnemyKind {
             N_SIZE,
         ))
     }
-    fn splatmonkey() -> Self {
+    pub fn splatmonkey() -> Self {
         EnemyKind::SplatMonkey(Enemy::new(
             String::from(SP_NAME),
             String::from(SP_PATH),
@@ -114,7 +114,7 @@ impl EnemyKind {
             SP_SIZE,
         ))
     }
-    fn boss() -> Self {
+    pub fn boss() -> Self {
         EnemyKind::Boss(Enemy::new(
             String::from(B_NAME),
             String::from(B_PATH),

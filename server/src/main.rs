@@ -13,7 +13,7 @@ fn main() {
             Startup,
             (
                 init::server_setup,
-                enemies::spawn_enemies.after(init::server_setup),
+                enemies::server_spawn_enemies.after(init::server_setup),
             ),
         )
         .add_systems(
