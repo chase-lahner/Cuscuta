@@ -964,7 +964,7 @@ fn generate_doors(
 
 
         // LEFT DOOR
-        if (room_manager.get_room_value(left_x - 1, top_y + half_height) != Some(1)){
+        if room_manager.get_room_value(left_x - 1, top_y + half_height) != Some(1) {
             // Left door
             let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
             let door_left_y = TILE_SIZE as f32 / 2.0;
@@ -985,7 +985,7 @@ fn generate_doors(
             let ycoord_left = (door_left_y + max_y) as usize;
             set_collide(room_manager, xcoord_left, ycoord_left, 2);
 
-        } else if ((left_x as i32 - 81 > 0) && ((top_y + half_height) as i32 + 41 < 400) && ((bottom_y - half_height) as i32 - 41 > 0)){
+        } else if (left_x as i32 - 81 > 0) && ((top_y + half_height) as i32 + 41 < 400) && ((bottom_y - half_height) as i32 - 41 > 0) {
              // Left door
              let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
              let door_left_y = TILE_SIZE as f32 / 2.0;
@@ -1009,7 +1009,7 @@ fn generate_doors(
       
 
         // RIGHT DOOR
-        if (room_manager.get_room_value(right_x + 1, top_y + half_height) != Some(1)){
+        if room_manager.get_room_value(right_x + 1, top_y + half_height) != Some(1) {
             // Right door
             let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
             let door_y = TILE_SIZE as f32 / 2.0;  
@@ -1054,7 +1054,7 @@ fn generate_doors(
         }
 
         // TOP DOOR
-        if (room_manager.get_room_value(left_x + half_width, top_y - 1) != Some(1)){
+        if room_manager.get_room_value(left_x + half_width, top_y - 1) != Some(1) {
              // Top door
              let door_top_x = TILE_SIZE as f32 / 2.0;
              let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
@@ -1098,7 +1098,7 @@ fn generate_doors(
         }
 
         // BOTTOM DOOR
-        if (room_manager.get_room_value(left_x + half_width, bottom_y + 1) != Some(1)){
+        if room_manager.get_room_value(left_x + half_width, bottom_y + 1) != Some(1) {
             // Bottom door
             let door_bottom_x = TILE_SIZE as f32 / 2.0;
             let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
@@ -1309,7 +1309,7 @@ pub fn transition_map(
             let x_to_check = right_x_out + 1;
             let y_to_check =(top_y_out + bottom_y_out) / 2;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
-            if(room_val == Some(1)){
+            if room_val == Some(1) {
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
@@ -1368,7 +1368,7 @@ pub fn transition_map(
             let x_to_check = left_x_out - 1;
             let y_to_check =(top_y_out + bottom_y_out) / 2;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
-            if(room_val == Some(1)){
+            if room_val == Some(1) {
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
@@ -1429,7 +1429,7 @@ pub fn transition_map(
             let x_to_check = (left_x_out + right_x_out) / 2;
             let y_to_check = top_y_out - 1;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
-            if(room_val == Some(1)){
+            if room_val == Some(1) {
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();
@@ -1492,7 +1492,7 @@ pub fn transition_map(
             let x_to_check = (left_x_out + right_x_out) / 2;
             let y_to_check = bottom_y_out + 1;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
-            if(room_val == Some(1)){
+            if room_val == Some(1) {
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
 
                 let current_z = room_manager.get_current_z_index();

@@ -11,12 +11,57 @@ const SK_SPRITE_H: u32 = 1;
 const SK_SPRITE_W: u32 = 1;
 const SK_MAX_SPEED: f32 = 160.;
 const SK_SPOT_DIST: f32 = 192.;
+const SK_HEALTH: u32 = 2;
+const SK_SIZE: u32 = 32;
 
+/* Set for berry rat */
+const BR_NAME: &str = "Berry";
+const BR_PATH: &str = "enemies/berry_rat.png";
+const BR_SPRITE_H: u32 = 1;
+const BR_SPRITE_W: u32 = 2;
+const BR_MAX_SPEED: f32 = 160.;
+const BR_SPOT_DIST: f32 = 256.;
+const BR_HEALTH: u32 = 2;
+const BR_SIZE: u32 = 32;
+
+/* Set for ninja */
+const N_NAME: &str = "Ninja";
+const N_PATH: &str = "enemies/ninja.png";
+const N_SPRITE_H: u32 = 1;
+const N_SPRITE_W: u32 = 1;
+const N_MAX_SPEED: f32 = 160.;
+const N_SPOT_DIST: f32 = 320.;
+const N_HEALTH: u32 = 1;
+const N_SIZE: u32 = 32;
+
+/* Set for splat monkey */
+const SP_NAME: &str = "Splatty";
+const SP_PATH: &str = "enemies/splatmonkey.png";
+const SP_SPRITE_H: u32 = 1;
+const SP_SPRITE_W: u32 = 2;
+const SP_MAX_SPEED: f32 = 100.;
+const SP_SPOT_DIST: f32 = 120.;
+const SP_HEALTH: u32 = 3;
+const SP_SIZE: u32 = 32;
+
+/* Set for boss */
+const B_NAME: &str = "Elefante";
+const B_PATH: &str = "enemies/boss.png";
+const B_SPRITE_H: u32 = 1;
+const B_SPRITE_W: u32 = 1;
+const B_MAX_SPEED: f32 = 130.;
+const B_SPOT_DIST: f32 = 1000.;
+const B_HEALTH: u32 = 10;
+const B_SIZE: u32 = 64;
 
 /* Cute lil enum that allows us ezpz enemy match */
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum EnemyKind {
     Skeleton(Enemy),
+    BerryRat(Enemy),
+    Ninja(Enemy),
+    SplatMonkey(Enemy),
+    Boss(Enemy),
 }
 
 /* Constuctors for enemies, using const declared above */
@@ -29,6 +74,56 @@ impl EnemyKind {
             SK_SPRITE_W,
             SK_MAX_SPEED,
             SK_SPOT_DIST,
+            SK_HEALTH,
+            SK_SIZE,
+        ))
+    }
+    fn berry() -> Self {
+        EnemyKind::BerryRat(Enemy::new(
+            String::from(BR_NAME),
+            String::from(BR_PATH),
+            BR_SPRITE_H,
+            BR_SPRITE_W,
+            BR_MAX_SPEED,
+            BR_SPOT_DIST,
+            BR_HEALTH,
+            BR_SIZE,
+        ))
+    }
+    fn ninja() -> Self {
+        EnemyKind::Ninja(Enemy::new(
+            String::from(N_NAME),
+            String::from(N_PATH),
+            N_SPRITE_H,
+            N_SPRITE_W,
+            N_MAX_SPEED,
+            N_SPOT_DIST,
+            N_HEALTH,
+            N_SIZE,
+        ))
+    }
+    fn splatmonkey() -> Self {
+        EnemyKind::SplatMonkey(Enemy::new(
+            String::from(SP_NAME),
+            String::from(SP_PATH),
+            SP_SPRITE_H,
+            SP_SPRITE_W,
+            SP_MAX_SPEED,
+            SP_SPOT_DIST,
+            SP_HEALTH,
+            SP_SIZE,
+        ))
+    }
+    fn boss() -> Self {
+        EnemyKind::Boss(Enemy::new(
+            String::from(B_NAME),
+            String::from(B_PATH),
+            B_SPRITE_H,
+            B_SPRITE_W,
+            B_MAX_SPEED,
+            B_SPOT_DIST,
+            B_HEALTH,
+            B_SIZE,
         ))
     }
 }
@@ -37,16 +132,20 @@ impl EnemyKind {
 #[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct Enemy {
     /* he is he */
-    name: String,
+    pub name: String,
     /* assets/ local path */
-    filepath: String,
+    pub filepath: String,
     /* dimensions of sprite array */
-    sprite_row: u32,
-    sprite_column: u32,
+    pub sprite_row: u32,
+    pub sprite_column: u32,
     /* yk. fast */
-    max_speed: f32,
+    pub max_speed: f32,
     /* how far they can see*/
-    spot_distance: f32,
+    pub spot_distance: f32,
+    /* health */
+    pub health: u32,
+    /* size */
+    pub size: u32,
 }
 
 /* generic constructor for Enemy, can be used by enum
@@ -59,6 +158,8 @@ impl Enemy {
         column: u32,
         max_speed: f32,
         spot_distance: f32,
+        health: u32,
+        size: u32,
     ) -> Self {
         Self {
             name: name,
@@ -67,31 +168,60 @@ impl Enemy {
             sprite_column: column,
             max_speed: max_speed,
             spot_distance: spot_distance,
+            health: health,
+            size: size,
+        }
+    }
+}
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
+pub struct EnemyMovement {
+   pub direction: Vec2,
+   pub axis: i32,
+    pub lastseen: Vec3,
+}
+impl EnemyMovement {
+    pub fn new(d: Vec2, a: i32, seen: Vec3) -> Self {
+        Self {
+            direction: d,
+            axis: a,
+            lastseen: seen,
         }
     }
 }
 
 /* struct to Server to Query On */
-#[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
-pub struct ServerEnemy {
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Bundle)]
+pub struct ServerEnemyBundle {
     id: EnemyId,
-    pub direction: Vec2,
-    pub timer: Timer,
-    pub axis: i32,
-    pub lastseen: Vec3,
+    motion: EnemyMovement,
+    pub timer: EnemyTimer,
+    transform: Transform,
+
+}
+#[derive(Component, Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct EnemyTimer {
+    time: Timer,
 }
 
+/* client don't need much teebs */
 #[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct ClientEnemy {
-    id: EnemyId,
-    direction: Vec2,
-    axis: i32,
+    pub id: EnemyId,
+    pub movement: Vec<EnemyMovement>,
 }
 
-#[derive(Resource, Serialize, Deserialize, PartialEq, Clone, Debug)]
+/* used by server to keep track of how many we got AND keep
+ * track of individual monster types */
+#[derive(Resource, Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct EnemyId {
-    id: u32,
-    kind: EnemyKind,
+    pub id: u32,
+    pub kind: EnemyKind,
+}
+impl EnemyId{
+    pub fn get_id(& self) -> u32 {
+        self.id
+    }
 }
 
 impl EnemyId {
@@ -119,33 +249,38 @@ pub fn spawn_enemies(
         let random_y: f32 = rng.gen_range((-MAX_Y + 64.)..(MAX_Y - 64.));
 
         commands.spawn((
-            SpriteBundle {
+            // SpriteBundle {
+            //     transform: Transform::from_xyz(random_x, random_y, 900.),
+            //     texture: asset_server.load("enemies/skelly.png"),
+            //     ..default()
+            // },
+            ServerEnemyBundle {
                 transform: Transform::from_xyz(random_x, random_y, 900.),
-                texture: asset_server.load("enemies/skelly.png"),
-                ..default()
-            },
-            ServerEnemy {
                 id: EnemyId::new(enemy_id.get_plus(), EnemyKind::skeleton()),
-                direction: Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
-                timer: Timer::from_seconds(3.0, TimerMode::Repeating),
-                axis: 1,
-                lastseen: Vec3::new(99999., 0., 0.),
+                motion: EnemyMovement::new(
+                    Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                    1,
+                    Vec3::new(99999., 0., 0.),
+                ),
+                timer: EnemyTimer {
+                    time: Timer::from_seconds(3.0, TimerMode::Repeating),
+                },
             },
         ));
     }
 }
 
 pub fn enemy_movement(
-    mut enemy_query: Query<(&mut Transform, &mut ServerEnemy)>,
+    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement), (With<Enemy>, Without<Player>)>,
     mut player_query: Query<
         (&mut Transform, &Player, &mut Health),
-        (With<Player>, Without<ServerEnemy>),
+        (With<Player>, Without<Enemy>),
     >,
-    wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<ServerEnemy>)>,
+    wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<EnemyTimer>)>,
     time: Res<Time>,
 ) {
     // for every enemy
-    for (mut transform, mut _enemy) in enemy_query.iter_mut() {
+    for (mut transform, mut timer, mut movement, ) in enemy_query.iter_mut() {
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
                                                                                // checking which player is closest
@@ -204,28 +339,28 @@ pub fn enemy_movement(
                 player_transform.translation = pt.translation;
             }
         }
-        _enemy.timer.tick(time.delta());
+        timer.time.tick(time.delta());
         // if none in range, patrol and move to next enemy
         if longest == 99999999999.0 {
             // change direction every so often
-            if _enemy.timer.finished() {
-                _enemy.axis = _enemy.axis * -1;
+            if timer.time.finished() {
+                movement.axis = movement.axis * -1;
             }
 
             let normalized_direction: Vec3;
             //before patrol, try to go to last seen if have one
-            if _enemy.lastseen.x != 99999. {
-                let direction_to_player = _enemy.lastseen - transform.translation;
+            if movement.lastseen.x != 99999. {
+                let direction_to_player = movement.lastseen - transform.translation;
                 normalized_direction = direction_to_player.normalize();
                 // once the enemy gets close enough to position, go back to patrolling (to avoid getting stuck on a corner)
-                if (_enemy.lastseen.x - transform.translation.x).abs() < 20.
-                    || (_enemy.lastseen.y - transform.translation.y).abs() < 20.
+                if (movement.lastseen.x - transform.translation.x).abs() < 20.
+                    || (movement.lastseen.y - transform.translation.y).abs() < 20.
                 {
-                    _enemy.lastseen.x = 99999.
+                    movement.lastseen.x = 99999.
                 }
             } else {
                 normalized_direction =
-                    Vec3::new(1. * _enemy.axis as f32, 0. * _enemy.axis as f32, 0.);
+                    Vec3::new(1. * movement.axis as f32, 0. * movement.axis as f32, 0.);
             }
 
             //collision detection
@@ -271,7 +406,7 @@ pub fn enemy_movement(
         let normalized_direction = direction_to_player.normalize();
 
         // saving last seen position
-        _enemy.lastseen = player_transform.translation;
+        movement.lastseen = player_transform.translation;
 
         // making sure enemies do not collide with one another
         /*for (mut transform, _enemy) in enemy_query.iter_mut() {

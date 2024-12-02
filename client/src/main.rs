@@ -22,6 +22,7 @@ fn main() {
             client::id_request.after(init::client_setup))
         )
         .add_systems(Update, (
+            client::gather_input,
             player::move_player,
             //player::player_input,
             //player::update_player_position.after(player::player_input),
@@ -39,8 +40,6 @@ fn main() {
         .add_systems(Update, (
             client::gather_input,
             client::listen,
-        
-        
         ))
         .run();
 }
