@@ -20,29 +20,29 @@ pub struct CarnageBar{
 impl CarnageBar{
     pub fn new() -> Self {
         Self{
-            stealth: 0.,
-            carnage: 0.
+            stealth: 50.,
+            carnage: 50.
         }
     }
 
-    pub fn up_stealth(&mut self, up:f32){
-        self.stealth += up;
+    pub fn up_stealth(&mut self, amount:f32){
+        self.stealth = (self.stealth + amount).clamp(0., 100.);
+        self.carnage = 100. - self.stealth;
     }
 
-    pub fn down_stealth(&mut self, down:f32){
-        self.stealth -= down;
+    pub fn down_stealth(&mut self, amount:f32){
+        self.stealth = (self.stealth - amount).clamp(0. , 100.);
+        self.carnage = 100. - self.stealth;
     }
-
-    pub fn up_carnage(&mut self, up:f32){
-        self.carnage += up;
+    pub fn up_carnage(&mut self, amount:f32){
+        self.carnage = (self.carnage + amount).clamp(0. , 100.);
+        self.stealth = 100. - self.carnage
     }
     
-    pub fn down_carnage(&mut self, down:f32){
-        self.carnage -= down;
+    pub fn down_carnage(&mut self, amount:f32){
+        self.carnage = (self.carnage - amount).clamp(0. , 100.);
+        self.stealth = 100. - self.carnage;
     }
-
-
-
 }
 
 #[derive(Component)]
