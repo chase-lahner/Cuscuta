@@ -49,6 +49,9 @@ impl Crouch {
             crouching:b
         }
     }
+    pub fn set(&mut self, crouch: bool){
+        self.crouching = crouch;
+    }
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -63,6 +66,9 @@ impl Roll {
         Self{
             rolling: b
         }
+    }
+    pub fn set(&mut self, roll: bool){
+        self.rolling = roll;
     }
  }
 
@@ -79,6 +85,9 @@ impl Sprint {
             sprinting:b
         }
     }
+    pub fn set(&mut self, sprint: bool){
+        self.sprinting = sprint;
+    }
 }
 /* global boolean to not re-attack */
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -93,6 +102,9 @@ impl Attack {
         Self{
             attacking:b
         }
+    }
+    pub fn set(&mut self, att: bool){
+        self.attacking = att;
     }
 }
 

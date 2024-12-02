@@ -224,13 +224,13 @@ pub fn send_enemies(
 fn update_player_state(
     src: SocketAddr,
     mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
-        &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
-         &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,
+        &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), 
+            (With<Player>, Without<Enemy>)>,
     player_struct: PlayerSendable,
     mut commands: Commands
 ){
     let mut found = false;
-    for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id, iq, t) in players_q.iter_mut(){
+    for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id) in players_q.iter_mut(){
 
         if id.id == player_struct.head.network_id {
             info!("updaetd");
@@ -337,3 +337,22 @@ fn update_player_state(
         packet_q.packets.push(outgoing_state);
     }
 }   
+
+/** INDEX TO USE
+0 - floor
+1 - left wall
+2 - right wall
+3 - chest/pot
+4 - left door
+5 - right door
+6 - top door
+7 - bottom door 
+8 - top wall
+9 - bottom wall */
+fn send_map_packet (
+    mut commands: Commands,
+    mut room_query: Query<Entity, With<Room>>, 
+    map_array: Vec<Vec<u8>>
+) {
+    
+}

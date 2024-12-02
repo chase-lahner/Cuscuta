@@ -304,22 +304,18 @@ fn receive_player_packet(
     let mut found_packet = false;
     let mut found_us = false;
     /* for all players, find what was sent */
-    for (v, t, p, h, c, r, s, a, id, iq, mut psq) in players.iter_mut() {
+    for (mut v, mut t, p, mut h, mut c, mut r, mut s, mut a, id, iq, mut psq) in players.iter_mut() {
         if id.id == saranpack.head.network_id {
             /* we found! */
             found_packet = true;
-            /* create a lil 'past me' struct */
-            let past = PastState{
-                velo: Velocity::from(saranpack.velocity),
-                transform: saranpack.transform,
-                crouch: Crouch::new_set(saranpack.crouch),
-                roll: Roll::new_set(saranpack.roll),
-                attack: Attack::new_set(saranpack.attack),
-                seq: saranpack.head.sequence.clone()
-            }; 
-            /* plop em in, handle elsewhere teeeeebs, could be user or
-             * another client, we handle these cases differently */
-            psq.q.push_back(past);
+            /* set player */
+            v.set(&saranpack.velocity);
+            /* dam u transform */
+            *t = saranpack.transform;
+            h.set(&saranpack.health);
+            c.set(saranpack.crouch);
+            s.set(saranpack.sprint);
+            a.set(saranpack.attack);
         }
 
         /* do we even exist?!?! */
@@ -352,7 +348,7 @@ fn receive_player_packet(
      * GAHHHH all the scenarios are the same we must just do some setting (to be sure that
      * shit works even if we failed to get a id packet) */
     if !found_packet {
-
+        info!("spawning a new player: {}!", saranpack.head.network_id);
         /* ok lowk all good just do the recv_id sets if its us */
         if !found_us{
             us.id = saranpack.head.network_id;
