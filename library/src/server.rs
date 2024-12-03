@@ -14,7 +14,8 @@ pub fn send_id(
     mut commands: Commands,
     mut addresses: ResMut<AddressList>,
     mut server_seq: ResMut<Sequence>,
-    mut packet_q: ResMut<ServerPacketQueue>
+    mut packet_q: ResMut<ServerPacketQueue>,
+    udp: Res<UDP>
 ) {
     /* assign id, update player count */
     n_p.count += 1;
@@ -60,8 +61,12 @@ pub fn send_id(
         sprint: false,
     });
 
-    /* we send later, just plop into da queueueueueueueueueueueue yk yk yk  */
-    packet_q.packets.push(playa);
+    /* usually we want to send later, but for this we don't want to send
+     * player over and over and over, so we do it extra here */
+    let mut serial = flexbuffers::FlexbufferSerializer::new();
+    playa.serialize(&mut serial).unwrap();
+    let packet: &[u8] = serial.view();
+    udp.socket.send_to(&packet, source_addr).unwrap();
 }
 
 /* Server side listener for packets,  */
@@ -99,7 +104,7 @@ pub fn listen(
     match player_struct {
         ClientPacket::IdPacket(_id_packet) => {
             info!("sending id to client");
-            send_id(src,  n_p.as_mut(), commands, addresses, server_seq, packet_q)},
+            send_id(src,  n_p.as_mut(), commands, addresses, server_seq, packet_q,udp)},
         ClientPacket::PlayerPacket(player_packet) => {
             // TODO: Fix this
             update_player_state(src, players_q, player_packet, commands);
@@ -115,27 +120,34 @@ pub fn listen(
 pub fn server_send_packets(
     mut packet_q: ResMut<ServerPacketQueue>,
     udp: Res<UDP>,
-    addresses: Query<(&NetworkId)>,
+    addresses: Query<&NetworkId>,
+
 ){
     /* for all packets in queue */
     for packet in packet_q.packets.iter(){
         let mut serializer = flexbuffers::FlexbufferSerializer::new();
         packet.serialize(&mut serializer).unwrap();
-        let packet_crunch: &[u8] = serializer.view();
+        let packet_chunk: &[u8] = serializer.view();
         /* send to all users */
-        for address in addresses.iter(){
-            /* buuuuuut if its a person don't send it to them,
-             * who needs server authority anyways!? */
-
-            match packet{
-                ServerPacket::PlayerPacket(play) => {
-                    if address.id == play.head.network_id{
-                        continue;
+        'adds: for address in addresses.iter()
+        {
+            /* buuuut only id for the id'd, and player 1 not to player 1 again,
+             * instaed off to p2 */
+            match packet {
+                ServerPacket::PlayerPacket(playa) =>{
+                    if address.id == playa.head.network_id{
+                        continue 'adds;
                     }
                 }
-                _ => {}//fine{}
+                ServerPacket::IdPacket(id)=> {
+                    if address.id != id.head.network_id{
+                        continue 'adds;
+                    }
+                }
+                _ => {}
             }
-            udp.socket.send_to(&packet_crunch, address.addr).unwrap();
+            udp.socket.send_to(&packet_chunk, address.addr).unwrap();
+
         }
         /* I want to deleteteeeeeee. What's rust's free thing? We
          * all good to just like make a new one? Or is that grim */

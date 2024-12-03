@@ -204,8 +204,6 @@ pub fn listen(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
-            &mut InputQueue,
-            &mut PastStateQueue
         ),
         With<Player>,
     >,
@@ -233,19 +231,6 @@ pub fn listen(
     let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
     let rec_struct: ServerPacket = ServerPacket::deserialize(deserializer).unwrap();
 
-    /* we need the inputqueue of US, OUR PLAYER for an update when we recv
-     * a new sequence number. Might as well find that now to not pass an ugly
-     * Query */
-    let mut inputs: &mut InputQueue = &mut InputQueue::new();
-
-    // /*GOD todo AS FUCK. I want to grab the input queue of US... but then also
-    //  * need to still be able to query later in recv_player_packeet...
-    //  * damn you borrow checker!!!!! */
-    // for (v,t,p,h,c,r,s,a,id,iq, psq) in players_q.iter_mut(){
-    //     if id.id == client_id.id{
-    //         inputs = iq.into_inner();
-    //     }
-    // }
 
     /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
      * packet!! is essential for lamportaging */
@@ -288,8 +273,6 @@ fn receive_player_packet(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
-            &mut InputQueue,
-            &mut PastStateQueue
         ),
         With<Player>,
     >,
@@ -316,11 +299,8 @@ fn receive_player_packet(
             c.set(saranpack.crouch);
             s.set(saranpack.sprint);
             a.set(saranpack.attack);
-        }
+            r.rolling = saranpack.roll;
 
-        /* do we even exist?!?! */
-        if id.id == us.id{
-            found_us = true;
         }
     }
 
@@ -348,14 +328,6 @@ fn receive_player_packet(
      * GAHHHH all the scenarios are the same we must just do some setting (to be sure that
      * shit works even if we failed to get a id packet) */
     if !found_packet {
-        info!("spawning a new player: {}!", saranpack.head.network_id);
-        /* ok lowk all good just do the recv_id sets if its us */
-        if !found_us{
-            us.id = saranpack.head.network_id;
-            sequence.new_index(us.id as usize);
-            /* here we set the clock values */
-            sequence.assign(&saranpack.head.sequence);
-        }
         let player_sheet_handle = asset_server.load("player/4x8_player.png");
         let player_layout = TextureAtlasLayout::from_grid(
             UVec2::splat(TILE_SIZE),

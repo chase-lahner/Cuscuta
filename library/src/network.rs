@@ -119,7 +119,7 @@ impl Sequence{
             }
         }
         /* for all elements in self */
-        for i in 0..self.nums.len(){
+        for i in 0..other.nums.len(){
             /* if we are less, increment */
             if self.nums[i] < other.nums[i]{
                 self.nums[i] = other.nums[i];
