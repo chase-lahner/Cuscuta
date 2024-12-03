@@ -2,7 +2,9 @@ use std::net::UdpSocket;
 
 use bevy::prelude::*;
 
-use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, network::*, room_gen::*, ui::client_spawn_ui};
+
+use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, network::*, room_gen::*, ui::client_spawn_ui, markov_chains::*,
+};
 
 pub fn ip_setup(
     mut commands: Commands
@@ -24,11 +26,12 @@ pub fn client_setup(
     asset_server: Res<AssetServer>, // to access images
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
     mut room_manager: ResMut<RoomManager>,
+    mut last_attribute_array: ResMut<LastAttributeArray>, // LastAttributeArray as a mutable resource
 ) {
 
 
     // spawn the starting room & next room
-    spawn_start_room(&mut commands, &asset_server, &mut room_manager);
+    spawn_start_room(&mut commands, &asset_server, &mut room_manager, last_attribute_array);
 
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */

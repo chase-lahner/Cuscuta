@@ -789,6 +789,7 @@ pub fn move_player(
                 door_query,
                 &mut player_query.single_mut().0,
                 door_type,
+                carnage,
             );
         }
     }
