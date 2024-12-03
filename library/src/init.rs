@@ -2,7 +2,8 @@ use std::net::UdpSocket;
 
 use bevy::prelude::*;
 
-use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, PlayerCount, TICKS_PER_SECOND}, network::*, room_gen::*, ui::client_spawn_ui, markov_chains::*,
+
+use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, network::*, room_gen::*, ui::client_spawn_ui, markov_chains::*,
 };
 
 pub fn ip_setup(
@@ -76,5 +77,7 @@ pub fn server_setup(
     commands.insert_resource(PlayerCount{count:0});
     /* to hold mid frame packeets, sent every tick */
     commands.insert_resource(ServerPacketQueue::new());
+
+    commands.insert_resource(EnemyId::new(0, EnemyKind::skeleton()));
     info!("done setup");
 }
