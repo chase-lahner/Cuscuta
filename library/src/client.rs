@@ -287,7 +287,7 @@ fn receive_player_packet(
     let mut found_packet = false;
     let mut found_us = false;
     /* for all players, find what was sent */
-    for (mut v, mut t, p, mut h, mut c, mut r, mut s, mut a, id, iq, mut psq) in players.iter_mut() {
+    for (mut v, mut t, p, mut h, mut c, mut r, mut s, mut a, id) in players.iter_mut() {
         if id.id == saranpack.head.network_id {
             /* we found! */
             found_packet = true;

@@ -102,7 +102,7 @@ pub struct Door {
 }
 
 // enum to represent different door types
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DoorType {
     Right,
     Left,

@@ -4,7 +4,7 @@ use bevy::{input::keyboard::Key, prelude::*};
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, Health, PlayerCount, Velocity}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::Room};
+use crate::{cuscuta_resources::{self, AddressList, Background, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client via the packet queue */
@@ -372,55 +372,55 @@ fn update_player_state(
 9 - bottom wall */
 fn send_map_packet (
     mut commands: Commands,
-    mut door_query: Query<&Transform &DoorType, With<Door>>, 
+    mut door_query: Query<(&Transform, &DoorType), With<Door>>, 
     mut wall_query: Query<&Transform, With<Wall>>, 
     mut background_query: Query<&Transform, With<Background>>,
     mut potion_query: Query<&Transform, With<Potion>>,
     mut packet_q: ResMut<ServerPacketQueue>,
     server_seq: ResMut<Sequence>,
 ) {
-    let mut map_array: Vec<Vec<u8>>;
+    let mut map_array: Vec<Vec<u8>> = vec![];
     let room_w = 10; //need to grab these values from roomgen fn()
     let room_h = 5;
 
     for tile in background_query.iter()
     {
-        let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
-        let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
+        let arr_x:usize = (tile.translation.x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.translation.y - 16.0) as usize / 32;
         map_array[arr_x][arr_y] = 0;
     }
 
     for tile in door_query.iter()
     {
-        let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
-        let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
-        match tile.doortype{
-            0 => map_array[arr_x][arr_y] = 5,
-            1 => map_array[arr_x][arr_y] = 4,
-            2 => map_array[arr_x][arr_y] = 6,
-            3 => map_array[arr_x][arr_y] = 7
-        }
+        let arr_x:usize = (tile.0.translation.x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.0.translation.y - 16.0) as usize / 32;
+        // match tile.1{
+        //     0 => map_array[arr_x][arr_y] = 5, RIGHT LEFT TOP BOTTOM WHAT IS IT
+        //     1 => map_array[arr_x][arr_y] = 4,
+        //     2 => map_array[arr_x][arr_y] = 6,
+        //     3 => map_array[arr_x][arr_y] = 7
+        // }
     }
 
     for tile in wall_query.iter()
     {
         let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
         let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
-        if(arr_x == 0){map_array[arr_x][arr_y] = 1;}
-        else if(arr_y == 0){map_array[arr_x][arr_y] = 9;}
-        else if(arr_x == room_w/32){map_array[arr_x][arr_y] = 2;}
-        else {map_array[arr_x][arr_y] = 8;}
+        if(arr_x == 0){map_array[arr_x as usize][arr_y as usize] = 1;}
+        else if(arr_y == 0){map_array[arr_x as usize][arr_y as usize] = 9;}
+        else if(arr_x == room_w/32){map_array[arr_x as usize][arr_y as usize] = 2;}
+        else {map_array[arr_x as usize][arr_y as usize] = 8;}
     }
 
     for tile in potion_query.iter()
     {
-        let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
-        let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
+        let arr_x: usize = (tile.translation.x - 16.0) as usize / 32;
+        let arr_y: usize = (tile.translation.y - 16.0) as usize / 32;
         map_array[arr_x][arr_y] = 3;
     }
 
     let mappy = ServerPacket::MapPacket(MapS2C{
-        head: Header::new(i.id,server_seq.clone()),
+        head: Header::new(0,server_seq.clone()),// server id == 0
         matrix: map_array
     });
 
