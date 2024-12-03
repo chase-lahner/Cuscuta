@@ -328,6 +328,7 @@ fn receive_player_packet(
      * GAHHHH all the scenarios are the same we must just do some setting (to be sure that
      * shit works even if we failed to get a id packet) */
     if !found_packet {
+        info!("creating new player {}", saranpack.head.network_id);
         let player_sheet_handle = asset_server.load("player/4x8_player.png");
         let player_layout = TextureAtlasLayout::from_grid(
             UVec2::splat(TILE_SIZE),
@@ -610,8 +611,13 @@ pub fn send_player(
     seq: Res<Sequence>,
     clientid: Res<ClientId>
 ){
-    for (id, velo, trans, heal, crouch, roll, sprint, attack) in player_q.iter(){
+    'playa: for (id, velo, trans, heal, crouch, roll, sprint, attack) in player_q.iter(){
         if id.id == clientid.id{
+            /* we don't want to send if we arent doing anything, no use...
+             * same goes for server!!!!! */
+            if velo.velocity.y == 0. && velo.velocity.x == 0. {
+                continue 'playa;
+            }
             let to_send = ClientPacket::PlayerPacket(PlayerSendable{
                 head: Header{ network_id: id.id, sequence: seq.clone() },
                 transform: trans.clone(),
