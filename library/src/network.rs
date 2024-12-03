@@ -224,6 +224,7 @@ pub struct MapS2C{
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EnemyS2C{
+    pub transform: Transform,
     pub head: Header,
     pub enemytype: EnemyId,
     pub movement: EnemyMovement,

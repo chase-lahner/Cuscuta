@@ -30,7 +30,6 @@ fn main() {
             player::move_player,
             //player::player_input,
             //player::update_player_position.after(player::player_input),
-            enemies::enemy_movement.after(player::move_player), //want to remove
             player::animate_player.after(player::move_player),
             player::player_attack.after(player::animate_player),
             player::player_roll.after(player::animate_player),

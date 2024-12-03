@@ -144,6 +144,12 @@ pub fn server_send_packets(
                         continue 'adds;
                     }
                 }
+                ServerPacket::EnemyPacket(enemy)=>{
+                  //  info!("sending enemy packet");
+                    if address.id == enemy.head.network_id {
+                        continue 'adds;
+                    }
+                }
                 _ => {}
             }
             udp.socket.send_to(&packet_chunk, address.addr).unwrap();
@@ -181,20 +187,23 @@ pub fn server_send_packets(
 // }
 
 pub fn send_enemies(
-    enemies: Query<(& EnemyId, & EnemyMovement), 
-        (With<Enemy>, Without<Player>)>,
+    enemies: Query<(& EnemyId, & EnemyMovement, &Transform), 
+        (Without<Player>)>,
     mut server_seq: ResMut<Sequence>,
     mut packet_q: ResMut<ServerPacketQueue>
 ){
+    //info!("sending enemies");
     /* for each enemy in the game world */
-    for (id, movement) in enemies.iter(){
+    for (id, movement, transform) in enemies.iter(){
         /* packet-ify it */
         let enemy  = ServerPacket::EnemyPacket(
         EnemyS2C{
+            transform: *transform,
             head: Header::new(0,server_seq.clone()),
             movement: movement.clone(),
             enemytype: id.clone(),
         });
+        //info!("actually entered for loop lmfao crazy if this was what was broken loll");
 
         /* send off to our queue  */
         packet_q.packets.push(enemy);

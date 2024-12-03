@@ -20,8 +20,9 @@ fn main() {
             FixedUpdate,
             (
                 server::listen,
+                enemies::enemy_movement.after(player::move_player), // server needs to handle this :3
+                server::send_enemies.after(server::listen),
                 server::send_player.after(server::listen),
-                server::send_enemies,
                 server::server_send_packets.after(server::send_player),
             ),
         )
