@@ -279,8 +279,10 @@ pub fn enemy_movement(
     wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<EnemyTimer>)>,
     time: Res<Time>,
 ) {
+   // info!("running enemy mvmt");
     // for every enemy
     for (mut transform, mut timer, mut movement, ) in enemy_query.iter_mut() {
+        info!("Sanity CHECK");
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
                                                                                // checking which player is closest
@@ -465,6 +467,7 @@ pub fn server_spawn_enemies(
     for _ in 0..NUMBER_OF_ENEMIES {
         let random_x = rng.gen_range((-MAX_X + 64.)..(MAX_X - 64.));
         let random_y = rng.gen_range((-MAX_Y + 64.)..(MAX_Y - 64.));
+        info!("random x: {}, random y: {}", random_x, random_y);
 
         commands.spawn((
             ServerEnemyBundle {
@@ -480,8 +483,9 @@ pub fn server_spawn_enemies(
                 },
             },
         ));
+        info!("spawned enemies");
     }
-    info!("spawned enemies");
+   
 
 
 }

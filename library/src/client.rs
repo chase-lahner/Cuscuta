@@ -253,7 +253,7 @@ pub fn listen(
             client_seq_update(&map_packet.head.sequence, sequence, packets);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
-            info!{"Matching Enemy Struct"};
+           // info!{"Matching Enemy Struct"};
             recv_enemy(&enemy_packet, commands, enemy_q, asset_server, &mut texture_atlases);
             client_seq_update(&enemy_packet.head.sequence, sequence, packets);
         }
@@ -405,6 +405,7 @@ fn recv_enemy(
     asset_server: Res<AssetServer>,
     tex_atlas: &mut ResMut<Assets<TextureAtlasLayout>>
 ){
+  //  info!("rec'd enemy");
     let mut found = false;
     for mut enemy in enemy_q.iter_mut(){
         if pack.enemytype.get_id() == enemy.id.id{ 
@@ -437,8 +438,9 @@ fn recv_enemy(
 
         let mut vec: Vec<EnemyMovement> = Vec::new();
         vec.push(pack.movement.clone());
-        let x = pack.movement.direction.x;
-        let y = pack.movement.direction.y;
+        let x = pack.transform.translation.x;
+        let y = pack.transform.translation.y;
+        info!("x: {} y: {}", x, y);
         commands.spawn(
             (SpriteBundle{
                 transform: Transform::from_xyz(x, y, 900.),
