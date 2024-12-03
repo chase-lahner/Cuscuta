@@ -214,7 +214,7 @@ pub fn listen(
     mut sequence: ResMut<Sequence>,
     mut packets: ResMut<ClientPacketQueue>
 ) {
-    info!("Listening!!!");
+    //info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0; 1024];
     /* grab dat shit */
@@ -287,18 +287,20 @@ fn receive_player_packet(
     let mut found_packet = false;
     let mut found_us = false;
     /* for all players, find what was sent */
-    for (mut v, mut t, p, mut h, mut c, mut r, mut s, mut a, id) in players.iter_mut() {
+    for (mut v, mut t, p, mut h, mut c, mut r, mut s, mut a, id, iq, mut psq) in players.iter_mut() {
         if id.id == saranpack.head.network_id {
             /* we found! */
             found_packet = true;
-            v.velocity = saranpack.velocity;
+            /* set player */
+            v.set(&saranpack.velocity);
             /* dam u transform */
             *t = saranpack.transform;
-            *h = saranpack.health;
-            c.crouching = saranpack.crouch;
-            s.sprinting = saranpack.sprint;
-            a.attacking = saranpack.attack;
+            h.set(&saranpack.health);
+            c.set(saranpack.crouch);
+            s.set(saranpack.sprint);
+            a.set(saranpack.attack);
             r.rolling = saranpack.roll;
+
         }
     }
 
