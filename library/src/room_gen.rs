@@ -470,7 +470,7 @@ pub fn spawn_start_room(
 
 
     // find the bounds of the start room and print them
-    if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
+    if let Some(_room) = room_manager.find_room_bounds(z_index as i32) {
         //println!("Start room bounds: Left: {}, Right: {}, Top: {}, Bottom: {}", left_x, right_x, top_y, bottom_y);
     } else {
         println!("Error: Could not find bounds for the start room.");

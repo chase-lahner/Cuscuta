@@ -26,7 +26,7 @@ pub fn client_setup(
     asset_server: Res<AssetServer>, // to access images
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
     mut room_manager: ResMut<RoomManager>,
-    mut last_attribute_array: ResMut<LastAttributeArray>, // LastAttributeArray as a mutable resource
+    last_attribute_array: ResMut<LastAttributeArray>, // LastAttributeArray as a mutable resource
 ) {
 
 
@@ -43,7 +43,7 @@ pub fn client_setup(
     commands.insert_resource(Sequence::new(0));
 
     // spawn camera
-    spawn_camera(&mut commands, &asset_server);
+    spawn_camera(&mut commands);
 
     client_spawn_ui(&mut commands, &asset_server);
     /* spawn pot to play with */

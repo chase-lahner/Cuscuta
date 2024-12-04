@@ -1,10 +1,10 @@
-use std::net::{SocketAddr, UdpSocket};
+use std::net::SocketAddr;
 
-use bevy::{input::keyboard::Key, prelude::*};
+use bevy:: prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, Background, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
+use crate::{cuscuta_resources::{self, AddressList, Background, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client via the packet queue */
@@ -87,7 +87,7 @@ pub fn listen(
     // pseudo poll. nonblocking, gives ERR on no read tho
     let packet = udp.socket.recv_from(&mut buf);
     match packet{
-        Err(e)=> return,
+        Err(_e)=> return,
         _ => ()
     }
     let (amt, src) = packet.unwrap();
@@ -188,8 +188,8 @@ pub fn server_send_packets(
 
 pub fn send_enemies(
     enemies: Query<(& EnemyId, & EnemyMovement, &Transform), 
-        (Without<Player>)>,
-    mut server_seq: ResMut<Sequence>,
+        (With<Enemy>, Without<Player>)>,
+    server_seq: ResMut<Sequence>,
     mut packet_q: ResMut<ServerPacketQueue>
 ){
     //info!("sending enemies");
@@ -380,17 +380,17 @@ fn update_player_state(
 8 - top wall
 9 - bottom wall */
 fn send_map_packet (
-    mut commands: Commands,
-    mut door_query: Query<(&Transform, &DoorType), With<Door>>, 
-    mut wall_query: Query<&Transform, With<Wall>>, 
-    mut background_query: Query<&Transform, With<Background>>,
-    mut potion_query: Query<&Transform, With<Potion>>,
+    mut _commands: Commands,
+    door_query: Query<(&Transform, &DoorType), With<Door>>, 
+    wall_query: Query<&Transform, With<Wall>>, 
+    background_query: Query<&Transform, With<Background>>,
+    potion_query: Query<&Transform, With<Potion>>,
     mut packet_q: ResMut<ServerPacketQueue>,
     server_seq: ResMut<Sequence>,
 ) {
     let mut map_array: Vec<Vec<u8>> = vec![];
     let room_w = 10; //need to grab these values from roomgen fn()
-    let room_h = 5;
+    let _room_h = 5;
 
     for tile in background_query.iter()
     {
@@ -403,21 +403,21 @@ fn send_map_packet (
     {
         let arr_x:usize = (tile.0.translation.x - 16.0) as usize / 32;
         let arr_y:usize = (tile.0.translation.y - 16.0) as usize / 32;
-        // match tile.1{
-        //     0 => map_array[arr_x][arr_y] = 5, RIGHT LEFT TOP BOTTOM WHAT IS IT
-        //     1 => map_array[arr_x][arr_y] = 4,
-        //     2 => map_array[arr_x][arr_y] = 6,
-        //     3 => map_array[arr_x][arr_y] = 7
-        // }
+        match tile.1{
+            DoorType::Right => map_array[arr_x][arr_y] = 5,
+            DoorType::Left => map_array[arr_x][arr_y] = 4,
+            DoorType::Top => map_array[arr_x][arr_y] = 6,
+            DoorType::Bottom => map_array[arr_x][arr_y] = 7
+        }
     }
 
     for tile in wall_query.iter()
     {
         let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
         let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
-        if(arr_x == 0){map_array[arr_x as usize][arr_y as usize] = 1;}
-        else if(arr_y == 0){map_array[arr_x as usize][arr_y as usize] = 9;}
-        else if(arr_x == room_w/32){map_array[arr_x as usize][arr_y as usize] = 2;}
+        if arr_x == 0 {map_array[arr_x as usize][arr_y as usize] = 1;}
+        else if arr_y == 0 {map_array[arr_x as usize][arr_y as usize] = 9;}
+        else if arr_x == room_w/32 {map_array[arr_x as usize][arr_y as usize] = 2;}
         else {map_array[arr_x as usize][arr_y as usize] = 8;}
     }
 
