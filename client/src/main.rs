@@ -2,12 +2,14 @@ use bevy::{prelude::*, window::PresentMode};
 use cuscuta_resources::TICKS_PER_SECOND;
 use library::*;
 use std::env;
+use markov_chains::*;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     App::new()
         /* room manager necessary? */
         .insert_resource(room_gen::RoomManager::new())
+        .insert_resource(LastAttributeArray::new()) 
         .insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND))
         .add_systems(PreStartup, init::ip_setup) // should run before we spawn / send data to server
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -28,7 +30,6 @@ fn main() {
             player::move_player,
             //player::player_input,
             //player::update_player_position.after(player::player_input),
-            enemies::enemy_movement.after(player::move_player),
             player::animate_player.after(player::move_player),
             player::player_attack.after(player::animate_player),
             player::player_roll.after(player::animate_player),

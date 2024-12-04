@@ -4,6 +4,8 @@ use crate::collision::*;
 use crate::cuscuta_resources::*;
 use crate::player::*;
 use crate::enemies::*;
+use crate::markov_chains::*;
+use crate::ui::*;
 
 #[derive(Component)]
 pub struct Potion;
@@ -72,6 +74,23 @@ impl RoomArray {
         }
         None
     }
+    
+    // Get room dimensions in PIXEL SIZE
+    pub fn get_room_from_storage_in_pixels(&self, z_index: f32) -> Option<RoomDimensions> {
+        let index = Self::z_to_index(z_index);
+        if index < self.rooms.len() {
+            if let Some(dimensions) = &self.rooms[index] {
+                return Some(RoomDimensions {
+                    width: dimensions.width * 32,
+                    height: dimensions.height * 32,
+                });
+            }
+        }
+        None
+    }
+
+    
+
 
     
 }
@@ -83,7 +102,7 @@ pub struct Door {
 }
 
 // enum to represent different door types
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DoorType {
     Right,
     Left,
@@ -410,8 +429,21 @@ pub fn spawn_start_room(
     commands: &mut Commands, 
     asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
+    last_attribute_array: ResMut<LastAttributeArray>, // Add reference here
 ) {
+
+    // get a reference to the last attribute array
+    // Access last attribute array
+    println!("Last Attribute Array: {:?}", last_attribute_array.attributes);
+
+    // Example: Update an attribute
+    //last_attribute_array.set_attribute(0, 2); // Set Room_Size to "low"
+
     let mut rng = rand::thread_rng();
+
+    let enemy_type_matrix = Room_Attributes::get_preset_matrix()[3].clone(); // Get the Room_Size matrix
+    println!("Room Size Matrix: {:?}", enemy_type_matrix);
+
     // generate random integers between 50 and 250, * 32
     let random_width = rng.gen_range(40..=40);
     let random_height = rng.gen_range(40..=40);
@@ -834,9 +866,22 @@ fn regen_draw_inner_wall(
 /// Generates random room boundaries and adds the room to the room manager.
 /// Returns the room width, room height, max x, max y, and z-index.
 fn generate_room_boundaries(
-    room_manager: &mut RoomManager
+    room_manager: &mut RoomManager,
+    mut carnage_query: Query<&mut CarnageBar>, 
 ) -> (f32, f32, f32, f32, f32) {
     let mut rng = rand::thread_rng();
+
+    // GET CARNAGE PERCENT FROM UI VALUE
+    let carnage_percent: f32 = carnage_query.single_mut().get_overall_percentage();
+
+    println!("carnage percent: {}", carnage_percent);
+
+    // ADD REFERENCE TO MARKOV CHAIN FILE HERE THAT WE CAN USE
+    //let room_size_original_matrix = Room_Attributes::Room_Size.get_preset_vector();
+    //let skewed_matrix = Skew(room_size_original_matrix, carnage_percent);
+
+    // randomly select size based on skewed values
+
 
     // Generate random width and height between 40 and 80 tiles
     let random_width = rng.gen_range(40..=80);
@@ -1250,9 +1295,9 @@ pub fn regenerate_existing_room(
 
     // **NEW**: Find and print the room bounds after generating the room
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_for_regen as i32) {
-        println!("Regenerating OLD ROOM: Left: {}, Right: {}, Top: {}, Bottom: {}, z_index: {}", left_x, right_x, top_y, bottom_y, z_for_regen);
+        //println!("Regenerating OLD ROOM: Left: {}, Right: {}, Top: {}, Bottom: {}, z_index: {}", left_x, right_x, top_y, bottom_y, z_for_regen);
     } else {
-        println!("Error: Could not find bounds for the newly generated room. {}", global_z_index);
+      //  println!("Error: Could not find bounds for the newly generated room. {}", global_z_index);
     };
 
     // retrieve and spawn inner walls for the current room from `InnerWallList`
@@ -1273,6 +1318,7 @@ pub fn transition_map(
     _door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,  
     pt: &mut Transform,
     door_type: DoorType, 
+    mut carnage_query: Query<&mut CarnageBar>, 
 ) {
     let mut right_x_out = 0;
     let mut left_x_out = 0;
@@ -1299,8 +1345,8 @@ pub fn transition_map(
     let _max_x = room_manager.current_room_max().0;
     let _max_y = room_manager.current_room_max().1;
 
-    // generate random room boundaries
-    let (room_width, room_height, max_x, max_y, _z_index) = generate_room_boundaries(room_manager);
+    // generate random room boundaries for upcoming room
+    let (room_width, room_height, max_x, max_y, _z_index) = generate_room_boundaries(room_manager, carnage_query);
 
     // Adjust the player's position based on the door they entered
     match door_type {

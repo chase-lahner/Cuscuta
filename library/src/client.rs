@@ -204,8 +204,6 @@ pub fn listen(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
-            &mut InputQueue,
-            &mut PastStateQueue
         ),
         With<Player>,
     >,
@@ -216,7 +214,7 @@ pub fn listen(
     mut sequence: ResMut<Sequence>,
     mut packets: ResMut<ClientPacketQueue>
 ) {
-    info!("Listening!!!");
+    //info!("Listening!!!");
     /* to hold msg */
     let mut buf: [u8; 1024] = [0; 1024];
     /* grab dat shit */
@@ -233,19 +231,6 @@ pub fn listen(
     let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
     let rec_struct: ServerPacket = ServerPacket::deserialize(deserializer).unwrap();
 
-    /* we need the inputqueue of US, OUR PLAYER for an update when we recv
-     * a new sequence number. Might as well find that now to not pass an ugly
-     * Query */
-    let mut inputs: &mut InputQueue = &mut InputQueue::new();
-
-    // /*GOD todo AS FUCK. I want to grab the input queue of US... but then also
-    //  * need to still be able to query later in recv_player_packeet...
-    //  * damn you borrow checker!!!!! */
-    // for (v,t,p,h,c,r,s,a,id,iq, psq) in players_q.iter_mut(){
-    //     if id.id == client_id.id{
-    //         inputs = iq.into_inner();
-    //     }
-    // }
 
     /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
      * packet!! is essential for lamportaging */
@@ -268,7 +253,7 @@ pub fn listen(
             client_seq_update(&map_packet.head.sequence, sequence, packets);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
-            info!{"Matching Enemy Struct"};
+           // info!{"Matching Enemy Struct"};
             recv_enemy(&enemy_packet, commands, enemy_q, asset_server, &mut texture_atlases);
             client_seq_update(&enemy_packet.head.sequence, sequence, packets);
         }
@@ -288,8 +273,6 @@ fn receive_player_packet(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
-            &mut InputQueue,
-            &mut PastStateQueue
         ),
         With<Player>,
     >,
@@ -304,27 +287,20 @@ fn receive_player_packet(
     let mut found_packet = false;
     let mut found_us = false;
     /* for all players, find what was sent */
-    for (v, t, p, h, c, r, s, a, id, iq, mut psq) in players.iter_mut() {
+    for (mut v, mut t, p, mut h, mut c, mut r, mut s, mut a, id) in players.iter_mut() {
         if id.id == saranpack.head.network_id {
             /* we found! */
             found_packet = true;
-            /* create a lil 'past me' struct */
-            let past = PastState{
-                velo: Velocity::from(saranpack.velocity),
-                transform: saranpack.transform,
-                crouch: Crouch::new_set(saranpack.crouch),
-                roll: Roll::new_set(saranpack.roll),
-                attack: Attack::new_set(saranpack.attack),
-                seq: saranpack.head.sequence.clone()
-            }; 
-            /* plop em in, handle elsewhere teeeeebs, could be user or
-             * another client, we handle these cases differently */
-            psq.q.push_back(past);
-        }
+            /* set player */
+            v.set(&saranpack.velocity);
+            /* dam u transform */
+            *t = saranpack.transform;
+            h.set(&saranpack.health);
+            c.set(saranpack.crouch);
+            s.set(saranpack.sprint);
+            a.set(saranpack.attack);
+            r.rolling = saranpack.roll;
 
-        /* do we even exist?!?! */
-        if id.id == us.id{
-            found_us = true;
         }
     }
 
@@ -352,14 +328,6 @@ fn receive_player_packet(
      * GAHHHH all the scenarios are the same we must just do some setting (to be sure that
      * shit works even if we failed to get a id packet) */
     if !found_packet {
-
-        /* ok lowk all good just do the recv_id sets if its us */
-        if !found_us{
-            us.id = saranpack.head.network_id;
-            sequence.new_index(us.id as usize);
-            /* here we set the clock values */
-            sequence.assign(&saranpack.head.sequence);
-        }
         let player_sheet_handle = asset_server.load("player/4x8_player.png");
         let player_layout = TextureAtlasLayout::from_grid(
             UVec2::splat(TILE_SIZE),
@@ -437,6 +405,7 @@ fn recv_enemy(
     asset_server: Res<AssetServer>,
     tex_atlas: &mut ResMut<Assets<TextureAtlasLayout>>
 ){
+  //  info!("rec'd enemy");
     let mut found = false;
     for mut enemy in enemy_q.iter_mut(){
         if pack.enemytype.get_id() == enemy.id.id{ 
@@ -469,8 +438,9 @@ fn recv_enemy(
 
         let mut vec: Vec<EnemyMovement> = Vec::new();
         vec.push(pack.movement.clone());
-        let x = pack.movement.direction.x;
-        let y = pack.movement.direction.y;
+        let x = pack.transform.translation.x;
+        let y = pack.transform.translation.y;
+        info!("x: {} y: {}", x, y);
         commands.spawn(
             (SpriteBundle{
                 transform: Transform::from_xyz(x, y, 900.),

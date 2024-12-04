@@ -66,7 +66,7 @@ pub enum EnemyKind {
 
 /* Constuctors for enemies, using const declared above */
 impl EnemyKind {
-    fn skeleton() -> Self {
+    pub fn skeleton() -> Self {
         EnemyKind::Skeleton(Enemy::new(
             String::from(SK_NAME),
             String::from(SK_PATH),
@@ -78,7 +78,7 @@ impl EnemyKind {
             SK_SIZE,
         ))
     }
-    fn berry() -> Self {
+    pub fn berry() -> Self {
         EnemyKind::BerryRat(Enemy::new(
             String::from(BR_NAME),
             String::from(BR_PATH),
@@ -90,7 +90,7 @@ impl EnemyKind {
             BR_SIZE,
         ))
     }
-    fn ninja() -> Self {
+    pub fn ninja() -> Self {
         EnemyKind::Ninja(Enemy::new(
             String::from(N_NAME),
             String::from(N_PATH),
@@ -102,7 +102,7 @@ impl EnemyKind {
             N_SIZE,
         ))
     }
-    fn splatmonkey() -> Self {
+    pub fn splatmonkey() -> Self {
         EnemyKind::SplatMonkey(Enemy::new(
             String::from(SP_NAME),
             String::from(SP_PATH),
@@ -114,7 +114,7 @@ impl EnemyKind {
             SP_SIZE,
         ))
     }
-    fn boss() -> Self {
+    pub fn boss() -> Self {
         EnemyKind::Boss(Enemy::new(
             String::from(B_NAME),
             String::from(B_PATH),
@@ -279,8 +279,10 @@ pub fn enemy_movement(
     wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<EnemyTimer>)>,
     time: Res<Time>,
 ) {
+   // info!("running enemy mvmt");
     // for every enemy
     for (mut transform, mut timer, mut movement, ) in enemy_query.iter_mut() {
+        info!("Sanity CHECK");
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
                                                                                // checking which player is closest
@@ -454,4 +456,36 @@ pub fn enemy_movement(
         transform.translation.y +=
             normalized_direction.y * ENEMY_SPEED * time.delta_seconds() * ymul;
     }
+}
+
+pub fn server_spawn_enemies(
+    mut commands: Commands,
+    mut enemy_id: ResMut<EnemyId>,
+) {
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..NUMBER_OF_ENEMIES {
+        let random_x = rng.gen_range((-MAX_X + 64.)..(MAX_X - 64.));
+        let random_y = rng.gen_range((-MAX_Y + 64.)..(MAX_Y - 64.));
+        info!("random x: {}, random y: {}", random_x, random_y);
+
+        commands.spawn((
+            ServerEnemyBundle {
+                transform: Transform::from_xyz(random_x, random_y, 900.),
+                id: EnemyId::new(enemy_id.get_plus(), EnemyKind::skeleton()),
+                motion: EnemyMovement::new(
+                    Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                    1,
+                    Vec3::new(99999., 0., 0.),
+                ),
+                timer: EnemyTimer {
+                    time: Timer::from_seconds(3.0, TimerMode::Repeating),
+                },
+            },
+        ));
+        info!("spawned enemies");
+    }
+   
+
+
 }

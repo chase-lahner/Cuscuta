@@ -13,7 +13,8 @@ pub const CLIENT_ID_DEFAULT: u8 = 0;
 
 pub const TICKS_PER_SECOND: f64 = 60.;
 
-pub const SERVER_ADR: &str = "192.168.1.182:5001"; //136.142.159.86:5001
+pub const SERVER_ADR: &str = "10.4.7.139:5001"; //136.142.159.86:5001
+
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;
 pub const PLAYER_DATA: u8 = 254;
@@ -84,6 +85,11 @@ impl Health {
             current: 100.
         }
     }
+
+    pub fn set(&mut self, heal: &Health){
+        self.current = heal.current;
+        self.max = heal.max;
+    }
 }
 
 #[derive(Resource)]
@@ -132,6 +138,10 @@ impl Velocity {
         Self {
             velocity: Vec2::splat(0.),
         }
+    }
+
+    pub fn set(&mut self, velo: &Vec2){
+        self.velocity = *velo;
     }
 }
 
