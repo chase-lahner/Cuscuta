@@ -321,6 +321,7 @@ fn receive_player_packet(
             attacking: Attack{attacking:saranpack.attack},
             inputs: InputQueue::new(),
             states: PastStateQueue::new(),
+            potion_status: PotionStatus::new(),
         });
     }
 }
@@ -370,7 +371,7 @@ fn recv_enemy(
     for (mut t, _m, i, mut q) in enemy_q.iter_mut(){
         if pack.enemytype.get_id() == i.id{
            // info!("here!"); 
-            info!("enemy queue length: {}", q.q.len());
+            //info!("enemy queue length: {}", q.q.len());
             if(q.q.len() > 2)
             {
                 while(q.q.len() > 2)
@@ -378,7 +379,7 @@ fn recv_enemy(
                     q.q.pop_back();
                 }
             }
-            info!("enemy transform: {:?} player transform {:?}", t.translation.x, pack.transform.translation.x);
+            //info!("enemy transform: {:?} player transform {:?}", t.translation.x, pack.transform.translation.x);
             q.q.push_back(EnemyPastState{
                 transform: t.clone(),
             });

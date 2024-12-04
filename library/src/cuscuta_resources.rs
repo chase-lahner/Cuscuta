@@ -14,8 +14,6 @@ pub const TICKS_PER_SECOND: f64 = 60.;
 
 pub const SERVER_ADR: &str = "10.4.72.154:5001"; //136.142.159.86:5001
 
-
-
 pub const GET_PLAYER_ID_CODE: u8 = 255;
 pub const PLAYER_DATA: u8 = 254;
 /* end opcode!! */
