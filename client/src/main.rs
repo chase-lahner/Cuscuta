@@ -27,8 +27,8 @@ fn main() {
         )
         .add_systems(Update, (
             player::move_player,
-            client::listen.run_if(on_timer(Duration::from_millis(5))),
-            enemies::enemy_movement.after(player::move_player),
+
+            client::listen,
 
             player::animate_player.after(player::move_player),
             player::player_attack.after(player::animate_player),
