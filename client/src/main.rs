@@ -26,10 +26,10 @@ fn main() {
             client::id_request.after(init::client_setup))
         )
         .add_systems(Update, (
-            client::gather_input,
             player::move_player,
-            //player::player_input,
-            //player::update_player_position.after(player::player_input),
+            client::listen,
+            enemies::enemy_movement.after(player::move_player),
+
             player::animate_player.after(player::move_player),
             player::player_attack.after(player::animate_player),
             player::player_roll.after(player::animate_player),
@@ -39,13 +39,6 @@ fn main() {
             player::player_interact
         )) 
         /* networking shtuff. comment out if needed */
-
-        .add_systems(Update, (
-            client::gather_input,
-            client::listen,
-        ))
-
-
         .add_systems(FixedUpdate,
             (client::send_player,
             client::client_send_packets)
