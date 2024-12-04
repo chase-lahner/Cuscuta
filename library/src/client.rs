@@ -247,7 +247,6 @@ fn receive_player_packet(
     for (mut v, mut t, _p, mut h, mut c, mut r, mut s, mut a, id) in players.iter_mut() {
         if id.id == saranpack.head.network_id {
             /* we found! */
-            info!("matched player");
             found_packet = true;
             /* set player */
             v.set(&saranpack.velocity);
@@ -261,8 +260,6 @@ fn receive_player_packet(
             a.set(saranpack.attack);
             r.rolling = saranpack.roll;
 
-        }else{
-            info!("Fail to match player");
         }
     }
 
@@ -372,8 +369,7 @@ fn recv_enemy(
     let mut found = false;
     for (mut t, _m, i) in enemy_q.iter_mut(){
         if pack.enemytype.get_id() == i.id{
-            info!("here!"); 
-            info!("enemy transform: {:?} player transform {:?}", t.translation.x, pack.transform.translation.x);
+            //info!("enemy transform: {:?} player transform {:?}", t.translation.x, pack.transform.translation.x);
             t.translation.x = pack.transform.translation.x;
             t.translation.y = pack.transform.translation.y;
             // enemy.movement = pack.movement;
