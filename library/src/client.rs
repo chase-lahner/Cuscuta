@@ -181,7 +181,7 @@ pub fn listen(
     let packet = udp.socket.recv_from(&mut buf);
     match packet {
         Err(_e) => return,
-        _ => info!("read packet!")}
+        _ => {}}
     let (amt, src) = packet.unwrap();
   
     /* trim trailing 0s */
@@ -201,7 +201,7 @@ pub fn listen(
             client_seq_update(&id_packet.head.sequence, sequence, packets);
         }
         ServerPacket::PlayerPacket(player_packet) => {
-            info!("Matching Player Struct");
+            info!("Matching Player  {}", player_packet.head.network_id);
             /*  gahhhh sequence borrow checker is giving me hell */
             /* if we encounter porblems, it's herer fs */ 
             receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, src);
@@ -247,17 +247,22 @@ fn receive_player_packet(
     for (mut v, mut t, _p, mut h, mut c, mut r, mut s, mut a, id) in players.iter_mut() {
         if id.id == saranpack.head.network_id {
             /* we found! */
+            info!("matched player");
             found_packet = true;
             /* set player */
             v.set(&saranpack.velocity);
             /* dam u transform */
-            *t = saranpack.transform;         
+            *t = saranpack.transform;
+            //info!("TRANSFORM: {:?}", saranpack.transform);
+
             h.set(&saranpack.health);
             c.set(saranpack.crouch);
             s.set(saranpack.sprint);
             a.set(saranpack.attack);
             r.rolling = saranpack.roll;
 
+        }else{
+            info!("Fail to match player");
         }
     }
 
@@ -285,6 +290,7 @@ fn receive_player_packet(
      * GAHHHH all the scenarios are the same we must just do some setting (to be sure that
      * shit works even if we failed to get a id packet) */
     if !found_packet {
+        info!("creating new player {}", saranpack.head.network_id);
         let player_sheet_handle = asset_server.load("player/4x8_player.png");
         let player_layout = TextureAtlasLayout::from_grid(
             UVec2::splat(TILE_SIZE),
@@ -295,7 +301,7 @@ fn receive_player_packet(
         );
         let player_layout_len = player_layout.textures.len();
         let player_layout_handle = texture_atlases.add(player_layout);
-
+        info!("SPAWN SPAWN SPAWNNNN");
         commands.spawn(ClientPlayerBundle{
              sprite: SpriteBundle{ 
                 texture: player_sheet_handle,
@@ -576,8 +582,13 @@ pub fn send_player(
     seq: Res<Sequence>,
     clientid: Res<ClientId>
 ){
-    for (id, velo, trans, heal, crouch, roll, sprint, attack) in player_q.iter(){
+    'playa: for (id, velo, trans, heal, crouch, roll, sprint, attack) in player_q.iter(){
         if id.id == clientid.id{
+            /* we don't want to send if we arent doing anything, no use...
+             * same goes for server!!!!! */
+            if velo.velocity.y == 0. && velo.velocity.x == 0. {
+                continue 'playa;
+            }
             let to_send = ClientPacket::PlayerPacket(PlayerSendable{
                 head: Header{ network_id: id.id, sequence: seq.clone() },
                 transform: trans.clone(),
