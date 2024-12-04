@@ -8,7 +8,7 @@ use crate::player::{NetworkId, Player};
 /* stupud to do math like this but basically window is  */
 const CARNAGE_BAR_LEFT: f32 = 3.0;
 const CARNAGE_BAR_MIDDLE: f32 = CARNAGE_BAR_LEFT + 12.; 
-const CARNAGE_BAR_RIGHT: f32 = CARNAGE_BAR_MIDDLE + 12.;
+const _CARNAGE_BAR_RIGHT: f32 = CARNAGE_BAR_MIDDLE + 12.;
 
 
 #[derive(Component)]

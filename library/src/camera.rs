@@ -35,7 +35,7 @@ pub fn move_camera(
 
 pub fn spawn_camera(
     commands: &mut Commands,
-    asset_server: & AssetServer
+    // asset_server: & AssetServer
 ){
     /* camera spawn */
     commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));

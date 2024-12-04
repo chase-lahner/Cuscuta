@@ -5,7 +5,6 @@ use std::net::UdpSocket;
 use std::io;
 use crate::enemies::{EnemyId, EnemyMovement};
 use crate::cuscuta_resources::Health;
-use crate::player::{InputQueue, NetworkId, Player};
 
 
 /* Packets queues are used to hold packets when creted, before
@@ -224,6 +223,7 @@ pub struct MapS2C{
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EnemyS2C{
+    pub transform: Transform,
     pub head: Header,
     pub enemytype: EnemyId,
     pub movement: EnemyMovement,

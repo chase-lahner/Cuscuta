@@ -6,14 +6,13 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
-use std::env;
 
 
 pub const CLIENT_ID_DEFAULT: u8 = 0;
 
 pub const TICKS_PER_SECOND: f64 = 60.;
 
-pub const SERVER_ADR: &str = "10.0.0.60:5001"; //136.142.159.86:5001
+pub const SERVER_ADR: &str = "10.0.0.233:5001"; //136.142.159.86:5001
 
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;
