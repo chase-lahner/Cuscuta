@@ -1,13 +1,12 @@
 use std::net::SocketAddr;
-use std::ops::Deref;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::enemies::{ClientEnemy, Enemy, EnemyKind, EnemyMovement};
+use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::cuscuta_resources::*;
 use crate::network::{
-    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerSendable, Sequence, ServerPacket, Timestamp, UDP
+    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerSendable, Sequence, ServerPacket, UDP
 };
 use crate::player::*;
 
@@ -29,45 +28,6 @@ pub fn client_send_packets(
 
 }
 
-
-/* what could have beennnnn.............. goodbye client side prediction */
-// /* to be called right b4 sending packets */
-// pub fn pack_up_input(
-//     mut packets: ResMut<ClientPacketQueue>,
-//     player_q: Query<(&NetworkId, &InputQueue), With<Player>>,
-//     client_id: Res<ClientId>,
-//     sequence: ResMut<Sequence>
-// ){
-//      /* for the input queue, we check to make sure that the last item
-//      * in it is the right inputs for this sequence value and send off if so */
-
-//      /* for all players */
-//      for (id, iq) in player_q.iter(){
-//         /* if we are us */
-//         if id.id == client_id.id{
-//             /* grab last input, and check if correct seq */
-//             let (seq, keys) = &iq.q[iq.q.len()];
-
-//             let pack:ClientPacket;
-//             if *seq != sequence.get(){
-//                 pack = ClientPacket::PlayerPacket(
-//                     PlayerSendable{
-//                         head: Header::new(client_id.id, sequence.clone()),
-//                         key: Vec::new(),
-//                     }
-//                 )
-//             }else{
-//                 pack = ClientPacket::PlayerPacket(
-//                     PlayerC2S{
-//                         head: Header::new(client_id.id, sequence.clone()),
-//                         key: keys.clone(),
-//                     }
-//                 );
-//             }
-//             packets.packets.push(pack);
-//         }
-//     }
-// }
 
 /* server send us an id so we can know we are we yk */
 pub fn recv_id(
@@ -193,7 +153,7 @@ pub fn gather_input(
 pub fn listen(
     udp: Res<UDP>,
     commands: Commands,
-    mut players_q: Query<
+    players_q: Query<
         (
             &mut Velocity,
             &mut Transform,
@@ -207,12 +167,12 @@ pub fn listen(
         ),
         With<Player>,
     >,
-    mut enemy_q: Query<&mut ClientEnemy>,
+    enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId),(With<Enemy>, Without<Player>)>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     client_id: ResMut<ClientId>,
     mut sequence: ResMut<Sequence>,
-    mut packets: ResMut<ClientPacketQueue>
+    packets: ResMut<ClientPacketQueue>
 ) {
     //info!("Listening!!!");
     /* to hold msg */
@@ -244,7 +204,7 @@ pub fn listen(
             info!("Matching Player Struct");
             /*  gahhhh sequence borrow checker is giving me hell */
             /* if we encounter porblems, it's herer fs */ 
-            receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, client_id, src, &mut sequence);
+            receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, src);
             client_seq_update(&player_packet.head.sequence, sequence, packets);
         }
         ServerPacket::MapPacket(map_packet) => {
@@ -279,22 +239,19 @@ fn receive_player_packet(
     asset_server: &Res<AssetServer>,
     saranpack: &PlayerSendable,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    mut us: ResMut<ClientId>,
     source_ip: SocketAddr,
-    sequence: &mut ResMut<Sequence>
 ) {
     /* need to know if we were sent a player we don't currently have */
     let mut found_packet = false;
-    let mut found_us = false;
-    /* for all players, find what was sent */
-    for (mut v, mut t, p, mut h, mut c, mut r, mut s, mut a, id) in players.iter_mut() {
+    /* for all players, find what was sent */                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+    for (mut v, mut t, _p, mut h, mut c, mut r, mut s, mut a, id) in players.iter_mut() {
         if id.id == saranpack.head.network_id {
             /* we found! */
             found_packet = true;
             /* set player */
             v.set(&saranpack.velocity);
             /* dam u transform */
-            *t = saranpack.transform;
+            *t = saranpack.transform;         
             h.set(&saranpack.health);
             c.set(saranpack.crouch);
             s.set(saranpack.sprint);
@@ -401,15 +358,20 @@ fn receive_player_packet(
 fn recv_enemy(
     pack: &EnemyS2C,
     mut commands: Commands,
-    mut enemy_q: Query<&mut ClientEnemy>,//TODO make ecs
+    mut enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId),(With<Enemy>, Without<Player>)>,//TODO make ecs
     asset_server: Res<AssetServer>,
     tex_atlas: &mut ResMut<Assets<TextureAtlasLayout>>
 ){
   //  info!("rec'd enemy");
     let mut found = false;
-    for mut enemy in enemy_q.iter_mut(){
-        if pack.enemytype.get_id() == enemy.id.id{ 
-            enemy.movement.push(pack.movement.clone());
+    for (mut t, _m, i) in enemy_q.iter_mut(){
+        if pack.enemytype.get_id() == i.id{
+            info!("here!"); 
+            info!("enemy transform: {:?} player transform {:?}", t.translation.x, pack.transform.translation.x);
+            t.translation.x = pack.transform.translation.x;
+            t.translation.y = pack.transform.translation.y;
+            // enemy.movement = pack.movement;
+          //  enemy.movement.push(pack.movement.clone());
             found = true;
             break;
         }
@@ -436,28 +398,30 @@ fn recv_enemy(
 
         let enemy_layout_handle = tex_atlas.add(enemy_layout);
 
-        let mut vec: Vec<EnemyMovement> = Vec::new();
-        vec.push(pack.movement.clone());
+        // let mut vec: Vec<EnemyMovement> = Vec::new();
+        // vec.push(pack.movement.clone());
         let x = pack.transform.translation.x;
         let y = pack.transform.translation.y;
         info!("x: {} y: {}", x, y);
+        let transform_to_use = Transform::from_xyz(x, y, 900.);
         commands.spawn(
-            (SpriteBundle{
-                transform: Transform::from_xyz(x, y, 900.),
-                texture: asset_server.load(the_enemy.filepath.clone()),
-                
-                ..default()
-            },
-            TextureAtlas{
-                layout: enemy_layout_handle,
-                index:0
-            },
             ClientEnemy{
+                sprite: SpriteBundle{
+                    texture: asset_server.load(the_enemy.filepath.clone()).clone(),
+                    transform: transform_to_use,
+                    ..default()
+                },
+                atlas: TextureAtlas{
+                    layout: enemy_layout_handle,
+                    index: 0,
+                },
+                animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+                animation_frames: AnimationFrameCount(the_enemy.sprite_column as usize * the_enemy.sprite_row as usize),
+                enemy: the_enemy.clone(),
+                movement: pack.movement.clone(),
                 id: pack.enemytype.clone(),
-                movement: vec,
-            })
-
-        );
+            
+    });
 
     };
 }

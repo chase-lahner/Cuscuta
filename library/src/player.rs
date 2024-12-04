@@ -9,7 +9,7 @@ use crate::{
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{PlayerSendable, Timestamp},
+    network::PlayerSendable,
     room_gen::*,
     ui::CarnageBar,
 };
@@ -189,40 +189,6 @@ impl PastState{
         }
     }
 }
-
-/* we want to have a singular update fn, so we can call it from both the client
- * and player. I'm gonna have us pass the tuple deconstructed from a query,
- * so it makes it a bit more general. I think I may also have it return a tuple
- * of player, so we can apply as we feel necessary. */
-pub fn update_player(
-    mut player: (&mut Transform, &mut Velocity, &mut NetworkId, &mut InputQueue, &PastStateQueue),
-
-){
-    /* de tup-ify */
-    let (transform, velo, id, iq, psq) = player;
-
-    /* does this buff give us any "use this index rn" type stuff??
-     * Didn't see, so I am just iterating to find most recent state to use
-     * PastState::new() establishes Sequence with 0 index  */
-    let mut recent_state = &PastState::new();
-    for state in psq.q.iter(){
-        if state.seq.get() > recent_state.seq.get(){
-            recent_state = state;
-        }
-    }
-
-    /* we now have the most recent state sent by the server in recent_state */
-    
-
-
-
-}
-
-
-
-
-
-
 
 pub fn player_attack(
     time: Res<Time>,
