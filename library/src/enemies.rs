@@ -510,7 +510,7 @@ pub fn server_spawn_enemies(
                 },
             },
         ));
-        info!("spawned enemies");
+        info!("spawned enemy ");
     }
    
 

@@ -40,8 +40,8 @@ fn main() {
         )) 
         /* networking shtuff. comment out if needed */
         .add_systems(FixedUpdate,
-            (client::send_player,
-            client::client_send_packets)
+            client::send_player
+            //client::client_send_packets)
         )
         .run();
 }

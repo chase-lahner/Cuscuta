@@ -138,52 +138,6 @@ impl Sequence{
     }
 }
 
-/* when we receive a new sequence number, we want to take the larger of the two.
- * We want to make sure that everything sent on a tick has the same sequence value,
- * so this will update any instance of us using the sequence value */
-pub fn client_seq_update(
-    seq_new: &Sequence,
-    mut sequence: ResMut<Sequence>,
-    mut packet_q: ResMut<ClientPacketQueue>,
-){
-    /* We must assign.
-     * Sequence::assign() is juuuust above^^^^, takes and
-     * does another check to see is seq-new is greater, and 
-     * then assigns it so our Resource Sequence is ready to go */
-    sequence.assign(seq_new);
-
-    /* Now we must check, do we have any packets here on the old
-     * Sequence value? If so, we must adjust them to the newest value */
-
-     /* AS OF 11/26/24 with only idPack and playersend packs,
-      * this shouuuuld be empty..... whatever I did the work for when
-      * we theoretically send more(...will we?) */
-    for pack in packet_q.packets.iter_mut(){
-        /* generic enum ClientPacket...... must match 
-        ✞☬⎝⎝✧GͥOͣDͫ✧⎠⎠✞༒✞☠︎▄︻デ✞✞✞ঔৣ💤📿⚡꧁༒☬★彡ཧᜰ꙰ꦿ➢❄️
-        `•.¸¸.•´´¯`••._.• ¸,ø¤º°`°º¤ø,¸ ღ(¯`◕‿◕´¯) 
-        ♫ ♪ ♫ «-(¯`v´¯)-« ๖ۣۜ⍓︎҉̃̀̋̑□︎̯̱̊͊͢ư̡͕̭̇❒︎̴̨̦͕̝ ḿ̬̏ͤͅ□︎̯̱̊͊͢ḿ̬̏ͤͅ༻࿌𖣘
-        »-(¯`v´¯)-» ♫ ♪ ♫ (¯`◕‿◕´¯)ღ ¸,ø¤º°`°º¤ø,¸ 
-        •._.••`¯´´•.¸¸.•`❄️༒彡★☬༒꧂⚡📿💤ঔৣ✞✞✞══━一☠︎✞
-        ༒✞⎝⎝✧GͥOͣDͫ✧⎠⎠☬✞ */
-
-
-        /* hate unneccessary necessary match but i love uneccessary comments.
-         * I love snoop doggs feature
-         * on Kendrick Lamar's 2015 classic to pimp a butterfly,
-         * more specifically his verse on intitutionalized. that is all */
-        match pack{
-            ClientPacket::PlayerPacket(playerc2s) 
-                => playerc2s.head.sequence.assign(seq_new),
-            ClientPacket::IdPacket(id_packet) 
-                => id_packet.head.sequence.assign(seq_new),
-        }
-    }// ok now we have made out PacketQueue pretty. now for InputQueue
-
-
-
-}
-
 
 #[derive(Resource, Component)]
 pub struct UDP {

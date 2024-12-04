@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::cuscuta_resources::*;
 use crate::network::{
-    client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerSendable, Sequence, ServerPacket, UDP
+    ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerSendable, Sequence, ServerPacket, UDP
 };
 use crate::player::*;
 
@@ -33,7 +33,7 @@ pub fn client_send_packets(
 pub fn recv_id(
     ds_struct: &IdPacket,
     sequence: &mut Sequence,
-    mut id: ResMut<ClientId>
+    mut id: &mut ClientId
 ) {
     info!("Recieving ID");
     /* assign it to the player */
@@ -52,7 +52,8 @@ pub fn recv_id(
 /* Sends id request to the server 
  * ID PLESASE */
 pub fn id_request(
-    mut packet_q: ResMut<ClientPacketQueue>
+    mut packet_q: ResMut<ClientPacketQueue>,
+    udp: Res<UDP>,
 ) {
     /* make an idpacket, server knows if it receives one of these
      * what we really want */
@@ -61,8 +62,11 @@ pub fn id_request(
             network_id: 0,
             sequence: Sequence::new(0),
         }});
-    /* plop into 'to-send' list */
-    packet_q.packets.push(id_packet);//sneed
+    /* stright up sending */
+    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+    id_packet.serialize(&mut serializer).unwrap();
+    let packet: &[u8] = serializer.view();
+    udp.socket.send_to(&packet, SERVER_ADR).unwrap();
 }
 
 /* Parse player input, and apply it*/
@@ -152,8 +156,8 @@ pub fn gather_input(
  * within the match, to make sure we Lamport corectly */
 pub fn listen(
     udp: Res<UDP>,
-    commands: Commands,
-    players_q: Query<
+    mut commands: Commands,
+    mut players_q: Query<
         (
             &mut Velocity,
             &mut Transform,
@@ -167,14 +171,15 @@ pub fn listen(
         ),
         With<Player>,
     >,
-    enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,
+    mut enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    client_id: ResMut<ClientId>,
+    mut client_id: ResMut<ClientId>,
     mut sequence: ResMut<Sequence>,
     packets: ResMut<ClientPacketQueue>
 ) {
     //info!("Listening!!!");
+    loop{
     /* to hold msg */
     let mut buf: [u8; 1024] = [0; 1024];
     /* grab dat shit */
@@ -197,32 +202,33 @@ pub fn listen(
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
             info!("matching idpacket");
-            recv_id(&id_packet, &mut sequence, client_id);
-            client_seq_update(&id_packet.head.sequence, sequence, packets);
+            recv_id(&id_packet, &mut sequence, &mut client_id);
+            sequence.assign(&id_packet.head.sequence);
         }
         ServerPacket::PlayerPacket(player_packet) => {
             info!("Matching Player  {}", player_packet.head.network_id);
             /*  gahhhh sequence borrow checker is giving me hell */
             /* if we encounter porblems, it's herer fs */ 
-            receive_player_packet(commands, players_q, &asset_server, &player_packet, &mut texture_atlases, src);
-            client_seq_update(&player_packet.head.sequence, sequence, packets);
+            receive_player_packet( &mut commands, &mut players_q, &asset_server, &player_packet, &mut texture_atlases, src);
+            sequence.assign(&player_packet.head.sequence);
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
-            receive_map_packet(commands, &asset_server, map_packet.matrix);
-            client_seq_update(&map_packet.head.sequence, sequence, packets);
+            receive_map_packet(&mut commands, &asset_server, map_packet.matrix);
+            sequence.assign(&map_packet.head.sequence);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
            // info!{"Matching Enemy Struct"};
-            recv_enemy(&enemy_packet, commands, enemy_q, asset_server, &mut texture_atlases);
-            client_seq_update(&enemy_packet.head.sequence, sequence, packets);
+            recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases);
+            sequence.assign(&enemy_packet.head.sequence);
         }
     }
+}// stupid loop
 }
 
 fn receive_player_packet(
-    mut commands: Commands,
-    mut players: Query<
+    mut commands: &mut Commands,
+    mut players: &mut Query<
         (
             &mut Velocity,
             &mut Transform,
@@ -236,7 +242,7 @@ fn receive_player_packet(
         ),
         With<Player>,
     >,
-    asset_server: &Res<AssetServer>,
+    asset_server: &AssetServer,
     saranpack: &PlayerSendable,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     source_ip: SocketAddr,
@@ -361,9 +367,9 @@ fn receive_player_packet(
 
 fn recv_enemy(
     pack: &EnemyS2C,
-    mut commands: Commands,
-    mut enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,//TODO make ecs
-    asset_server: Res<AssetServer>,
+    mut commands: &mut Commands,
+    mut enemy_q: &mut Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,//TODO make ecs
+    asset_server: &AssetServer,
     tex_atlas: &mut ResMut<Assets<TextureAtlasLayout>>
 ){
   //  info!("rec'd enemy");
@@ -524,7 +530,7 @@ fn recv_enemy(
     8 - top wall
     9 - bottom wall */
 fn receive_map_packet (
-    mut commands: Commands,
+    mut commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     map_array: Vec<Vec<u8>>
 ) {
@@ -590,7 +596,8 @@ pub fn send_player(
     player_q: Query<(&NetworkId, &Velocity, &Transform, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
     mut packet_queue: ResMut<ClientPacketQueue>,
     seq: Res<Sequence>,
-    clientid: Res<ClientId>
+    clientid: Res<ClientId>,
+    udp: Res<UDP>
 ){
     'playa: for (id, velo, trans, heal, crouch, roll, sprint, attack) in player_q.iter(){
         if id.id == clientid.id{
@@ -609,7 +616,10 @@ pub fn send_player(
                 roll: roll.rolling,
                 sprint: sprint.sprinting,
             });
-            packet_queue.packets.push(to_send);
+            let mut serializer = flexbuffers::FlexbufferSerializer::new();
+            to_send.serialize(&mut serializer).unwrap();
+            let packet: &[u8] = serializer.view();
+            udp.socket.send_to(&packet, SERVER_ADR).unwrap();
         }
     }
 }
