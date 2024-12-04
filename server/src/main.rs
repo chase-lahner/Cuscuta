@@ -16,11 +16,10 @@ fn main() {
                 enemies::server_spawn_enemies.after(init::server_setup),
             ),
         )
-        .add_systems(Update,
-        server::listen)
         .add_systems(
             FixedUpdate,
             (
+                server::listen,
                 server::send_player.after(server::send_enemies),
                 server::send_enemies,
                 server::server_send_packets.after(server::send_player),

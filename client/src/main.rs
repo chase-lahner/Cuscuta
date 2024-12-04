@@ -27,6 +27,7 @@ fn main() {
         )
         .add_systems(Update, (
             player::move_player,
+            client::listen,
             enemies::enemy_movement.after(player::move_player),
             player::animate_player.after(player::move_player),
             player::player_attack.after(player::animate_player),
@@ -37,12 +38,6 @@ fn main() {
             player::player_interact
         )) 
         /* networking shtuff. comment out if needed */
-
-        .add_systems(Update, (
-            client::listen,
-        ))
-
-
         .add_systems(FixedUpdate,
             (client::send_player,
             client::client_send_packets)

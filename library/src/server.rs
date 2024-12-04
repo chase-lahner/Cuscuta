@@ -149,11 +149,11 @@ pub fn server_send_packets(
             udp.socket.send_to(&packet_chunk, address.addr).unwrap();
 
         }
+
         /* I want to deleteteeeeeee. What's rust's free thing? We
          * all good to just like make a new one? Or is that grim */
     }
     packet_q.packets = Vec::new();
-    
 }
 
 // //TOTOTOODODODODODODODO--------------------------------
@@ -344,6 +344,7 @@ fn update_player_state(
     /* For each player in the game*/
     for (v, t, i, h, c, r, s, a,)  in player.iter(){
         /* packet-ify it */
+        info!("Sending {}", i.id);
         let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
             transform: *t,
             head: Header::new(i.id,server_seq.clone()),

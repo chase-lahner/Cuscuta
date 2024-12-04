@@ -11,7 +11,7 @@ use crate::player::{InputQueue, NetworkId, Player};
 /* Packets queues are used to hold packets when creted, before
  * being sent. We will send every packet in the corresponding queue
  * once every fixedupdate (currently 60hz) */
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct ServerPacketQueue{
     pub packets: Vec<ServerPacket>
 }
@@ -23,7 +23,7 @@ impl ServerPacketQueue{
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct ClientPacketQueue{
     pub packets: Vec<ClientPacket>
 }
@@ -247,13 +247,13 @@ impl Header{
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ClientPacket{
     PlayerPacket(PlayerSendable),
     IdPacket(IdPacket),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ServerPacket{
     PlayerPacket(PlayerSendable),
     MapPacket(MapS2C),
