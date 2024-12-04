@@ -82,109 +82,107 @@ pub fn listen(
     server_seq: ResMut<Sequence>,
     packet_q: ResMut<ServerPacketQueue>
 ) {
-    /* to hold msg */
-    let mut buf: [u8; 1024] = [0;1024];
-    // pseudo poll. nonblocking, gives ERR on no read tho
-    let packet = udp.socket.recv_from(&mut buf);
-    match packet{
-        Err(_e)=> return,
-        _ => ()
-    }
-    let (amt, src) = packet.unwrap();
-    
-
-    /* trim trailing 0s */
-    let t_buf = &buf[..amt]; // / -1
-
-
-    let deserializer = flexbuffers::Reader::get_root(t_buf).unwrap();
-    // this shoulddd be a client packet right?
-    let player_struct: ClientPacket = ClientPacket::deserialize(deserializer).unwrap();
-
-    match player_struct {
-        ClientPacket::IdPacket(_id_packet) => {
-            info!("sending id to client");
-            send_id(src,  n_p.as_mut(), commands, addresses, server_seq, packet_q,udp)},
-        ClientPacket::PlayerPacket(player_packet) => {
-            // TODO: Fix this
-            update_player_state(src, players_q, player_packet, commands);
+   /* to hold msg */
+        let mut buf: [u8; 1024] = [0;1024];
+        // pseudo poll. nonblocking, gives ERR on no read tho
+        let packet = udp.socket.recv_from(&mut buf);
+        match packet{
+            Err(_e)=> return,
+            _ => ()
         }
-       
-    }
+        let (amt, src) = packet.unwrap();
+        
+
+        /* trim trailing 0s */
+        let t_buf = &buf[..amt]; // / -1
 
 
-}
+        let deserializer = flexbuffers::Reader::get_root(t_buf).unwrap();
+        // this shoulddd be a client packet right?
+        let player_struct: ClientPacket = ClientPacket::deserialize(deserializer).unwrap();
 
-/* uses items in packetQueue to send to all clients,
- * and removes them from the list.  */
-pub fn server_send_packets(
-    mut packet_q: ResMut<ServerPacketQueue>,
-    udp: Res<UDP>,
-    addresses: Query<&NetworkId>,
-
-){
-    /* for all packets in queue */
-    for packet in packet_q.packets.iter(){
-        let mut serializer = flexbuffers::FlexbufferSerializer::new();
-        packet.serialize(&mut serializer).unwrap();
-        let packet_chunk: &[u8] = serializer.view();
-        /* send to all users */
-        'adds: for address in addresses.iter()
-        {
-            /* buuuut only id for the id'd, and player 1 not to player 1 again,
-             * instaed off to p2 */
-            match packet {
-                ServerPacket::PlayerPacket(playa) =>{
-                    if address.id == playa.head.network_id{
-                        continue 'adds;
-                    }
-                }
-                ServerPacket::IdPacket(id)=> {
-                    if address.id != id.head.network_id{
-                        continue 'adds;
-                    }
-                }
-                ServerPacket::EnemyPacket(enemy)=>{
-                  //  info!("sending enemy packet");
-                    if address.id == enemy.head.network_id {
-                        continue 'adds;
-                    }
-                }
-                _ => {}
+        match player_struct {
+            ClientPacket::IdPacket(_id_packet) => {
+                info!("sending id to client");
+                send_id(src,  n_p.as_mut(), commands, addresses, server_seq, packet_q,udp)},
+            ClientPacket::PlayerPacket(player_packet) => {
+                // TODO: Fix this
+                update_player_state(src, players_q, player_packet, commands);
             }
-            udp.socket.send_to(&packet_chunk, address.addr).unwrap();
-
+        
         }
-
-        /* I want to deleteteeeeeee. What's rust's free thing? We
-         * all good to just like make a new one? Or is that grim */
-    }
-    packet_q.packets = Vec::new();
 }
 
-// //TOTOTOODODODODODODODO--------------------------------
-// fn recieve_input(
-//     client_pack: PlayerC2S,
-//     mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
-//          &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
-//           &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,
-// ){
-//     // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
-//     /* for all players in server game world */
-//     for (v, t, h, c, r, s, a, id, mut iq, time) in players_q.iter_mut(){
-//         /* if we find the one corresponding to our packet */
-//         if client_pack.head.network_id == id.id {
-//             /* for all the keys passed on the clients update */
-//             iq.q.push((client_pack.head.sequence.get(), client_pack.key.clone()));
-            
-//             /* ok if we want to update immediately then we od it right here
-//              * buuuuut the fn takes in diff args than we have (odd query). TBH
-//              * i am down to plop in the main logic loop for now, no reaason to use
-//              * any data longer than we have to, right?? (is not in main logic loop as of
-//              * 11/19 3:31pm*/
-//         }
-//     }
-// }
+    /* uses items in packetQueue to send to all clients,
+    * and removes them from the list.  */
+    pub fn server_send_packets(
+        mut packet_q: ResMut<ServerPacketQueue>,
+        udp: Res<UDP>,
+        addresses: Query<&NetworkId>,
+
+    ){
+        /* for all packets in queue */
+        for packet in packet_q.packets.iter(){
+            let mut serializer = flexbuffers::FlexbufferSerializer::new();
+            packet.serialize(&mut serializer).unwrap();
+            let packet_chunk: &[u8] = serializer.view();
+            /* send to all users */
+            'adds: for address in addresses.iter()
+            {
+                /* buuuut only id for the id'd, and player 1 not to player 1 again,
+                * instaed off to p2 */
+                match packet {
+                    ServerPacket::PlayerPacket(playa) =>{
+                        if address.id == playa.head.network_id{
+                            continue 'adds;
+                        }
+                    }
+                    ServerPacket::IdPacket(id)=> {
+                        if address.id != id.head.network_id{
+                            continue 'adds;
+                        }
+                    }
+                    ServerPacket::EnemyPacket(enemy)=>{
+                    //  info!("sending enemy packet");
+                        if address.id == enemy.head.network_id {
+                            continue 'adds;
+                        }
+                    }
+                    _ => {}
+                }
+                udp.socket.send_to(&packet_chunk, address.addr).unwrap();
+
+            }
+
+            /* I want to deleteteeeeeee. What's rust's free thing? We
+            * all good to just like make a new one? Or is that grim */
+        }
+        packet_q.packets = Vec::new();
+    }
+
+    // //TOTOTOODODODODODODODO--------------------------------
+    // fn recieve_input(
+    //     client_pack: PlayerC2S,
+    //     mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
+    //          &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
+    //           &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,
+    // ){
+    //     // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
+    //     /* for all players in server game world */
+    //     for (v, t, h, c, r, s, a, id, mut iq, time) in players_q.iter_mut(){
+    //         /* if we find the one corresponding to our packet */
+    //         if client_pack.head.network_id == id.id {
+    //             /* for all the keys passed on the clients update */
+    //             iq.q.push((client_pack.head.sequence.get(), client_pack.key.clone()));
+                
+    //             /* ok if we want to update immediately then we od it right here
+    //              * buuuuut the fn takes in diff args than we have (odd query). TBH
+    //              * i am down to plop in the main logic loop for now, no reaason to use
+    //              * any data longer than we have to, right?? (is not in main logic loop as of
+    //              * 11/19 3:31pm*/
+    //         }
+    //     }
+    // }
 
 pub fn send_enemies(
     enemies: Query<(& EnemyId, & EnemyMovement, &Transform), 
@@ -209,6 +207,7 @@ pub fn send_enemies(
         packet_q.packets.push(enemy);
     }
 }
+
 
 
 // /* once we have our packeet, we must use it to update
