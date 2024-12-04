@@ -167,7 +167,7 @@ pub fn listen(
         ),
         With<Player>,
     >,
-    enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId),(With<Enemy>, Without<Player>)>,
+    enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     client_id: ResMut<ClientId>,
@@ -364,16 +364,27 @@ fn receive_player_packet(
 fn recv_enemy(
     pack: &EnemyS2C,
     mut commands: Commands,
-    mut enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId),(With<Enemy>, Without<Player>)>,//TODO make ecs
+    mut enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,//TODO make ecs
     asset_server: Res<AssetServer>,
     tex_atlas: &mut ResMut<Assets<TextureAtlasLayout>>
 ){
   //  info!("rec'd enemy");
     let mut found = false;
-    for (mut t, _m, i) in enemy_q.iter_mut(){
+    for (mut t, _m, i, mut q) in enemy_q.iter_mut(){
         if pack.enemytype.get_id() == i.id{
-            info!("here!"); 
+           // info!("here!"); 
+            info!("enemy queue length: {}", q.q.len());
+            if(q.q.len() > 2)
+            {
+                while(q.q.len() > 2)
+                {
+                    q.q.pop_back();
+                }
+            }
             info!("enemy transform: {:?} player transform {:?}", t.translation.x, pack.transform.translation.x);
+            q.q.push_back(EnemyPastState{
+                transform: t.clone(),
+            });
             t.translation.x = pack.transform.translation.x;
             t.translation.y = pack.transform.translation.y;
             // enemy.movement = pack.movement;
@@ -426,6 +437,7 @@ fn recv_enemy(
                 enemy: the_enemy.clone(),
                 movement: pack.movement.clone(),
                 id: pack.enemytype.clone(),
+                past: EnemyPastStateQueue::new(),
             
     });
 
