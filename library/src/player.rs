@@ -119,6 +119,19 @@ impl InputQueue {
     }
 }
 
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct PotionStatus {
+    pub has_potion: bool,
+}
+
+impl PotionStatus {
+    pub fn new() -> Self {
+        Self {
+            has_potion: false,
+        }
+    }
+}
+
 /* pub */
 #[derive(Bundle)]
 pub struct ClientPlayerBundle {
@@ -135,7 +148,8 @@ pub struct ClientPlayerBundle {
     pub sprinting: Sprint,
     pub attacking: Attack,
     pub inputs: InputQueue,
-    pub states: PastStateQueue
+    pub states: PastStateQueue,
+    pub potion_status: PotionStatus,
 }
 
 #[derive(Bundle, Serialize, Deserialize)]
@@ -427,7 +441,8 @@ pub fn client_spawn_other_player_new(
             attacking: player.attack,
         },
         inputs: InputQueue::new(),
-        states: PastStateQueue::new()
+        states: PastStateQueue::new(),
+        potion_status: PotionStatus::new()
     });
 }
 
@@ -479,7 +494,8 @@ pub fn client_spawn_other_player(
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
         inputs: InputQueue::new(),
-        states: PastStateQueue::new()
+        states: PastStateQueue::new(),
+        potion_status: PotionStatus::new()
     });
 }
 
@@ -490,7 +506,7 @@ pub fn client_spawn_other_player(
  * trait for query? - rorto */
 pub fn player_interact(
     mut player: Query<
-        (&mut Transform, &mut Velocity, &NetworkId),
+        (&mut Transform, &mut Velocity, &NetworkId,  &mut PotionStatus),
         (With<Player>, Without<Background>),
     >,
     input: Res<ButtonInput<KeyCode>>,
@@ -498,23 +514,54 @@ pub fn player_interact(
     mut pot_q: Query<&mut Pot>,
     mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>,
     mut texture_atlas: Query<&mut TextureAtlas, (With<Pot>, Without<Player>)>,
+    potion_query: Query<&Transform, (With<Potion>, Without<Player>, Without<Pot>)>,
 ) {
     let mut pot = pot_q.single_mut();
     let pot_transform = pot_transform_q.single_mut();
     let mut pot_atlas = texture_atlas.single_mut();
-    for (player_transform, mut _player_velocity, id) in player.iter_mut() {
-        if id.id == client_id.id {
-            /* Has nothing to do with particles */
-            let pot_particle_collider =
-                Aabb::new(pot_transform.translation, Vec2::splat(TILE_SIZE as f32));
-            let player_particle_collider =
-                collision::Aabb::new(player_transform.translation, Vec2::splat(TILE_SIZE as f32));
 
+    for (player_transform, mut _player_velocity, id, mut potion_status) in player.iter_mut() {
+        if id.id == client_id.id {
+            // player collider
+            let player_collider =
+                collision::Aabb::new(
+                    player_transform.translation, 
+                    Vec2::splat(TILE_SIZE as f32)
+            );
+
+            // Coin pot collider
+            let pot_collider =
+                Aabb::new(
+                    pot_transform.translation, 
+                    Vec2::splat(TILE_SIZE as f32)
+            );
+
+            
+            // loop through potions in room
+            for potion_transform in potion_query.iter() {
+                let potion_collider = Aabb::new(
+                    potion_transform.translation, 
+                    Vec2::splat(TILE_SIZE as f32)
+                );
+
+                // if player intersects 
+                if player_collider.intersects(&potion_collider) && !potion_status.has_potion {
+                    // check here if player is already carrying potion
+                    potion_status.has_potion = true; // Player now has a potion
+                    info!(
+                        "Player at {:?} picked up a potion at {:?}!",
+                        player_transform.translation, potion_transform.translation
+                    );
+                } 
+
+            }
+
+            
             /* touch is how many frames since pressed
              * We only want to increment if not pressed
              * recently */
             if input.just_pressed(KeyCode::KeyE)
-                && pot_particle_collider.intersects(&player_particle_collider)
+                && pot_collider.intersects(&player_collider)
                 && pot.touch == 0
             {
                 info!("you got touched");
@@ -523,8 +570,10 @@ pub fn player_interact(
                 if pot.touch == 1 {
                     pot_atlas.index = pot_atlas.index + 1;
                 }
-                //TODO
+            
             }
+
+
         }
     }
 }

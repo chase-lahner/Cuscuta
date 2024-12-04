@@ -327,6 +327,7 @@ fn receive_player_packet(
             attacking: Attack{attacking:saranpack.attack},
             inputs: InputQueue::new(),
             states: PastStateQueue::new(),
+            potion_status: PotionStatus::new(),
         });
     }
 }
