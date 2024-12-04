@@ -215,6 +215,7 @@ pub struct ClientEnemy {
     pub movement: EnemyMovement,
     pub enemy: Enemy,
     pub id: EnemyId,
+    pub past: EnemyPastStateQueue
 }
 
 /* used by server to keep track of how many we got AND keep

@@ -153,6 +153,26 @@ pub struct ServerPlayerBundle {
     //pub time: Timestamp,
 }
 
+#[derive(Component)]
+pub struct EnemyPastStateQueue{
+    pub q: VecDeque<EnemyPastState>
+
+}
+
+impl EnemyPastStateQueue{
+    pub fn new() -> Self{
+        Self{
+            q: VecDeque::with_capacity(2)
+        }
+    }
+}
+
+
+pub struct EnemyPastState{
+    pub transform: Transform,
+}
+
+
 #[derive(Component, Serialize, Deserialize)]
 pub struct PastStateQueue{
     pub q: VecDeque<PastState> // double ended queue, will wrap around when full
