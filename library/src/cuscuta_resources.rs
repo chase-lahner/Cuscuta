@@ -12,7 +12,7 @@ pub const CLIENT_ID_DEFAULT: u8 = 0;
 
 pub const TICKS_PER_SECOND: f64 = 60.;
 
-pub const SERVER_ADR: &str = "10.4.64.122:5001"; //136.142.159.86:5001
+pub const SERVER_ADR: &str = "100.69.0.117:5001"; //136.142.159.86:5001
 
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;
