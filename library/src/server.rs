@@ -193,6 +193,7 @@ pub fn send_enemies(
     mut packet_q: ResMut<ServerPacketQueue>
 ){
     //info!("sending enemies");
+    
     /* for each enemy in the game world */
     for (id, movement, transform) in enemies.iter(){
         /* packet-ify it */
