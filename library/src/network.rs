@@ -187,6 +187,12 @@ pub struct EnemyS2C{
 pub struct IdPacket{
     pub head: Header
 }
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct KillEnemyPacket{
+    pub enemy_id: EnemyId
+}
+
 #[derive(Component, Serialize,Deserialize, PartialEq, Debug, Clone)]
 pub struct Header{
     pub network_id: u8,
@@ -205,6 +211,7 @@ impl Header{
 pub enum ClientPacket{
     PlayerPacket(PlayerSendable),
     IdPacket(IdPacket),
+    KillEnemyPacket(KillEnemyPacket)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -213,6 +220,7 @@ pub enum ServerPacket{
     MapPacket(MapS2C),
     IdPacket(IdPacket),
     EnemyPacket(EnemyS2C),
+    DespawnPacket(KillEnemyPacket)
 }
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array 

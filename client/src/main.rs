@@ -31,6 +31,7 @@ fn main() {
             player::move_player,
             client::listen,
             player::animate_player.after(player::move_player),
+            enemies::handle_enemy_collision.after(player::move_player),
             player::player_attack.after(player::animate_player),
             player::player_roll.after(player::animate_player),
             camera::move_camera.after(player::animate_player),

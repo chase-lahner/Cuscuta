@@ -3,21 +3,17 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::cuscuta_resources::*;
+use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::network::{
-    ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerSendable, Sequence, ServerPacket, UDP
+    ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, PlayerSendable, Sequence, ServerPacket, UDP
 };
 use crate::player::*;
 
-
 /* sends out all clientPackets from the ClientPacketQueue */
-pub fn client_send_packets(
-    udp: Res<UDP>,
-    mut packets: ResMut<ClientPacketQueue>,
-){
+pub fn client_send_packets(udp: Res<UDP>, mut packets: ResMut<ClientPacketQueue>) {
     /* for each packet in queue, we send to server*/
-    for pack in &packets.packets{
+    for pack in &packets.packets {
         let mut serializer = flexbuffers::FlexbufferSerializer::new();
         pack.serialize(&mut serializer).unwrap();
         let packet: &[u8] = serializer.view();
@@ -25,9 +21,7 @@ pub fn client_send_packets(
     }
     /* i hope this is not fucking our code */
     packets.packets = Vec::new();
-
 }
-
 
 /* server send us an id so we can know we are we yk */
 pub fn recv_id(
@@ -39,8 +33,8 @@ pub fn recv_id(
     /* assign it to the player */
     id.id = ds_struct.head.network_id;
     /* IMPORTANTE!!! index lets Sequence know
-     * what of it's vector values is USSSSS. 
-     * Seq.index == Player.NetworkId == ClientId 
+     * what of it's vector values is USSSSS.
+     * Seq.index == Player.NetworkId == ClientId
      * for any given client user. Server == 0
      * here we set index*/
     sequence.new_index(ds_struct.head.network_id.into());
@@ -49,7 +43,7 @@ pub fn recv_id(
     info!("ASSIGNED ID: {:?}", id.id);
 }
 
-/* Sends id request to the server 
+/* Sends id request to the server
  * ID PLESASE */
 pub fn id_request(
     mut packet_q: ResMut<ClientPacketQueue>,
@@ -92,45 +86,44 @@ pub fn gather_input(
             /* if last element in InputQueue has same sequence#, append
              * lists together so we have 1 per stamp.
              * This can happen because we gather_input() at
-             * an unfixed rate, however the game progresess it 
+             * an unfixed rate, however the game progresess it
              * progresses, while we only send/increment seq
              * on fixedupdate, which is when we send. It's possible to have
              * two++ gathers per send, we must make sure we are aware of this
              * possibility. Maybe there's a better way to handle it, i'm
-             * down 2 adjust 
-             * 
+             * down 2 adjust
+             *
              * LONG STORY SHORT WE NEED CLIENT/SERVER CONSISTENCY,
              * SO WE MUST PREEDICT HOW THE SERVER WILL. admittedly,
              * this loses us some accuracy in movement. we will survive, currently
              * @ 60hz that's not very human noticable. This means we will
              * have descepancies in intantaneous prediction, the time @ which
-             * you press UP within the frame does have an effect, 
+             * you press UP within the frame does have an effect,
              * although negligible (@max I think like 15ms for 64hz but then half
              * that fo 7.5ms ohhh no whatever shall we do {GAH SUBTICK [i'd be down]}).
              * Our reprediction should be pretty tho, as long as the server
              * isn't missing out on packets, as any enforced state we should
              * have already propely predicted!! Ideally we want the InputQueue
-             * of client and servers snapshot of client @ time t to be the same 
+             * of client and servers snapshot of client @ time t to be the same
              * - rorto */
-            
+
             let len = iq.q.len();
-            if len == 0{
+            if len == 0 {
                 iq.q.push((sequence.get(), keys));
-            }
-            else if iq.q.get_mut(len-1).unwrap().0 == sequence.get(){
+            } else if iq.q.get_mut(len - 1).unwrap().0 == sequence.get() {
                 let (q_timey, mut q_keys) = iq.q.pop().unwrap();
                 q_keys.append(&mut keys);
                 q_keys.dedup();
                 iq.q.push((q_timey, q_keys));
-            }else{
+            } else {
                 iq.q.push((sequence.get(), keys));
             }
 
             /* so now it's in our input queue!!! what do we want to do from here?
-             * 1. We need to make sure we send this tick's input next time we 
+             * 1. We need to make sure we send this tick's input next time we
              *      do a fixed update...
              *  One thing I am thinking about as a potential error right now is
-             * what if we have an inputqueue made above^, and then end up recieving a 
+             * what if we have an inputqueue made above^, and then end up recieving a
              * packet from the server with a higher sequence number. This would cause
              * our sequence number to update to the higher value, throwing off our input
              * queue. Maybe we should keep this in mind when changing the sequence number, so
@@ -142,14 +135,12 @@ pub fn gather_input(
             /* TODODO what?!? do we want another list? just query the inputqueue for
              * sequence.get()?? Think we can really just do the latter. also key that
              * we update player state right after this input gather happens.*/
-
-            
         }
     }
 }
 
 /* client listening function. Takes in a packet, deserializes it
- * into a ServerPacket (client here so from server). 
+ * into a ServerPacket (client here so from server).
  * Then we match against the packet
  * to figure out what kind it is, passing to another function to properly handle.
  * Important to note that we will Sequence::assign() on every packet
@@ -176,7 +167,7 @@ pub fn listen(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut client_id: ResMut<ClientId>,
     mut sequence: ResMut<Sequence>,
-    packets: ResMut<ClientPacketQueue>
+    packets: ResMut<ClientPacketQueue>,
 ) {
     //info!("Listening!!!");
     loop{
@@ -186,16 +177,16 @@ pub fn listen(
     let packet = udp.socket.recv_from(&mut buf);
     match packet {
         Err(_e) => return,
-        _ => {}}
+        _ => {}
+    }
     let (amt, src) = packet.unwrap();
-  
+
     /* trim trailing 0s */
     let packet = &buf[..amt];
 
     /* deserialize and turn into a ServerPacket */
     let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
     let rec_struct: ServerPacket = ServerPacket::deserialize(deserializer).unwrap();
-
 
     /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
      * packet!! is essential for lamportaging */
@@ -221,6 +212,11 @@ pub fn listen(
            // info!{"Matching Enemy Struct"};
             recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases);
             sequence.assign(&enemy_packet.head.sequence);
+        }
+        ServerPacket::DespawnPacket(despawn_packet) => {
+            info!("Matching Despawn Packet");
+            // despawn_enemy(&mut commands, &despawn_packet.enemy_id);
+            // sequence.assign(&despawn_packet.head.sequence);
         }
     }
 }// stupid loop
@@ -249,7 +245,7 @@ fn receive_player_packet(
 ) {
     /* need to know if we were sent a player we don't currently have */
     let mut found_packet = false;
-    /* for all players, find what was sent */                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+    /* for all players, find what was sent */
     for (mut v, mut t, _p, mut h, mut c, mut r, mut s, mut a, id) in players.iter_mut() {
         if id.id == saranpack.head.network_id {
             /* we found! */
@@ -271,7 +267,7 @@ fn receive_player_packet(
 
     /* we don't have this player!!!!!! Oh no!! whatever
      * shall we do?!?!
-     * 
+     *
      * Actually a qustion. there are three scenarios here. So, when we
      * ask the server for an id, it will send us an establishing id packet,
      * and then also punt over a newly spawned player.
@@ -282,14 +278,14 @@ fn receive_player_packet(
      * Scenario 3: We recv player **before** the id packet. lil iffy.
      *              I think the only way to know of this is to  check if clientID
      *              'us' is still @ default value (0).
-     * 
-     * 
+     *
+     *
      * We have a lil check above to see if we have found 'us' in our
-     * query of the game world. if we did not find, we can lowk merge 
+     * query of the game world. if we did not find, we can lowk merge
      * scenarios 2&3, with just doin a lil 'make sure we set our id'
      * in scenario 3
-     * 
-     * 
+     *
+     *
      * GAHHHH all the scenarios are the same we must just do some setting (to be sure that
      * shit works even if we failed to get a id packet) */
     if !found_packet {
@@ -305,26 +301,39 @@ fn receive_player_packet(
         let player_layout_len = player_layout.textures.len();
         let player_layout_handle = texture_atlases.add(player_layout);
         info!("SPAWN SPAWN SPAWNNNN");
-        commands.spawn(ClientPlayerBundle{
-             sprite: SpriteBundle{ 
+        commands.spawn(ClientPlayerBundle {
+            sprite: SpriteBundle {
                 texture: player_sheet_handle,
                 transform: saranpack.transform,
                 ..default()
             },
-            atlas: TextureAtlas{
+            atlas: TextureAtlas {
                 layout: player_layout_handle,
                 index: 0,
             },
             animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
             animation_frames: AnimationFrameCount(player_layout_len),
-            velo: Velocity{velocity:saranpack.velocity},
-            id: NetworkId{id: saranpack.head.network_id, addr: source_ip},
+            velo: Velocity {
+                velocity: saranpack.velocity,
+            },
+            id: NetworkId {
+                id: saranpack.head.network_id,
+                addr: source_ip,
+            },
             player: Player,
             health: saranpack.health,
-            crouching: Crouch{crouching: saranpack.crouch},
-            rolling: Roll{rolling: saranpack.roll},
-            sprinting: Sprint{sprinting: saranpack.sprint},
-            attacking: Attack{attacking:saranpack.attack},
+            crouching: Crouch {
+                crouching: saranpack.crouch,
+            },
+            rolling: Roll {
+                rolling: saranpack.roll,
+            },
+            sprinting: Sprint {
+                sprinting: saranpack.sprint,
+            },
+            attacking: Attack {
+                attacking: saranpack.attack,
+            },
             inputs: InputQueue::new(),
             states: PastStateQueue::new(),
             potion_status: PotionStatus::new(),
@@ -332,7 +341,7 @@ fn receive_player_packet(
     }
 }
 
-/* 
+/*
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡀⠴⠤⠤⠴⠄⡄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⣠⠄⠒⠉⠀⠀⠀⠀⠀⠀⠀⠀⠁⠃⠆⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⢀⡜⠁⠀⠀⠀⢠⡄⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠑⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -400,7 +409,7 @@ fn recv_enemy(
 
     if !found {
         let the_enemy: &Enemy;
-        match &pack.enemytype.kind{
+        match &pack.enemytype.kind {
             EnemyKind::Skeleton(enemy) => the_enemy = enemy,
             EnemyKind::BerryRat(enemy) => the_enemy = enemy,
             EnemyKind::Ninja(enemy) => the_enemy = enemy,
@@ -408,13 +417,12 @@ fn recv_enemy(
             EnemyKind::Boss(enemy) => the_enemy = enemy,
         };
 
-        let enemy_layout = 
-        TextureAtlasLayout::from_grid(
+        let enemy_layout = TextureAtlasLayout::from_grid(
             UVec2::splat(the_enemy.size),
             the_enemy.sprite_column,
             the_enemy.sprite_row,
             None,
-            None
+            None,
         );
 
         let enemy_layout_handle = tex_atlas.add(enemy_layout);
@@ -425,26 +433,25 @@ fn recv_enemy(
         let y = pack.transform.translation.y;
         //info!("x: {} y: {}", x, y);
         let transform_to_use = Transform::from_xyz(x, y, 900.);
-        commands.spawn(
-            ClientEnemy{
-                sprite: SpriteBundle{
-                    texture: asset_server.load(the_enemy.filepath.clone()).clone(),
-                    transform: transform_to_use,
-                    ..default()
-                },
-                atlas: TextureAtlas{
-                    layout: enemy_layout_handle,
-                    index: 0,
-                },
-                animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
-                animation_frames: AnimationFrameCount(the_enemy.sprite_column as usize * the_enemy.sprite_row as usize),
-                enemy: the_enemy.clone(),
-                movement: pack.movement.clone(),
-                id: pack.enemytype.clone(),
-                past: EnemyPastStateQueue::new(),
-            
-    });
-
+        commands.spawn(ClientEnemy {
+            sprite: SpriteBundle {
+                texture: asset_server.load(the_enemy.filepath.clone()).clone(),
+                transform: transform_to_use,
+                ..default()
+            },
+            atlas: TextureAtlas {
+                layout: enemy_layout_handle,
+                index: 0,
+            },
+            animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+            animation_frames: AnimationFrameCount(
+                the_enemy.sprite_column as usize * the_enemy.sprite_row as usize,
+            ),
+            enemy: the_enemy.clone(),
+            movement: pack.movement.clone(),
+            id: pack.enemytype.clone(),
+            past: EnemyPastStateQueue::new(),
+        });
     };
 }
 
@@ -517,7 +524,6 @@ fn recv_enemy(
 //     }
 // }
 
-
 /** INDEX TO USE
     0 - floor
     1 - left wall
@@ -532,7 +538,7 @@ fn recv_enemy(
 fn receive_map_packet (
     mut commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    map_array: Vec<Vec<u8>>
+    map_array: Vec<Vec<u8>>,
 ) {
     let mut vertical = -((map_array.len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
     let mut horizontal = -((map_array[0].len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
@@ -541,50 +547,71 @@ fn receive_map_packet (
         for b in 0..map_array[0].len() {
             let val = map_array[a][b];
             match val {
-                0 => commands.spawn(( SpriteBundle {
-                    texture: asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png").clone(),
+                0 => commands.spawn((SpriteBundle {
+                    texture: asset_server
+                        .load("tiles/cobblestone_floor/cobblestone_floor.png")
+                        .clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.0),
-                    ..default() },)),
-                1 => commands.spawn(( SpriteBundle {
+                    ..default()
+                },)),
+                1 => commands.spawn((SpriteBundle {
                     texture: asset_server.load("tiles/walls/left_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default() },)),
-                2 => commands.spawn(( SpriteBundle {
+                    ..default()
+                },)),
+                2 => commands.spawn((SpriteBundle {
                     texture: asset_server.load("tiles/walls/right_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default() },)),
-                3 => commands.spawn(( SpriteBundle {
+                    ..default()
+                },)),
+                3 => commands.spawn((SpriteBundle {
                     texture: asset_server.load("tiles/1x2_pot.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default() },)),
-                4 => commands.spawn(( SpriteBundle {
-                    texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
+                    ..default()
+                },)),
+                4 => commands.spawn((SpriteBundle {
+                    texture: asset_server
+                        .load("tiles/solid_floor/solid_floor.png")
+                        .clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.2),
-                    ..default() },)),
-                5 => commands.spawn(( SpriteBundle {
-                    texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
+                    ..default()
+                },)),
+                5 => commands.spawn((SpriteBundle {
+                    texture: asset_server
+                        .load("tiles/solid_floor/solid_floor.png")
+                        .clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.3),
-                    ..default() },)),
-                6 => commands.spawn(( SpriteBundle {
-                    texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
+                    ..default()
+                },)),
+                6 => commands.spawn((SpriteBundle {
+                    texture: asset_server
+                        .load("tiles/solid_floor/solid_floor.png")
+                        .clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.4),
-                    ..default() },)),
-                7 => commands.spawn(( SpriteBundle {
-                    texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
+                    ..default()
+                },)),
+                7 => commands.spawn((SpriteBundle {
+                    texture: asset_server
+                        .load("tiles/solid_floor/solid_floor.png")
+                        .clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.5),
-                    ..default() },)),
-                8 => commands.spawn(( SpriteBundle {
+                    ..default()
+                },)),
+                8 => commands.spawn((SpriteBundle {
                     texture: asset_server.load("tiles/walls/north_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.2),
-                    ..default() },)),
-                9 => commands.spawn(( SpriteBundle {
+                    ..default()
+                },)),
+                9 => commands.spawn((SpriteBundle {
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.2),
-                    ..default() },)),
-                _ => commands.spawn(( SpriteBundle {
+                    ..default()
+                },)),
+                _ => commands.spawn((SpriteBundle {
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
                     transform: Transform::from_xyz(-10000.0, -10000.0, 0.2),
-                    ..default() },)),
+                    ..default()
+                },)),
             };
             horizontal = horizontal + TILE_SIZE as f32;
         }
@@ -593,7 +620,19 @@ fn receive_map_packet (
 }
 
 pub fn send_player(
-    player_q: Query<(&NetworkId, &Velocity, &Transform, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
+    player_q: Query<
+        (
+            &NetworkId,
+            &Velocity,
+            &Transform,
+            &Health,
+            &Crouch,
+            &Roll,
+            &Sprint,
+            &Attack,
+        ),
+        With<Player>,
+    >,
     mut packet_queue: ResMut<ClientPacketQueue>,
     seq: Res<Sequence>,
     clientid: Res<ClientId>,
@@ -606,8 +645,11 @@ pub fn send_player(
             if velo.velocity.y == 0. && velo.velocity.x == 0. {
                 continue 'playa;
             }
-            let to_send = ClientPacket::PlayerPacket(PlayerSendable{
-                head: Header{ network_id: id.id, sequence: seq.clone() },
+            let to_send = ClientPacket::PlayerPacket(PlayerSendable {
+                head: Header {
+                    network_id: id.id,
+                    sequence: seq.clone(),
+                },
                 transform: trans.clone(),
                 velocity: velo.velocity,
                 health: heal.clone(),
@@ -624,6 +666,17 @@ pub fn send_player(
     }
 }
 
+
+fn send_enemies_killed(
+    mut commands: Commands,
+    mut enemy_q: Query<(&Transform, &EnemyId), With<Enemy>>,
+    mut packets: ResMut<ClientPacketQueue>,
+    seq: Res<Sequence>,
+    clientid: Res<ClientId>,
+    udp: Res<UDP>,
+){
+    
+}
 
 /* interpolate player/enemy
 
