@@ -1,7 +1,7 @@
-use bevy::{prelude::*, window::PresentMode};
+use bevy::{prelude::*, time::common_conditions::on_timer, window::PresentMode};
 use cuscuta_resources::TICKS_PER_SECOND;
 use library::*;
-use std::env;
+use std::{env, time::Duration};
 use markov_chains::*;
 
 fn main() {
@@ -27,6 +27,7 @@ fn main() {
         )
         .add_systems(Update, (
             player::move_player,
+
             client::listen,
 
             player::animate_player.after(player::move_player),
@@ -40,8 +41,8 @@ fn main() {
         )) 
         /* networking shtuff. comment out if needed */
         .add_systems(FixedUpdate,
-            (client::send_player,
-            client::client_send_packets)
+            client::send_player
+            //client::client_send_packets)
         )
         .run();
 }
