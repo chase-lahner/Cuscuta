@@ -3,8 +3,10 @@ use std::collections::VecDeque;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+
 use crate::enemies::{EnemyId, EnemyToKill};
 use crate::network::{ClientPacket, Header, KillEnemyPacket, Sequence, UDP};
+
 use crate::{
     collision::{self, *},
     cuscuta_resources::*,
@@ -16,6 +18,44 @@ use crate::{
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Player; // wow! it is he!
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Trackable;//used for enemy pathfinding
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Monkey;
+
+/* used by monkey to kill after x time */
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Lifetime{
+    pub life: u32
+}
+impl Lifetime{
+    pub fn new() -> Self{
+        Self{
+            life: 0
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct ClientCymbalMonkey{
+    pub track: Trackable,
+    pub sprite: SpriteBundle,
+    pub distracto: Monkey,
+    pub atlas: TextureAtlas,
+    pub animation_timer: AnimationTimer,
+    pub animation_frames: AnimationFrameCount,
+    pub lifetime: Lifetime
+}
+
+#[derive(Bundle)]
+pub struct ServerCymbalMonkey{
+    pub track: Trackable,
+    pub monke: Monkey,
+    pub lifetime: Lifetime,
+    pub transform: Transform,
+}
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct NetworkId {
@@ -135,13 +175,15 @@ impl InputQueue {
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
-pub struct PotionStatus {
+pub struct ItemStatus {
     pub has_potion: bool,
+    pub has_monkey: bool,
 }
 
-impl PotionStatus {
+impl ItemStatus {
     pub fn new() -> Self {
         Self {
+            has_monkey: false,
             has_potion: false,
         }
     }
@@ -164,7 +206,7 @@ pub struct ClientPlayerBundle {
     pub attacking: Attack,
     pub inputs: InputQueue,
     pub states: PastStateQueue,
-    pub potion_status: PotionStatus,
+    pub potion_status: ItemStatus,
 }
 
 #[derive(Bundle, Serialize, Deserialize)]
@@ -177,7 +219,8 @@ pub struct ServerPlayerBundle {
     pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack,
-    pub player: Player
+    pub player: Player,
+    pub track: Trackable
     //pub inputs: InputQueue,
     //pub time: Timestamp,
 }
@@ -468,7 +511,7 @@ pub fn client_spawn_other_player_new(
         },
         inputs: InputQueue::new(),
         states: PastStateQueue::new(),
-        potion_status: PotionStatus::new()
+        potion_status: ItemStatus::new()
     });
 }
 
@@ -521,7 +564,7 @@ pub fn client_spawn_other_player(
         attacking: Attack { attacking: false },
         inputs: InputQueue::new(),
         states: PastStateQueue::new(),
-        potion_status: PotionStatus::new()
+        potion_status: ItemStatus::new()
     });
 }
 
@@ -533,7 +576,7 @@ pub fn client_spawn_other_player(
 pub fn player_interact(
     mut commands: Commands,
     mut player: Query<
-        (&mut Transform, &mut Velocity, &NetworkId,  &mut PotionStatus),
+        (&mut Transform, &mut Velocity, &NetworkId,  &mut ItemStatus),
         (With<Player>, Without<Background>),
     >,
     input: Res<ButtonInput<KeyCode>>,
@@ -603,11 +646,95 @@ pub fn player_interact(
             }
         }
     }
+}      
+
+pub fn spawn_monkey(
+    player_q: Query<(&Transform, &NetworkId ),(With<Player>)>,
+    mut command: Commands,   
+    us: Res<ClientId>,
+    keys: Res<ButtonInput<KeyCode>>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    udp: Res<UDP>,
+){
+
+    /* for all players, we match to find us */
+    for (t,id) in player_q.iter(){
+        if us.id != id.id{
+            continue;
+        }
+        /* can assume that we are us yk yk yk (client player nont p2) */
+
+        // AAAA_______________AAAA______________________
+        // VVVV               VVVV
+        // (__)               (__)
+        //  \ \               / /
+        //   \ \   \\|||//   / /
+        //    > \   _   _   / <
+        //     > \ / \ / \ / <
+        //      > \\_o_o_// <
+        //       > ( (_) ) <
+        //        >|     |<
+        //       / |\___/| \
+        //       / (_____) \
+        //       /         \
+        //        /   o   \
+        //         ) ___ (
+        //        / /   \ \
+        //       ( /     \ )
+        //       ><       ><
+        //      ///\     /\\\
+        //      '''       '''               Michel Boisset -- grabbed from some ascii art site
+        /* MAKE DA MONKE */
+        if keys.just_pressed(KeyCode::Tab){
+
+            /* lots of spawning in stuffs. textures are a lot */
+            let monkey_handle: Handle<Image> = asset_server.load(MONKEY_HANDLE);
+            let monkey_layout = TextureAtlasLayout::from_grid(
+                UVec2::splat(TILE_SIZE),
+                MONKEY_SPRITE_COL,
+                MONKEY_SPRITE_ROW,
+                None,
+                None
+            );
+            let monkey_len = monkey_layout.textures.len();
+            let monkey_layout_handle = texture_atlases.add(monkey_layout);
+            info!("Monkey spawn");
+            command.spawn(ClientCymbalMonkey{
+                track: Trackable,
+                sprite: SpriteBundle{
+                    texture: monkey_handle,
+                    transform: t.clone(),
+                    ..default()
+                },  
+                distracto: Monkey,
+                atlas: TextureAtlas{
+                    layout: monkey_layout_handle,
+                    index: 0,
+                },
+                animation_timer:AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+                animation_frames: AnimationFrameCount(monkey_len),
+                lifetime: Lifetime::new()
+            });
+
+            /* once we have spawned in, then we swtich off to send it to the server, so
+             * the enemies can pathfind to it, and os that the other clients can also have a lil peek */
+            
+
+        }
+    }
 }
+
+pub fn update_monkey(
+
+){
+
+}
+
 
 pub fn restore_health(
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&mut Health, &mut PotionStatus), With<Player>>,
+    mut player: Query<(&mut Health, &mut ItemStatus), With<Player>>,
 ) {
     for (mut health, mut potion_status) in player.iter_mut() {
         // check if the player has a potion and presses H
