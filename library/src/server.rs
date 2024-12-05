@@ -339,7 +339,7 @@ pub fn send_despawn_command(
     addresses: Res<AddressList>,
     udp: Res<UDP>,
     enemies_to_kill: Res<EnemiestoKill>,
-    enemies: &mut Query<(Entity, & EnemyId, & EnemyMovement, &Transform), 
+    enemies: Query<(Entity, & EnemyId, & EnemyMovement, &Transform), 
         (With<Enemy>, Without<Player>)>,
 ){
         for enemy in enemies_to_kill.list.iter(){
@@ -353,7 +353,7 @@ pub fn send_despawn_command(
             }
         
         for(entity, id, _movement, _transform) in enemies.iter(){
-            for(kill_enemy) in enemies_to_kill.list.iter(){
+            for kill_enemy in enemies_to_kill.list.iter(){
                 if id.id == kill_enemy.enemy_id.id{
                     commands.entity(entity).despawn();
                     println!("despawning enemy");
