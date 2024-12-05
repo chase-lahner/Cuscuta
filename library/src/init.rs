@@ -1,9 +1,12 @@
 use std::net::UdpSocket;
 
 use bevy::prelude::*;
+use serde::Deserialize;
 
-
-use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, network::*, room_gen::*, ui::client_spawn_ui, markov_chains::*,
+use crate::client::*;
+use crate::cuscuta_resources::*;
+use crate::player::{Attack, Crouch, NetworkId, Player, Roll, Sprint};
+use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, EnemiesToKill, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, markov_chains::*, network::*, room_gen::{self, *}, ui::client_spawn_ui
 };
 
 pub fn ip_setup(
@@ -24,14 +27,11 @@ pub fn ip_setup(
 pub fn client_setup(
     mut commands: Commands, // to spawn in entities
     asset_server: Res<AssetServer>, // to access images
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
-    mut room_manager: ResMut<RoomManager>,
-    mut last_attribute_array: ResMut<LastAttributeArray>, // LastAttributeArray as a mutable resource
 ) {
 
 
     // spawn the starting room & next room
-    spawn_start_room(&mut commands, &asset_server, &mut room_manager, last_attribute_array);
+    //spawn_start_room(&mut commands, &asset_server, &mut room_manager, last_attribute_array);
 
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */
@@ -43,21 +43,19 @@ pub fn client_setup(
     commands.insert_resource(Sequence::new(0));
 
     // spawn camera
-    spawn_camera(&mut commands, &asset_server);
+    spawn_camera(&mut commands);
 
     client_spawn_ui(&mut commands, &asset_server);
     /* spawn pot to play with */
-    client_spawn_pot(&mut commands, &asset_server, &mut texture_atlases);
+    //client_spawn_pot(&mut commands, &asset_server, &mut texture_atlases);
 
-    commands.insert_resource(ClientPacketQueue::new());
-    // spawn player, id 0 because it will be set later on
-   //  client_spawn_other_player_new(&mut commands, &asset_server, &mut texture_atlases, 0);
-   // WHAT DO WE WANT TO DO WITH THIS?
+    commands.insert_resource(ClientRoomManager::new());
+    
 }
 
 
 pub fn server_setup(
-    mut commands: Commands
+    mut commands: Commands,
 ){
     info!("entered setup");
     /* send from where ?*/
@@ -78,6 +76,17 @@ pub fn server_setup(
     /* to hold mid frame packeets, sent every tick */
     commands.insert_resource(ServerPacketQueue::new());
 
+    commands.insert_resource(EnemiesToKill::new());
+
     commands.insert_resource(EnemyId::new(0, EnemyKind::skeleton()));
+    
+    let mut room_manager = RoomManager::new();
+    let mut last_attribute_array = LastAttributeArray::new();
+
+
+    spawn_start_room(&mut commands, &mut room_manager, &mut last_attribute_array);
+    commands.insert_resource(room_manager);
+    commands.insert_resource(last_attribute_array);
+
     info!("done setup");
 }

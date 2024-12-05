@@ -2,13 +2,13 @@ use bevy::prelude::*;
 use bevy::color::palettes::css::{SEA_GREEN, RED, MAROON, BLACK};
 
 use crate::cuscuta_resources::{ClientId, Health, TILE_SIZE};
-use crate::player::{NetworkId, Player};
+use crate::player::{NetworkId, Player, PotionStatus};
 
 
 /* stupud to do math like this but basically window is  */
 const CARNAGE_BAR_LEFT: f32 = 3.0;
 const CARNAGE_BAR_MIDDLE: f32 = CARNAGE_BAR_LEFT + 12.; 
-const CARNAGE_BAR_RIGHT: f32 = CARNAGE_BAR_MIDDLE + 12.;
+const _CARNAGE_BAR_RIGHT: f32 = CARNAGE_BAR_MIDDLE + 12.;
 
 
 #[derive(Component)]
@@ -16,6 +16,9 @@ pub struct CarnageBar{
     pub stealth: f32,
     pub carnage: f32
 }
+
+#[derive(Component)]
+pub struct PotionIcon;
 
 impl CarnageBar{
     pub fn new() -> Self {
@@ -179,6 +182,7 @@ pub fn client_spawn_ui(
             ..default()
         },
         UiImage::new(asset_server.load("ui/potion_icon_empty.png")),
+        PotionIcon,
     ));
 }
 
@@ -187,8 +191,10 @@ pub fn update_ui_elements(
     mut red_q: Query<&mut Style, (With<Red>, Without<Green>, Without<Health>, Without<CarnageBar>)>,
     mut green_q: Query<&mut Style, (With<Green>, Without<Red>, Without<Health>, Without<CarnageBar>)>,
     mut health_bar : Query<&mut Style, (With<Health>, Without<Green>, Without<Red>, Without<CarnageBar>)>,
-    player_q : Query<(&Health, &NetworkId), With<Player>>,
+    mut potion_icon_q: Query<&mut UiImage, With<PotionIcon>>,
+    player_q : Query<(&Health, &PotionStatus, &NetworkId), With<Player>>, 
     mut carnage_q: Query<&CarnageBar>,
+    asset_server: Res<AssetServer>,
     client_id : Res<ClientId>,
 ){
     let carnage = carnage_q.single_mut();
@@ -201,10 +207,19 @@ pub fn update_ui_elements(
 
     let full_health_width = 150.0;
 
-    for (health, id) in player_q.iter(){
+    for (health, potion_status, id) in player_q.iter(){
         if id.id == client_id.id{
             let health_ratio = health.current / health.max;
             healthy.width = Val::Px(full_health_width * health_ratio);
+
+            // update health icon
+            if let Ok(mut potion_icon) = potion_icon_q.get_single_mut() {
+                if potion_status.has_potion {
+                    potion_icon.texture = asset_server.load("ui/potion_icon_ready.png");
+                } else {
+                    potion_icon.texture = asset_server.load("ui/potion_icon_empty.png");
+                }
+            } 
         }
     }
 }

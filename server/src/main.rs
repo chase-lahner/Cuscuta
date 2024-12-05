@@ -1,14 +1,14 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, time::common_conditions::on_timer};
 use library::*;
-use std::env;
+use std::{env, time::Duration};
 
 /* Rate at which we will be sending/recieving packets */
-const TICKS_PER_SECOND: f64 = 60.;
+const _TICKS_PER_SECOND: f64 = 60.;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(MinimalPlugins)
         .add_systems(
             Startup,
             (
@@ -19,11 +19,12 @@ fn main() {
         .add_systems(
             FixedUpdate,
             (
-                server::listen,
-                enemies::enemy_movement.after(player::move_player), // server needs to handle this :3
+                server::listen,//.run_if(on_timer(Duration::from_millis(5))),
+                server::send_despawn_command,
+                enemies::enemy_movement,
                 server::send_enemies.after(server::listen),
                 server::send_player.after(server::listen),
-                server::server_send_packets.after(server::send_player),
+                //server::server_send_packets.after(server::send_player),
             ),
         )
         .run();

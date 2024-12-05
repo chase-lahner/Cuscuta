@@ -1,32 +1,27 @@
-use std::net::{SocketAddr, UdpSocket};
+use std::net::SocketAddr;
 
-use bevy::{input::keyboard::Key, prelude::*};
+use bevy:: prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, Background, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{self, Door, DoorType, Potion, Room, RoomManager}};
+
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{self, Door, DoorType, Potion, Room, RoomManager}};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client via the packet queue */
 pub fn send_id(
     source_addr : SocketAddr,
     n_p: &mut PlayerCount,
-    mut commands: Commands,
-    mut addresses: ResMut<AddressList>,
-    mut server_seq: ResMut<Sequence>,
-    mut packet_q: ResMut<ServerPacketQueue>,
-    door_query: Query<(&Transform, &DoorType), With<Door>>, 
-    wall_query: Query<&Transform, With<Wall>>, 
-    background_query: Query<&Transform, With<Background>>,
-    potion_query: Query<&Transform, With<Potion>>,
-    roomman: ResMut<RoomManager>,
-    udp: Res<UDP>
+    commands: &mut Commands,
+    addresses: &mut AddressList,
+    server_seq: &mut Sequence,
+    udp: & UDP
 ) {
     /* assign id, update player count */
     n_p.count += 1;
     let player_id: u8 = n_p.count;
     addresses.list.push(source_addr);
-    info!("pushing addresss");
+    println!("pushing addresss");
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
     server_seq.nums.push(0);
@@ -34,7 +29,10 @@ pub fn send_id(
         head: Header::new(player_id,server_seq.clone())});
 
     /* put idpacket into 'to-send' queue */
-    packet_q.packets.push(id_send);
+    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+    id_send.serialize(&mut serializer).unwrap();
+    let packet: &[u8] = serializer.view();
+    udp.socket.send_to(&packet, source_addr).unwrap();
 
     /* now we must spawn in a new player */
     commands.spawn(ServerPlayerBundle{
@@ -72,140 +70,149 @@ pub fn send_id(
     playa.serialize(&mut serial).unwrap();
     let packet: &[u8] = serial.view();
     udp.socket.send_to(&packet, source_addr).unwrap();
-
-    send_map_packet(commands, door_query, wall_query, background_query, potion_query, packet_q, server_seq, roomman);
-
 }
 
 /* Server side listener for packets,  */
 // go thru again and make sure that every function fits within new framework
 pub fn listen(
     udp: Res<UDP>,
-    commands: Commands,
+    mut commands: Commands,
     // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-    players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
-         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), (With<Player>, Without<Enemy>)>,//eek a lot
+    mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
+         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), 
+         (With<Player>, Without<Enemy>, Without<Potion>, Without<Door>, Without<Wall>, Without<Background>, Without<DoorType>, Without<Pot>)>,//eek a lot
     mut n_p: ResMut<PlayerCount>,
-    addresses: ResMut<AddressList>,
-    server_seq: ResMut<Sequence>,
-    packet_q: ResMut<ServerPacketQueue>,
-    door_query: Query<(&Transform, &DoorType), With<Door>>, 
-    wall_query: Query<&Transform, With<Wall>>, 
-    background_query: Query<&Transform, With<Background>>,
-    potion_query: Query<&Transform, With<Potion>>,
-    roomman: ResMut<RoomManager>,
+    mut door_query: Query<(&mut Transform, &DoorType), (With<Door>,Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
+    mut wall_query: Query<&mut Transform, (With<Wall>, Without<Door>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>, 
+    mut background_query: Query<&mut Transform, (With<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
+    mut potion_query: Query<&mut Transform, (With<Potion>, Without<Pot>, Without<Enemy>)>,
+    mut pot_query: Query<&mut Transform, (With<Pot>, Without<Enemy>)>,
+    mut roomman: ResMut<RoomManager>,
+    mut addresses: ResMut<AddressList>,
+    mut server_seq: ResMut<Sequence>,
+    mut enemies_to_kill: ResMut<EnemiesToKill>,
+    mut enemies: Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform), (With<Enemy>, Without<Player>)>,
 ) {
-    /* to hold msg */
-    let mut buf: [u8; 1024] = [0;1024];
-    // pseudo poll. nonblocking, gives ERR on no read tho
-    let packet = udp.socket.recv_from(&mut buf);
-    match packet{
-        Err(e)=> return,
-        _ => ()
-    }
-    let (amt, src) = packet.unwrap();
-    
-
-    /* trim trailing 0s */
-    let t_buf = &buf[..amt]; // / -1
-
-
-    let deserializer = flexbuffers::Reader::get_root(t_buf).unwrap();
-    // this shoulddd be a client packet right?
-    let player_struct: ClientPacket = ClientPacket::deserialize(deserializer).unwrap();
-
-    match player_struct {
-        ClientPacket::IdPacket(_id_packet) => {
-            info!("sending id to client");
-            send_id(src,  n_p.as_mut(), commands, addresses, server_seq, packet_q,door_query,wall_query,background_query,potion_query,roomman,udp)},
-        ClientPacket::PlayerPacket(player_packet) => {
-            // TODO: Fix this
-            update_player_state(src, players_q, player_packet, commands);
+    loop{
+   /* to hold msg */
+        let mut buf: [u8; 1024] = [0;1024];
+        // pseudo poll. nonblocking, gives ERR on no read tho
+        let packet = udp.socket.recv_from(&mut buf);
+        match packet{
+            Err(_e)=> return,
+            _ => ()
         }
-       
-    }
+        let (amt, src) = packet.unwrap();
+        
+
+        /* trim trailing 0s */
+        let t_buf = &buf[..amt]; // / -1
 
 
-}
+        let deserializer = flexbuffers::Reader::get_root(t_buf).unwrap();
+        // this shoulddd be a client packet right?
+        let player_struct: ClientPacket = ClientPacket::deserialize(deserializer).unwrap();
 
-/* uses items in packetQueue to send to all clients,
- * and removes them from the list.  */
-pub fn server_send_packets(
-    mut packet_q: ResMut<ServerPacketQueue>,
-    udp: Res<UDP>,
-    addresses: Query<&NetworkId>,
-
-){
-    /* for all packets in queue */
-    for packet in packet_q.packets.iter(){
-        let mut serializer = flexbuffers::FlexbufferSerializer::new();
-        packet.serialize(&mut serializer).unwrap();
-        let packet_chunk: &[u8] = serializer.view();
-        /* send to all users */
-        'adds: for address in addresses.iter()
-        {
-            /* buuuut only id for the id'd, and player 1 not to player 1 again,
-             * instaed off to p2 */
-            match packet {
-                ServerPacket::PlayerPacket(playa) =>{
-                    if address.id == playa.head.network_id{
-                        continue 'adds;
-                    }
-                }
-                ServerPacket::IdPacket(id)=> {
-                    if address.id != id.head.network_id{
-                        continue 'adds;
-                    }
-                }
-                ServerPacket::EnemyPacket(enemy)=>{
-                  //  info!("sending enemy packet");
-                    if address.id == enemy.head.network_id {
-                        continue 'adds;
-                    }
-                }
-                _ => {}
+        match player_struct {
+            ClientPacket::IdPacket(_id_packet) => {
+                info!("sending id to client");
+                send_id(src,  &mut n_p, &mut commands, &mut addresses, &mut server_seq, &udp);
+                println!("{:?}", addresses.list);
+                send_map_packet(&mut commands, &mut door_query, &mut wall_query, &mut background_query, &mut potion_query, &mut pot_query, &mut server_seq, &mut roomman, &udp, &mut addresses);
+            },
+            ClientPacket::PlayerPacket(player_packet) => {
+                // TODO: Fix this
+                update_player_state(src, &mut players_q, player_packet, &mut commands);
+            }  
+            ClientPacket::KillEnemyPacket(kill_enemy) => {
+                println!("recieved kill enemy packet");
+                update_despawn(kill_enemy, &mut enemies_to_kill, &mut commands, &mut enemies); 
             }
-            udp.socket.send_to(&packet_chunk, address.addr).unwrap();
-
         }
-        /* I want to deleteteeeeeee. What's rust's free thing? We
-         * all good to just like make a new one? Or is that grim */
     }
-    packet_q.packets = Vec::new();
-    
 }
 
-// //TOTOTOODODODODODODODO--------------------------------
-// fn recieve_input(
-//     client_pack: PlayerC2S,
-//     mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
-//          &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
-//           &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,
-// ){
-//     // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
-//     /* for all players in server game world */
-//     for (v, t, h, c, r, s, a, id, mut iq, time) in players_q.iter_mut(){
-//         /* if we find the one corresponding to our packet */
-//         if client_pack.head.network_id == id.id {
-//             /* for all the keys passed on the clients update */
-//             iq.q.push((client_pack.head.sequence.get(), client_pack.key.clone()));
-            
-//             /* ok if we want to update immediately then we od it right here
-//              * buuuuut the fn takes in diff args than we have (odd query). TBH
-//              * i am down to plop in the main logic loop for now, no reaason to use
-//              * any data longer than we have to, right?? (is not in main logic loop as of
-//              * 11/19 3:31pm*/
-//         }
-//     }
-// }
+    /* uses items in packetQueue to send to all clients,
+    * and removes them from the list.  */
+    pub fn server_send_packets(
+        mut packet_q: ResMut<ServerPacketQueue>,
+        udp: Res<UDP>,
+        addresses: Query<&NetworkId>,
+
+    ){
+        /* for all packets in queue */
+        for packet in packet_q.packets.iter(){
+            let mut serializer = flexbuffers::FlexbufferSerializer::new();
+            packet.serialize(&mut serializer).unwrap();
+            let packet_chunk: &[u8] = serializer.view();
+            /* send to all users */
+            'adds: for address in addresses.iter()
+            {
+                /* buuuut only id for the id'd, and player 1 not to player 1 again,
+                * instaed off to p2 */
+                match packet {
+                    ServerPacket::PlayerPacket(playa) =>{
+                        if address.id == playa.head.network_id{
+                            continue 'adds;
+                        }
+                    }
+                    ServerPacket::IdPacket(id)=> {
+                        if address.id != id.head.network_id{
+                            continue 'adds;
+                        }
+                    }
+                    ServerPacket::EnemyPacket(enemy)=>{
+                    //  info!("sending enemy packet");
+                        if address.id == enemy.head.network_id {
+                            continue 'adds;
+                        }
+                    }
+                    _ => {}
+                }
+                udp.socket.send_to(&packet_chunk, address.addr).unwrap();
+
+            }
+
+            /* I want to deleteteeeeeee. What's rust's free thing? We
+            * all good to just like make a new one? Or is that grim */
+        }
+        packet_q.packets = Vec::new();
+    }
+
+    // //TOTOTOODODODODODODODO--------------------------------
+    // fn recieve_input(
+    //     client_pack: PlayerC2S,
+    //     mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
+    //          &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId,
+    //           &mut InputQueue, &Timestamp), (With<Player>, Without<Enemy>)>,
+    // ){
+    //     // TODO this needs to check inputs and move player, check for collisions, basically everything we are doing onv the client side idk
+    //     /* for all players in server game world */
+    //     for (v, t, h, c, r, s, a, id, mut iq, time) in players_q.iter_mut(){
+    //         /* if we find the one corresponding to our packet */
+    //         if client_pack.head.network_id == id.id {
+    //             /* for all the keys passed on the clients update */
+    //             iq.q.push((client_pack.head.sequence.get(), client_pack.key.clone()));
+                
+    //             /* ok if we want to update immediately then we od it right here
+    //              * buuuuut the fn takes in diff args than we have (odd query). TBH
+    //              * i am down to plop in the main logic loop for now, no reaason to use
+    //              * any data longer than we have to, right?? (is not in main logic loop as of
+    //              * 11/19 3:31pm*/
+    //         }
+    //     }
+    // }
 
 pub fn send_enemies(
     enemies: Query<(& EnemyId, & EnemyMovement, &Transform), 
-        (Without<Player>)>,
-    mut server_seq: ResMut<Sequence>,
-    mut packet_q: ResMut<ServerPacketQueue>
+        (With<Enemy>, Without<Player>)>,
+    server_seq: ResMut<Sequence>,
+    mut packet_q: ResMut<ServerPacketQueue>,
+    addresses: Res<AddressList>,
+    udp: Res<UDP>
 ){
     //info!("sending enemies");
+    
     /* for each enemy in the game world */
     for (id, movement, transform) in enemies.iter(){
         /* packet-ify it */
@@ -218,10 +225,16 @@ pub fn send_enemies(
         });
         //info!("actually entered for loop lmfao crazy if this was what was broken loll");
 
-        /* send off to our queue  */
-        packet_q.packets.push(enemy);
+        /* send off to our clients  */
+        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+        enemy.serialize(&mut serializer).unwrap();
+        let packet: &[u8] = serializer.view();
+        for addr in addresses.list.iter(){
+            udp.socket.send_to(&packet, addr).unwrap();
+        }
     }
 }
+
 
 
 // /* once we have our packeet, we must use it to update
@@ -266,14 +279,14 @@ pub fn send_enemies(
 
 fn update_player_state(
     src: SocketAddr,
-    mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
+    mut players_q: &mut Query<(&mut Velocity, &mut Transform, &mut Health,
         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), 
-            (With<Player>, Without<Enemy>)>,
+        (With<Player>, Without<Enemy>, Without<Potion>, Without<Door>, Without<Wall>, Without<Background>, Without<DoorType>, Without<Pot>)>,//eek a lot
     player_struct: PlayerSendable,
-    mut commands: Commands
+    mut commands: &mut Commands
 ){
     let mut found = false;
-    for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id) in players_q.iter_mut(){
+    for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id) in players_q.into_iter(){
 
         if id.id == player_struct.head.network_id {
          //   info!("updaetd");
@@ -314,6 +327,52 @@ fn update_player_state(
     }
 }
 
+fn update_despawn(
+    kill_enemy: KillEnemyPacket,
+    enemies_to_kill: &mut EnemiesToKill,
+    commands: &mut Commands,
+    enemies: &mut Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform), (With<Enemy>, Without<Player>)>,
+){
+    enemies_to_kill.list.push(kill_enemy.clone());
+    for(entity, id, _movement, _transform) in enemies.iter(){
+        if id.id == kill_enemy.enemy_id.id{
+            commands.entity(entity).despawn();
+            println!("despawning enemy");
+        }
+    }
+}
+
+/* runs to send off 'despawn this hoe' messages to clients
+ * ensures that if p1 kills a player, it shows for p2 */
+pub fn send_despawn_command(
+    mut commands: Commands,
+    addresses: Res<AddressList>,
+    udp: Res<UDP>,
+    mut enemies_to_kill: ResMut<EnemiesToKill>,
+    enemies: Query<(Entity, & EnemyId, & EnemyMovement, &Transform), 
+        (With<Enemy>, Without<Player>)>,
+){
+        for enemy in enemies_to_kill.list.iter(){
+                let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                let to_send: ServerPacket = ServerPacket::DespawnPacket(enemy.clone());
+                to_send.serialize(&mut serializer).unwrap();
+                let packet: &[u8] = serializer.view();
+                for address in addresses.list.iter(){
+                    udp.socket.send_to(&packet, address).unwrap();
+                }
+        }
+        enemies_to_kill.list = Vec::new();
+        
+        for(entity, id, _movement, _transform) in enemies.iter(){
+            for kill_enemy in enemies_to_kill.list.iter(){
+                if id.id == kill_enemy.enemy_id.id{
+                    commands.entity(entity).despawn();
+                    println!("despawning enemy");
+                }
+            }
+        }
+    }
+    
 
 // /* Transforms current player state into u8 array that
 //  * we can then send across the wire to be deserialized once it arrives */
@@ -360,12 +419,15 @@ fn update_player_state(
  pub fn send_player(
     player : Query<(&Velocity, &Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
     server_seq: ResMut<Sequence>,
-    mut packet_q: ResMut<ServerPacketQueue>,
+    packet_q: ResMut<ServerPacketQueue>,
+    addresses: Res<AddressList>,
+    udp: Res<UDP>
 )
 {
     /* For each player in the game*/
     for (v, t, i, h, c, r, s, a,)  in player.iter(){
         /* packet-ify it */
+        info!("Sending {}", i.id);
         let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
             transform: *t,
             head: Header::new(i.id,server_seq.clone()),
@@ -377,7 +439,16 @@ fn update_player_state(
             sprint: s.sprinting,
         });
         /* push onto the 'to-send' queue */
-        packet_q.packets.push(outgoing_state);
+        
+        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+        outgoing_state.serialize(&mut serializer).unwrap();
+        let packet: &[u8] = serializer.view();
+        for addr in addresses.list.iter(){
+            if *addr != i.addr {
+                udp.socket.send_to(&packet, addr).unwrap();
+
+            }
+        }
     }
 }   
 
@@ -391,20 +462,24 @@ fn update_player_state(
 6 - top door
 7 - bottom door 
 8 - top wall
-9 - bottom wall */
-pub fn send_map_packet (
-    commands: Commands,
-    door_query: Query<(&Transform, &DoorType), With<Door>>, 
-    wall_query: Query<&Transform, With<Wall>>, 
-    background_query: Query<&Transform, With<Background>>,
-    potion_query: Query<&Transform, With<Potion>>,
-    mut packet_q: ResMut<ServerPacketQueue>,
-    server_seq: ResMut<Sequence>,
-    roomman: ResMut<RoomManager>,
+9 - bottom wall 
+10 - pot */
+fn send_map_packet (
+    mut _commands: &mut Commands,
+    door_query: &mut Query<(&mut Transform, &DoorType), (With<Door>,Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
+    wall_query: &mut Query<&mut Transform, (With<Wall>, Without<Door>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>, 
+    background_query: &mut Query<&mut Transform, (With<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
+    potion_query: &mut Query<&mut Transform, (With<Potion>, Without<Pot>, Without<Enemy>)>,
+    pot_query: &mut Query<&mut Transform, (With<Pot>, Without<Enemy>)>,
+    server_seq: &Sequence,
+    roomman: &mut RoomManager,
+    udp: &UDP,
+    addresses: &mut AddressList,
 ) {
-    let mut map_array: Vec<Vec<u8>> = vec![];
+    let mut map_array: Vec<Vec<u8>> =vec![vec![0; 75]; 75];
+
     let (x,y):(f32, f32) = room_gen::RoomManager::current_room_size(&roomman);
-    let room_w = x as i32; //need to grab these values from roomgen fn()
+    let room_w = x as usize; //need to grab these values from roomgen fn()
 
     for tile in background_query.iter()
     {
@@ -427,12 +502,12 @@ pub fn send_map_packet (
 
     for tile in wall_query.iter()
     {
-        let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
-        let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
-        if(arr_x == 0){map_array[arr_x as usize][arr_y as usize] = 1;}
-        else if(arr_y == 0){map_array[arr_x as usize][arr_y as usize] = 9;}
-        else if(arr_x == room_w/32){map_array[arr_x as usize][arr_y as usize] = 2;}
-        else {map_array[arr_x as usize][arr_y as usize] = 8;}
+        let arr_x:usize = (tile.translation.x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.translation.y - 16.0) as usize / 32;
+        if arr_x == 0 {map_array[arr_x][arr_y as usize] = 1;}
+        else if arr_y == 0 {map_array[arr_x][arr_y] = 9;}
+        else if arr_x == room_w/32 {map_array[arr_x][arr_y] = 2;}
+        else {map_array[arr_x][arr_y] = 8;}
     }
 
     for tile in potion_query.iter()
@@ -442,10 +517,27 @@ pub fn send_map_packet (
         map_array[arr_x][arr_y] = 3;
     }
 
+    for tile in pot_query.iter()
+    {
+        let arr_x: usize = (tile.translation.x - 16.0) as usize / 32;
+        let arr_y: usize = (tile.translation.y - 16.0) as usize / 32;
+        map_array[arr_x][arr_y] = 10;
+    }
+
     let mappy = ServerPacket::MapPacket(MapS2C{
         head: Header::new(0,server_seq.clone()),// server id == 0
-        matrix: map_array
+        matrix: map_array,
+        size: room_gen::RoomManager::current_room_size(&roomman),
+        max: room_gen::RoomManager::current_room_max(&roomman),
     });
 
-    packet_q.packets.push(mappy);
+    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+    mappy.serialize(&mut serializer).unwrap();
+    let packet: &[u8] = serializer.view();
+    for addr in addresses.list.iter(){
+        let drawn = udp.socket.send_to(&packet, addr).unwrap();
+        println!("wrote {} bytes", drawn);
+        println!("sending map packet yippee for {}", addr);
+    }
+    
 }

@@ -5,13 +5,12 @@ use std::net::UdpSocket;
 use std::io;
 use crate::enemies::{EnemyId, EnemyMovement};
 use crate::cuscuta_resources::Health;
-use crate::player::{InputQueue, NetworkId, Player};
 
 
 /* Packets queues are used to hold packets when creted, before
  * being sent. We will send every packet in the corresponding queue
  * once every fixedupdate (currently 60hz) */
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct ServerPacketQueue{
     pub packets: Vec<ServerPacket>
 }
@@ -23,7 +22,7 @@ impl ServerPacketQueue{
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct ClientPacketQueue{
     pub packets: Vec<ClientPacket>
 }
@@ -139,52 +138,6 @@ impl Sequence{
     }
 }
 
-/* when we receive a new sequence number, we want to take the larger of the two.
- * We want to make sure that everything sent on a tick has the same sequence value,
- * so this will update any instance of us using the sequence value */
-pub fn client_seq_update(
-    seq_new: &Sequence,
-    mut sequence: ResMut<Sequence>,
-    mut packet_q: ResMut<ClientPacketQueue>,
-){
-    /* We must assign.
-     * Sequence::assign() is juuuust above^^^^, takes and
-     * does another check to see is seq-new is greater, and 
-     * then assigns it so our Resource Sequence is ready to go */
-    sequence.assign(seq_new);
-
-    /* Now we must check, do we have any packets here on the old
-     * Sequence value? If so, we must adjust them to the newest value */
-
-     /* AS OF 11/26/24 with only idPack and playersend packs,
-      * this shouuuuld be empty..... whatever I did the work for when
-      * we theoretically send more(...will we?) */
-    for pack in packet_q.packets.iter_mut(){
-        /* generic enum ClientPacket...... must match 
-        ✞☬⎝⎝✧GͥOͣDͫ✧⎠⎠✞༒✞☠︎▄︻デ✞✞✞ঔৣ💤📿⚡꧁༒☬★彡ཧᜰ꙰ꦿ➢❄️
-        `•.¸¸.•´´¯`••._.• ¸,ø¤º°`°º¤ø,¸ ღ(¯`◕‿◕´¯) 
-        ♫ ♪ ♫ «-(¯`v´¯)-« ๖ۣۜ⍓︎҉̃̀̋̑□︎̯̱̊͊͢ư̡͕̭̇❒︎̴̨̦͕̝ ḿ̬̏ͤͅ□︎̯̱̊͊͢ḿ̬̏ͤͅ༻࿌𖣘
-        »-(¯`v´¯)-» ♫ ♪ ♫ (¯`◕‿◕´¯)ღ ¸,ø¤º°`°º¤ø,¸ 
-        •._.••`¯´´•.¸¸.•`❄️༒彡★☬༒꧂⚡📿💤ঔৣ✞✞✞══━一☠︎✞
-        ༒✞⎝⎝✧GͥOͣDͫ✧⎠⎠☬✞ */
-
-
-        /* hate unneccessary necessary match but i love uneccessary comments.
-         * I love snoop doggs feature
-         * on Kendrick Lamar's 2015 classic to pimp a butterfly,
-         * more specifically his verse on intitutionalized. that is all */
-        match pack{
-            ClientPacket::PlayerPacket(playerc2s) 
-                => playerc2s.head.sequence.assign(seq_new),
-            ClientPacket::IdPacket(id_packet) 
-                => id_packet.head.sequence.assign(seq_new),
-        }
-    }// ok now we have made out PacketQueue pretty. now for InputQueue
-
-
-
-}
-
 
 #[derive(Resource, Component)]
 pub struct UDP {
@@ -221,6 +174,8 @@ pub struct PlayerSendable{
 pub struct MapS2C{
     pub head: Header,
     pub matrix: Vec<Vec<u8>>,
+    pub size: (f32, f32),
+    pub max: (f32, f32),
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EnemyS2C{
@@ -234,6 +189,13 @@ pub struct EnemyS2C{
 pub struct IdPacket{
     pub head: Header
 }
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct KillEnemyPacket{
+    pub enemy_id: EnemyId,
+    pub head: Header
+}
+
 #[derive(Component, Serialize,Deserialize, PartialEq, Debug, Clone)]
 pub struct Header{
     pub network_id: u8,
@@ -248,18 +210,20 @@ impl Header{
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ClientPacket{
     PlayerPacket(PlayerSendable),
     IdPacket(IdPacket),
+    KillEnemyPacket(KillEnemyPacket)
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ServerPacket{
     PlayerPacket(PlayerSendable),
     MapPacket(MapS2C),
     IdPacket(IdPacket),
     EnemyPacket(EnemyS2C),
+    DespawnPacket(KillEnemyPacket)
 }
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array 

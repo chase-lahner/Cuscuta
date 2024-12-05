@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{collision::*, cuscuta_resources::*, player::*};
+use crate::{collision::*, cuscuta_resources::*, player::{self, *}};
 
 /* Set for skeleton enemy */
 const SK_NAME: &str = "Skelebob";
@@ -175,6 +175,12 @@ impl Enemy {
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
+pub struct EnemyToKill{
+    pub EnemyId: EnemyId,
+    pub Enemy: Enemy
+}
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct EnemyMovement {
    pub direction: Vec2,
    pub axis: i32,
@@ -194,6 +200,7 @@ impl EnemyMovement {
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Bundle)]
 pub struct ServerEnemyBundle {
     id: EnemyId,
+    enemy: Enemy,
     motion: EnemyMovement,
     pub timer: EnemyTimer,
     transform: Transform,
@@ -204,11 +211,17 @@ pub struct EnemyTimer {
     time: Timer,
 }
 
-/* client don't need much teebs */
-#[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
+/* client don't need much teebs but it needs transform! */
+#[derive(Bundle)]
 pub struct ClientEnemy {
+    pub sprite: SpriteBundle,
+    pub atlas: TextureAtlas,
+    pub animation_timer: AnimationTimer,
+    pub animation_frames: AnimationFrameCount,
+    pub movement: EnemyMovement,
+    pub enemy: Enemy,
     pub id: EnemyId,
-    pub movement: Vec<EnemyMovement>,
+    pub past: EnemyPastStateQueue
 }
 
 /* used by server to keep track of how many we got AND keep
@@ -237,44 +250,54 @@ impl EnemyId {
 
 /* Should soon be deprecated. Need to base
  * this off of server information...*/
-pub fn spawn_enemies(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut enemy_id: ResMut<EnemyId>,
-) {
-    let mut rng = rand::thread_rng();
+// pub fn spawn_enemies(
+//     mut commands: Commands,
+//     asset_server: Res<AssetServer>,
+//     mut enemy_id: ResMut<EnemyId>,
+// ) {
+//     let mut rng = rand::thread_rng();
 
-    for _ in 0..NUMBER_OF_ENEMIES {
-        let random_x: f32 = rng.gen_range((-MAX_X + 64.)..(MAX_X - 64.));
-        let random_y: f32 = rng.gen_range((-MAX_Y + 64.)..(MAX_Y - 64.));
+//     for _ in 0..NUMBER_OF_ENEMIES {
+//         let random_x: f32 = rng.gen_range((-MAX_X + 64.)..(MAX_X - 64.));
+//         let random_y: f32 = rng.gen_range((-MAX_Y + 64.)..(MAX_Y - 64.));
 
-        commands.spawn((
-            // SpriteBundle {
-            //     transform: Transform::from_xyz(random_x, random_y, 900.),
-            //     texture: asset_server.load("enemies/skelly.png"),
-            //     ..default()
-            // },
-            ServerEnemyBundle {
-                transform: Transform::from_xyz(random_x, random_y, 900.),
-                id: EnemyId::new(enemy_id.get_plus(), EnemyKind::skeleton()),
-                motion: EnemyMovement::new(
-                    Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
-                    1,
-                    Vec3::new(99999., 0., 0.),
-                ),
-                timer: EnemyTimer {
-                    time: Timer::from_seconds(3.0, TimerMode::Repeating),
-                },
-            },
-        ));
-    }
-}
+//         commands.spawn((
+//             // SpriteBundle {
+//             //     transform: Transform::from_xyz(random_x, random_y, 900.),
+//             //     texture: asset_server.load("enemies/skelly.png"),
+//             //     ..default()
+//             // },
+//             ServerEnemyBundle {
+//                 transform: Transform::from_xyz(random_x, random_y, 900.),
+//                 id: EnemyId::new(enemy_id.get_plus(), EnemyKind::skeleton()),
+//                 enemy: Enemy::new(
+//                     String::from(SK_NAME),
+//                     String::from(SK_PATH),
+//                     SK_SPRITE_H,
+//                     SK_SPRITE_W,
+//                     SK_MAX_SPEED,
+//                     SK_SPOT_DIST,
+//                     SK_HEALTH,
+//                     SK_SIZE,
+//                 ),
+//                 motion: EnemyMovement::new(
+//                     Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+//                     1,
+//                     Vec3::new(99999., 0., 0.),
+//                 ),
+//                 timer: EnemyTimer {
+//                     time: Timer::from_seconds(3.0, TimerMode::Repeating),
+//                 },
+//             },
+//         ));
+//     }
+// }
 
 pub fn enemy_movement(
-    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement), (With<Enemy>, Without<Player>)>,
+    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement), Without<Player>>,
     mut player_query: Query<
         (&mut Transform, &Player, &mut Health),
-        (With<Player>, Without<Enemy>),
+        With<Player>,
     >,
     wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<EnemyTimer>)>,
     time: Res<Time>,
@@ -282,13 +305,13 @@ pub fn enemy_movement(
    // info!("running enemy mvmt");
     // for every enemy
     for (mut transform, mut timer, mut movement, ) in enemy_query.iter_mut() {
-        info!("Sanity CHECK");
+      //  info!("Sanity CHECK");
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
                                                                                // checking which player is closest
         let mut longest: f32 = 99999999999.0;
         // for every player
-        for (mut pt, p, mut ph) in player_query.iter_mut() {
+        for (mut pt, _p, mut ph) in player_query.iter_mut() {
             // find hypotenuse to get distance to player
             let xdis = (pt.translation.x - transform.translation.x).abs()
                 * (pt.translation.x - transform.translation.x).abs();
@@ -305,7 +328,7 @@ pub fn enemy_movement(
                     let ynew = transform.translation.y
                         + dec * (pt.translation.y - transform.translation.y);
                     let pointaabb = Aabb::new(Vec3::new(xnew, ynew, 0.), Vec2::splat(1.));
-                    for (wt, w) in wall_query.iter() {
+                    for (wt, _w) in wall_query.iter() {
                         //checking if any line hitbox collides with any wall
                         //if wt.translation.z == pt.translation.z || wt.translation.z == pt.translation.z - 0.1 {
                         let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
@@ -376,7 +399,7 @@ pub fn enemy_movement(
             let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
 
             // wall collision handling
-            for (wt, w) in wall_query.iter() {
+            for (wt, _w) in wall_query.iter() {
                 //if wt.translation.z == player_transform.translation.z || wt.translation.z == player_transform.translation.z - 0.1 {
                 let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
                 if tempaabb.intersects(&wallaabb) {
@@ -430,7 +453,7 @@ pub fn enemy_movement(
         let mut ymul: f32 = 1.;
         let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
         //wall collision handling
-        for (wt, w) in wall_query.iter() {
+        for (wt, _w) in wall_query.iter() {
             //if wt.translation.z == player_transform.translation.z || wt.translation.z == player_transform.translation.z - 0.1 {
             let wallaabb = Aabb::new(wt.translation, Vec2::splat(TILE_SIZE as f32));
             if tempaabb.intersects(&wallaabb) {
@@ -458,6 +481,57 @@ pub fn enemy_movement(
     }
 }
 
+
+pub fn handle_enemy_collision(
+    mut enemy_query: Query<(&mut Transform, &mut EnemyMovement), Without<Player>>,
+    mut player_query: Query<(&mut Transform, &mut Health, &mut NetworkId), With<Player>>,
+    client_id: ResMut<ClientId>,
+
+
+
+)
+{
+    // info!("handle called");
+    for ( enemy_transform, mut _enemy_movement) in enemy_query.iter_mut() {
+        // info!("enemy loop");
+        for (mut player_transform, mut health, network_id) in player_query.iter_mut()
+        {
+            // info!("running enemy collision");
+            if network_id.id != client_id.id {
+                continue;
+            }
+            // info!("handling enemy collision");
+            let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+            let player_aabb = Aabb::new(player_transform.translation, Vec2::splat(TILE_SIZE as f32));
+
+            if enemy_aabb.intersects(&player_aabb) {
+                info!("we collided in dis");
+                health.current -= 5.;
+
+                let direction_to_player = player_transform.translation - enemy_transform.translation;
+                let normalized_direction = direction_to_player.normalize();
+                player_transform.translation.x += normalized_direction.x * 64.;
+                player_transform.translation.y += normalized_direction.y * 64.;
+            }
+        }
+    }
+    // handling if enemy has hit player
+    // let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
+    // let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
+    // if enemy_aabb.intersects(&player_aabb) {
+    //     ph.current -= 5.;
+
+    //     // knockback applied to player
+    //     let direction_to_player = player_transform.translation - transform.translation;
+    //     let normalized_direction = direction_to_player.normalize();
+    //     //let opp_direction = Vec3::new(normalized_direction.x * -1., normalized_direction.y * -1., normalized_direction.z);
+    //     pt.translation.x += normalized_direction.x * 64.;
+    //     pt.translation.y += normalized_direction.y * 64.;
+    //     player_transform.translation = pt.translation;
+    // }
+    
+}
+
 pub fn server_spawn_enemies(
     mut commands: Commands,
     mut enemy_id: ResMut<EnemyId>,
@@ -473,6 +547,16 @@ pub fn server_spawn_enemies(
             ServerEnemyBundle {
                 transform: Transform::from_xyz(random_x, random_y, 900.),
                 id: EnemyId::new(enemy_id.get_plus(), EnemyKind::skeleton()),
+                enemy: Enemy::new(
+                    String::from(SK_NAME),
+                    String::from(SK_PATH),
+                    SK_SPRITE_H,
+                    SK_SPRITE_W,
+                    SK_MAX_SPEED,
+                    SK_SPOT_DIST,
+                    SK_HEALTH,
+                    SK_SIZE,
+                ),
                 motion: EnemyMovement::new(
                     Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
                     1,
@@ -483,7 +567,7 @@ pub fn server_spawn_enemies(
                 },
             },
         ));
-        info!("spawned enemies");
+        println!("spawned enemy ");
     }
    
 
