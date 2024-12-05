@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{collision::*, cuscuta_resources::*, player::*};
+use crate::{collision::*, cuscuta_resources::*, player::{self, *}};
 
 /* Set for skeleton enemy */
 const SK_NAME: &str = "Skelebob";
@@ -172,6 +172,12 @@ impl Enemy {
             size: size,
         }
     }
+}
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
+pub struct EnemyToKill{
+    pub EnemyId: EnemyId,
+    pub Enemy: Enemy
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -474,6 +480,57 @@ pub fn enemy_movement(
     }
 }
 
+
+pub fn handle_enemy_collision(
+    mut enemy_query: Query<(&mut Transform, &mut EnemyMovement), Without<Player>>,
+    mut player_query: Query<(&mut Transform, &mut Health, &mut NetworkId), With<Player>>,
+    client_id: ResMut<ClientId>,
+
+
+
+)
+{
+    // info!("handle called");
+    for ( enemy_transform, mut _enemy_movement) in enemy_query.iter_mut() {
+        // info!("enemy loop");
+        for (mut player_transform, mut health, network_id) in player_query.iter_mut()
+        {
+            // info!("running enemy collision");
+            if network_id.id != client_id.id {
+                continue;
+            }
+            // info!("handling enemy collision");
+            let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+            let player_aabb = Aabb::new(player_transform.translation, Vec2::splat(TILE_SIZE as f32));
+
+            if enemy_aabb.intersects(&player_aabb) {
+                info!("we collided in dis");
+                health.current -= 5.;
+
+                let direction_to_player = player_transform.translation - enemy_transform.translation;
+                let normalized_direction = direction_to_player.normalize();
+                player_transform.translation.x += normalized_direction.x * 64.;
+                player_transform.translation.y += normalized_direction.y * 64.;
+            }
+        }
+    }
+    // handling if enemy has hit player
+    // let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
+    // let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
+    // if enemy_aabb.intersects(&player_aabb) {
+    //     ph.current -= 5.;
+
+    //     // knockback applied to player
+    //     let direction_to_player = player_transform.translation - transform.translation;
+    //     let normalized_direction = direction_to_player.normalize();
+    //     //let opp_direction = Vec3::new(normalized_direction.x * -1., normalized_direction.y * -1., normalized_direction.z);
+    //     pt.translation.x += normalized_direction.x * 64.;
+    //     pt.translation.y += normalized_direction.y * 64.;
+    //     player_transform.translation = pt.translation;
+    // }
+    
+}
+
 pub fn server_spawn_enemies(
     mut commands: Commands,
     mut enemy_id: ResMut<EnemyId>,
@@ -509,7 +566,7 @@ pub fn server_spawn_enemies(
                 },
             },
         ));
-        info!("spawned enemy ");
+        println!("spawned enemy ");
     }
    
 
