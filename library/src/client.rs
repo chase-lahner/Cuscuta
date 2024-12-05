@@ -9,6 +9,7 @@ use crate::network::{
     ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, PlayerSendable, Sequence, ServerPacket, UDP
 };
 use crate::player::*;
+use crate::room_gen::{ClientDoor, Door, DoorType, Potion, Room};
 
 /* sends out all clientPackets from the ClientPacketQueue */
 pub fn client_send_packets(udp: Res<UDP>, mut packets: ResMut<ClientPacketQueue>) {
@@ -46,7 +47,6 @@ pub fn recv_id(
 /* Sends id request to the server
  * ID PLESASE */
 pub fn id_request(
-    mut packet_q: ResMut<ClientPacketQueue>,
     udp: Res<UDP>,
 ) {
     /* make an idpacket, server knows if it receives one of these
@@ -63,81 +63,6 @@ pub fn id_request(
     udp.socket.send_to(&packet, SERVER_ADR).unwrap();
 }
 
-/* Parse player input, and apply it*/
-pub fn gather_input(
-    mut player: Query<(&NetworkId, &mut InputQueue), With<Player>>,
-    client_id: Res<ClientId>,
-    sequence: ResMut<Sequence>,
-    input: Res<ButtonInput<KeyCode>>,
-) {
-    /* Deconstruct out Query. */
-    for (i, mut iq) in player.iter_mut() {
-        /* are we on us????? */
-        if i.id == client_id.id {
-            /* create a vec of keypresses as our 'this tick'
-             * inputs */
-            let mut keys: Vec<KeyCode> = vec![];
-            for key in input.get_pressed() {
-                keys.push(*key);
-            }
-
-            /* add to input queue @ timestamp */
-
-            /* if last element in InputQueue has same sequence#, append
-             * lists together so we have 1 per stamp.
-             * This can happen because we gather_input() at
-             * an unfixed rate, however the game progresess it
-             * progresses, while we only send/increment seq
-             * on fixedupdate, which is when we send. It's possible to have
-             * two++ gathers per send, we must make sure we are aware of this
-             * possibility. Maybe there's a better way to handle it, i'm
-             * down 2 adjust
-             *
-             * LONG STORY SHORT WE NEED CLIENT/SERVER CONSISTENCY,
-             * SO WE MUST PREEDICT HOW THE SERVER WILL. admittedly,
-             * this loses us some accuracy in movement. we will survive, currently
-             * @ 60hz that's not very human noticable. This means we will
-             * have descepancies in intantaneous prediction, the time @ which
-             * you press UP within the frame does have an effect,
-             * although negligible (@max I think like 15ms for 64hz but then half
-             * that fo 7.5ms ohhh no whatever shall we do {GAH SUBTICK [i'd be down]}).
-             * Our reprediction should be pretty tho, as long as the server
-             * isn't missing out on packets, as any enforced state we should
-             * have already propely predicted!! Ideally we want the InputQueue
-             * of client and servers snapshot of client @ time t to be the same
-             * - rorto */
-
-            let len = iq.q.len();
-            if len == 0 {
-                iq.q.push((sequence.get(), keys));
-            } else if iq.q.get_mut(len - 1).unwrap().0 == sequence.get() {
-                let (q_timey, mut q_keys) = iq.q.pop().unwrap();
-                q_keys.append(&mut keys);
-                q_keys.dedup();
-                iq.q.push((q_timey, q_keys));
-            } else {
-                iq.q.push((sequence.get(), keys));
-            }
-
-            /* so now it's in our input queue!!! what do we want to do from here?
-             * 1. We need to make sure we send this tick's input next time we
-             *      do a fixed update...
-             *  One thing I am thinking about as a potential error right now is
-             * what if we have an inputqueue made above^, and then end up recieving a
-             * packet from the server with a higher sequence number. This would cause
-             * our sequence number to update to the higher value, throwing off our input
-             * queue. Maybe we should keep this in mind when changing the sequence number, so
-             * we have the ability to adjust within our input queue right now. We could also
-             * put in a "deprecated sequence" values, that we use to pair against good ones.
-             * Pair or maybe even just immediately change (i want to immediate teebs, more
-             * reasoning around Sequence impl) */
-
-            /* TODODO what?!? do we want another list? just query the inputqueue for
-             * sequence.get()?? Think we can really just do the latter. also key that
-             * we update player state right after this input gather happens.*/
-        }
-    }
-}
 
 /* client listening function. Takes in a packet, deserializes it
  * into a ServerPacket (client here so from server).
@@ -167,12 +92,12 @@ pub fn listen(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut client_id: ResMut<ClientId>,
     mut sequence: ResMut<Sequence>,
-    packets: ResMut<ClientPacketQueue>,
+    mut room_query: Query<Entity, With<Room>>,
 ) {
     //info!("Listening!!!");
     loop{
     /* to hold msg */
-    let mut buf: [u8; 1024] = [0; 1024];
+    let mut buf: [u8; 10000] = [0; 10000];
     /* grab dat shit */
     let packet = udp.socket.recv_from(&mut buf);
     match packet {
@@ -190,6 +115,7 @@ pub fn listen(
 
     /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
      * packet!! is essential for lamportaging */
+    info!("recv packet");
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
             info!("matching idpacket");
@@ -205,7 +131,7 @@ pub fn listen(
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
-            receive_map_packet(&mut commands, &asset_server, map_packet.matrix);
+            receive_map_packet(&mut commands, &asset_server, map_packet.matrix, &mut room_query);
             sequence.assign(&map_packet.head.sequence);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
@@ -216,7 +142,7 @@ pub fn listen(
         ServerPacket::DespawnPacket(despawn_packet) => {
             info!("Matching Despawn Packet");
             // despawn_enemy(&mut commands, &despawn_packet.enemy_id);
-            // sequence.assign(&despawn_packet.head.sequence);
+            sequence.assign(&despawn_packet.head.sequence);
         }
     }
 }// stupid loop
@@ -534,14 +460,21 @@ fn recv_enemy(
     6 - top door
     7 - bottom door 
     8 - top wall
-    9 - bottom wall */
+    9 - bottom wall 
+    10 - pot */
 fn receive_map_packet (
     mut commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     map_array: Vec<Vec<u8>>,
+    mut room_query: &mut Query<Entity, With<Room>>,
 ) {
     let mut vertical = -((map_array.len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
     let mut horizontal = -((map_array[0].len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
+
+    for tile in room_query.iter_mut()
+    {
+        commands.entity(tile).despawn();
+    }
 
     for a in 0..map_array.len() {
         for b in 0..map_array[0].len() {
@@ -552,66 +485,51 @@ fn receive_map_packet (
                         .load("tiles/cobblestone_floor/cobblestone_floor.png")
                         .clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.0),
-                    ..default()
-                },)),
-                1 => commands.spawn((SpriteBundle {
+                    ..default() },Background,Room,)),
+                1 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/left_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default()
-                },)),
-                2 => commands.spawn((SpriteBundle {
+                    ..default() },Wall,Room,)),
+                2 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/right_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default()
-                },)),
-                3 => commands.spawn((SpriteBundle {
-                    texture: asset_server.load("tiles/1x2_pot.png").clone(),
+                    ..default() },Wall,Room,)),
+                3 => commands.spawn(( SpriteBundle {
+                    texture: asset_server.load("items/potion.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default()
-                },)),
-                4 => commands.spawn((SpriteBundle {
-                    texture: asset_server
-                        .load("tiles/solid_floor/solid_floor.png")
-                        .clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.2),
-                    ..default()
-                },)),
-                5 => commands.spawn((SpriteBundle {
-                    texture: asset_server
-                        .load("tiles/solid_floor/solid_floor.png")
-                        .clone(),
+                    ..default() },Potion,Room,)),
+                4 => commands.spawn(( SpriteBundle {
+                    texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.3),
-                    ..default()
-                },)),
-                6 => commands.spawn((SpriteBundle {
-                    texture: asset_server
-                        .load("tiles/solid_floor/solid_floor.png")
-                        .clone(),
+                    ..default() },ClientDoor{door_type: DoorType::Left,},Room,)),
+                5 => commands.spawn(( SpriteBundle {
+                    texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.4),
-                    ..default()
-                },)),
-                7 => commands.spawn((SpriteBundle {
-                    texture: asset_server
-                        .load("tiles/solid_floor/solid_floor.png")
-                        .clone(),
+                    ..default() },ClientDoor{door_type: DoorType::Right,},Room,)),
+                6 => commands.spawn(( SpriteBundle {
+                    texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.5),
-                    ..default()
-                },)),
-                8 => commands.spawn((SpriteBundle {
+                    ..default() },ClientDoor{door_type: DoorType::Top,},Room,)),
+                7 => commands.spawn(( SpriteBundle {
+                    texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
+                    transform: Transform::from_xyz(horizontal, vertical, 0.6),
+                    ..default() },ClientDoor{door_type: DoorType::Bottom,},Room,)),
+                8 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/north_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.2),
-                    ..default()
-                },)),
-                9 => commands.spawn((SpriteBundle {
+                    ..default() },Wall,Room,)),
+                9 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.2),
-                    ..default()
-                },)),
-                _ => commands.spawn((SpriteBundle {
+                    ..default() },Wall,Room,)),
+                10 => commands.spawn(( SpriteBundle {
+                    texture: asset_server.load("tiles/1x2_pot.png").clone(),
+                    transform: Transform::from_xyz(horizontal, vertical, 0.1),
+                    ..default() },Pot::new(),Room,)),
+                _ => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
                     transform: Transform::from_xyz(-10000.0, -10000.0, 0.2),
-                    ..default()
-                },)),
+                    ..default() },Wall,Room,)),
             };
             horizontal = horizontal + TILE_SIZE as f32;
         }
@@ -633,7 +551,6 @@ pub fn send_player(
         ),
         With<Player>,
     >,
-    mut packet_queue: ResMut<ClientPacketQueue>,
     seq: Res<Sequence>,
     clientid: Res<ClientId>,
     udp: Res<UDP>
@@ -690,3 +607,93 @@ from our vec.push()
 
 
 can do same with enemy but a paststatequeue needs creted for their stuff yk yk yk*/
+
+
+
+
+
+
+
+
+/* STUPID. we sorta need a room to look at..... we may not get the before we go to
+ * game loop. so, here we have a listen, who will listen, until it gets a room 
+ * hacky as fuck. maybe not idk.... maybe a ack would be nice we could potentially
+ * miss the first one and just be stuck.......*/
+ pub fn init_listen(
+    udp: Res<UDP>,
+    mut commands: Commands,
+    mut players_q: Query<
+        (
+            &mut Velocity,
+            &mut Transform,
+            &mut Player,
+            &mut Health,
+            &mut Crouch,
+            &mut Roll,
+            &mut Sprint,
+            &mut Attack,
+            &mut NetworkId,
+        ),
+        With<Player>,
+    >,
+    mut enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    mut client_id: ResMut<ClientId>,
+    mut sequence: ResMut<Sequence>,
+    mut room_query: Query<Entity, With<Room>>,
+) {
+    //info!("Listening!!!");
+    loop{
+    /* to hold msg */
+    let mut buf: [u8; 10000] = [0; 10000];
+    /* grab dat shit */
+    let packet = udp.socket.recv_from(&mut buf);
+    match packet {
+        Err(_e) => {continue},//usually return, but for this fn we want to stick around
+        _ => {}
+    }
+    let (amt, src) = packet.unwrap();
+
+    /* trim trailing 0s */
+    let packet = &buf[..amt];
+
+    /* deserialize and turn into a ServerPacket */
+    let deserializer = flexbuffers::Reader::get_root(packet).unwrap();
+    let rec_struct: ServerPacket = ServerPacket::deserialize(deserializer).unwrap();
+
+    /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
+     * packet!! is essential for lamportaging */
+    match rec_struct {
+        ServerPacket::IdPacket(id_packet) => {
+            info!("matching idpacket");
+            recv_id(&id_packet, &mut sequence, &mut client_id);
+            sequence.assign(&id_packet.head.sequence);
+        }
+        ServerPacket::PlayerPacket(player_packet) => {
+            info!("Matching Player  {}", player_packet.head.network_id);
+            /*  gahhhh sequence borrow checker is giving me hell */
+            /* if we encounter porblems, it's herer fs */ 
+            receive_player_packet( &mut commands, &mut players_q, &asset_server, &player_packet, &mut texture_atlases, src);
+            sequence.assign(&player_packet.head.sequence);
+        }
+        ServerPacket::MapPacket(map_packet) => {
+            info!("Matching Map Struct");
+            receive_map_packet(&mut commands, &asset_server, map_packet.matrix, &mut room_query);
+            sequence.assign(&map_packet.head.sequence);
+            return;
+        }
+        ServerPacket::EnemyPacket(enemy_packet) => {
+           // info!{"Matching Enemy Struct"};
+            recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases);
+            sequence.assign(&enemy_packet.head.sequence);
+        }
+        ServerPacket::DespawnPacket(despawn_packet) => {
+            info!("Matching Despawn Packet");
+            // despawn_enemy(&mut commands, &despawn_packet.enemy_id);
+            sequence.assign(&despawn_packet.head.sequence);
+        }
+        _ => info!("Got some weirdness")
+    }
+}// stupid loop
+}
