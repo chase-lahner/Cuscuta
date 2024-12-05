@@ -128,11 +128,11 @@ impl AddressList{
 }
 
 #[derive(Resource)]
-pub struct EnemiestoKill{
+pub struct EnemiesToKill{
     pub list: Vec<KillEnemyPacket>,
 }
 
-impl EnemiestoKill{
+impl EnemiesToKill{
     pub fn new() -> Self{
         Self{
             list: Vec::new()

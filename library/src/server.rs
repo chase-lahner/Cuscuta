@@ -4,7 +4,7 @@ use bevy:: prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, Background, EnemiestoKill, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client via the packet queue */
@@ -82,7 +82,7 @@ pub fn listen(
     mut n_p: ResMut<PlayerCount>,
     mut addresses: ResMut<AddressList>,
     mut server_seq: ResMut<Sequence>,
-    mut enemies_to_kill: ResMut<EnemiestoKill>,
+    mut enemies_to_kill: ResMut<EnemiesToKill>,
     mut enemies: Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform), (With<Enemy>, Without<Player>)>,
 ) {
     loop{
@@ -320,25 +320,26 @@ fn update_player_state(
 
 fn update_despawn(
     kill_enemy: KillEnemyPacket,
-    enemies_to_kill: &mut EnemiestoKill,
+    enemies_to_kill: &mut EnemiesToKill,
     commands: &mut Commands,
     enemies: &mut Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform), (With<Enemy>, Without<Player>)>,
 ){
     enemies_to_kill.list.push(kill_enemy.clone());
-    let kill_ugh = kill_enemy.clone();
     for(entity, id, _movement, _transform) in enemies.iter(){
-        if id.id == kill_ugh.enemy_id.id{
+        if id.id == kill_enemy.enemy_id.id{
             commands.entity(entity).despawn();
             println!("despawning enemy");
         }
     }
 }
 
+/* runs to send off 'despawn this hoe' messages to clients
+ * ensures that if p1 kills a player, it shows for p2 */
 pub fn send_despawn_command(
     mut commands: Commands,
     addresses: Res<AddressList>,
     udp: Res<UDP>,
-    enemies_to_kill: Res<EnemiestoKill>,
+    mut enemies_to_kill: ResMut<EnemiesToKill>,
     enemies: Query<(Entity, & EnemyId, & EnemyMovement, &Transform), 
         (With<Enemy>, Without<Player>)>,
 ){
@@ -350,7 +351,8 @@ pub fn send_despawn_command(
                 for address in addresses.list.iter(){
                     udp.socket.send_to(&packet, address).unwrap();
                 }
-            }
+        }
+        enemies_to_kill.list = Vec::new();
         
         for(entity, id, _movement, _transform) in enemies.iter(){
             for kill_enemy in enemies_to_kill.list.iter(){
