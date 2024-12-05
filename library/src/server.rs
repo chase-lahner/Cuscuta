@@ -4,7 +4,7 @@ use bevy:: prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, Background, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiestoKill, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client via the packet queue */
@@ -82,7 +82,8 @@ pub fn listen(
     mut n_p: ResMut<PlayerCount>,
     mut addresses: ResMut<AddressList>,
     mut server_seq: ResMut<Sequence>,
-    packet_q: ResMut<ServerPacketQueue>
+    mut enemies_to_kill: ResMut<EnemiestoKill>,
+    mut enemies: Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform), (With<Enemy>, Without<Player>)>,
 ) {
     loop{
    /* to hold msg */
@@ -112,7 +113,11 @@ pub fn listen(
                 // TODO: Fix this
                 update_player_state(src, &mut players_q, player_packet, &mut commands);
             }
-        
+            ClientPacket::KillEnemyPacket(kill_enemy) => {
+                println!("recieved kill enemy packet");
+                update_despawn(kill_enemy, &mut enemies_to_kill, &mut commands, &mut enemies); 
+            }
+            
         }
     }
 }
@@ -313,6 +318,50 @@ fn update_player_state(
     }
 }
 
+fn update_despawn(
+    kill_enemy: KillEnemyPacket,
+    enemies_to_kill: &mut EnemiestoKill,
+    commands: &mut Commands,
+    enemies: &mut Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform), (With<Enemy>, Without<Player>)>,
+){
+    enemies_to_kill.list.push(kill_enemy.clone());
+    let kill_ugh = kill_enemy.clone();
+    for(entity, id, _movement, _transform) in enemies.iter(){
+        if id.id == kill_ugh.enemy_id.id{
+            commands.entity(entity).despawn();
+            println!("despawning enemy");
+        }
+    }
+}
+
+pub fn send_despawn_command(
+    mut commands: Commands,
+    addresses: Res<AddressList>,
+    udp: Res<UDP>,
+    enemies_to_kill: Res<EnemiestoKill>,
+    enemies: &mut Query<(Entity, & EnemyId, & EnemyMovement, &Transform), 
+        (With<Enemy>, Without<Player>)>,
+){
+        for enemy in enemies_to_kill.list.iter(){
+                let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                let to_send: ServerPacket = ServerPacket::DespawnPacket(enemy.clone());
+                to_send.serialize(&mut serializer).unwrap();
+                let packet: &[u8] = serializer.view();
+                for address in addresses.list.iter(){
+                    udp.socket.send_to(&packet, address).unwrap();
+                }
+            }
+        
+        for(entity, id, _movement, _transform) in enemies.iter(){
+            for(kill_enemy) in enemies_to_kill.list.iter(){
+                if id.id == kill_enemy.enemy_id.id{
+                    commands.entity(entity).despawn();
+                    println!("despawning enemy");
+                }
+            }
+        }
+    }
+    
 
 // /* Transforms current player state into u8 array that
 //  * we can then send across the wire to be deserialized once it arrives */

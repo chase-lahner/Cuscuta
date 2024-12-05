@@ -20,7 +20,7 @@ fn main() {
             FixedUpdate,
             (
                 server::listen,//.run_if(on_timer(Duration::from_millis(5))),
-                enemies::enemy_movement.after(server::listen), // server needs to handle this :3
+                server::send_despawn_command,
                 server::send_enemies.after(server::listen),
                 server::send_player.after(server::listen),
                 //server::server_send_packets.after(server::send_player),

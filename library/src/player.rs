@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-
-use crate::network::Sequence;
+use crate::enemies::{EnemyId, EnemyToKill};
+use crate::network::{ClientPacket, Header, KillEnemyPacket, Sequence, UDP};
 use crate::{
     collision::{self, *},
     cuscuta_resources::*,
@@ -324,8 +324,9 @@ pub fn player_attack(
 pub fn player_attack_enemy(
     mut commands: Commands,
     mut player: Query<(&Transform, &mut Attack, &NetworkId), With<Player>>,
-    enemies: Query<(Entity, &mut Transform), (With<Enemy>, Without<Player>)>,
+    enemies: Query<(Entity, &mut Transform, &mut EnemyId), (With<Enemy>, Without<Player>)>,
     client_id: Res<ClientId>,
+    udp: Res<UDP>,
 ) {
     for (ptransform, pattack, id) in player.iter_mut() {
         if id.id == client_id.id {
@@ -335,16 +336,26 @@ pub fn player_attack_enemy(
             let player_aabb =
                 collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
 
-            for (ent, enemy_transform) in enemies.iter() {
+            for (ent, enemy_transform, id) in enemies.iter() {
                 let enemy_aabb =
                     Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
                 if player_aabb.intersects(&enemy_aabb) {
+                    let packet = ClientPacket::KillEnemyPacket(KillEnemyPacket {
+                        enemy_id : id.clone()
+                    });
+                    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                    packet.serialize(&mut serializer).unwrap();
+                    let packet: &[u8] = serializer.view();
+                    info!("Sending packet to kill enemy");
+                    udp.socket.send_to(&packet, SERVER_ADR).unwrap();
                     commands.entity(ent).despawn();
                 }
             }
         }
     }
 }
+
+
 
 // /* Spawns in user player, uses PlayerBundle for some consistency*/
 // pub fn client_spawn_user_player(

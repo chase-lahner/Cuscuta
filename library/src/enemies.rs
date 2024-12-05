@@ -175,6 +175,12 @@ impl Enemy {
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
+pub struct EnemyToKill{
+    pub EnemyId: EnemyId,
+    pub Enemy: Enemy
+}
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct EnemyMovement {
    pub direction: Vec2,
    pub axis: i32,
@@ -510,7 +516,7 @@ pub fn server_spawn_enemies(
                 },
             },
         ));
-        info!("spawned enemy ");
+        println!("spawned enemy ");
     }
    
 

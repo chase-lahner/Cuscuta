@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::cuscuta_resources::*;
 use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::network::{
-    ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerSendable, Sequence, ServerPacket, UDP
+    ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, PlayerSendable, Sequence, ServerPacket, UDP
 };
 use crate::player::*;
 
@@ -212,6 +212,11 @@ pub fn listen(
            // info!{"Matching Enemy Struct"};
             recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases);
             sequence.assign(&enemy_packet.head.sequence);
+        }
+        ServerPacket::DespawnPacket(despawn_packet) => {
+            info!("Matching Despawn Packet");
+            // despawn_enemy(&mut commands, &despawn_packet.enemy_id);
+            // sequence.assign(&despawn_packet.head.sequence);
         }
     }
 }// stupid loop
@@ -426,7 +431,7 @@ fn recv_enemy(
         // vec.push(pack.movement.clone());
         let x = pack.transform.translation.x;
         let y = pack.transform.translation.y;
-        info!("x: {} y: {}", x, y);
+      //  info!("x: {} y: {}", x, y);
         let transform_to_use = Transform::from_xyz(x, y, 900.);
         commands.spawn(ClientEnemy {
             sprite: SpriteBundle {
@@ -449,6 +454,8 @@ fn recv_enemy(
         });
     };
 }
+
+
 
 // /* once we have our packeet, we must use it to update
 //  * the player specified, there's another in server.rs */
@@ -657,6 +664,18 @@ pub fn send_player(
             udp.socket.send_to(&packet, SERVER_ADR).unwrap();
         }
     }
+}
+
+
+fn send_enemies_killed(
+    mut commands: Commands,
+    mut enemy_q: Query<(&Transform, &EnemyId), With<Enemy>>,
+    mut packets: ResMut<ClientPacketQueue>,
+    seq: Res<Sequence>,
+    clientid: Res<ClientId>,
+    udp: Res<UDP>,
+){
+    
 }
 
 /* interpolate player/enemy
