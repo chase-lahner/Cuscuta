@@ -431,7 +431,7 @@ fn recv_enemy(
         // vec.push(pack.movement.clone());
         let x = pack.transform.translation.x;
         let y = pack.transform.translation.y;
-      //  info!("x: {} y: {}", x, y);
+        //info!("x: {} y: {}", x, y);
         let transform_to_use = Transform::from_xyz(x, y, 900.);
         commands.spawn(ClientEnemy {
             sprite: SpriteBundle {
