@@ -276,8 +276,7 @@ fn update_player_state(
     mut commands: &mut Commands
 ){
     let mut found = false;
-    let mut player_queeee = players_q;
-    for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id) in player_queeee.into_iter(){
+    for (mut vel,mut trans,mut health, mut crouching, mut rolling, mut sprinting, mut attacking, id) in players_q.into_iter(){
 
         if id.id == player_struct.head.network_id {
          //   info!("updaetd");
