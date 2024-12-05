@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 
 
-use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{Door, DoorType, Potion, Room, RoomManager}};
 
 
 /* Upon request, sends an id to client, spawns a player, and
@@ -483,7 +483,7 @@ fn send_map_packet (
 ) {
     let mut map_array: Vec<Vec<u8>> =vec![vec![0; 75]; 75];
 
-    let (x,y):(f32, f32) = room_gen::RoomManager::current_room_size(&roomman);
+    let (x,y):(f32, f32) = RoomManager::current_room_size(&roomman);
     let room_w = x as usize; //need to grab these values from roomgen fn()
 
     for tile in background_query.iter()
@@ -532,8 +532,8 @@ fn send_map_packet (
     let mappy = ServerPacket::MapPacket(MapS2C{
         head: Header::new(0,server_seq.clone()),// server id == 0
         matrix: map_array,
-        size: room_gen::RoomManager::current_room_size(&roomman),
-        max: room_gen::RoomManager::current_room_max(&roomman),
+        size: RoomManager::current_room_size(&roomman),
+        max: RoomManager::current_room_max(&roomman),
     });
 
     let mut serializer = flexbuffers::FlexbufferSerializer::new();

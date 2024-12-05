@@ -18,8 +18,8 @@ pub struct ClientRoomManager{
 impl ClientRoomManager{
     pub fn new() -> Self{
         Self {
-            width: 40.,
-            height: 40.,
+            width: 40. * TILE_SIZE as f32,
+            height: 40. * TILE_SIZE as f32,
             max_x: 0.,
             max_y: 0.,
         }

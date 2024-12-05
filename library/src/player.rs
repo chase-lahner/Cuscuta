@@ -892,7 +892,7 @@ pub fn move_player(
     >,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
-    mut room_manager: ResMut<RoomManager>,
+    mut room_manager: ResMut<ClientRoomManager>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     room_query: Query<Entity, With<Room>>,
@@ -961,7 +961,8 @@ pub fn move_player(
         };
 
         let change = pv.velocity * deltat;
-        let (room_width, room_height) = room_manager.current_room_size();
+        let room_width = room_manager.width;
+        let room_height = room_manager.height;
 
         // Calculate new player position and clamp within room boundaries
         let new_pos_x = (pt.translation.x + change.x).clamp(
@@ -1004,17 +1005,24 @@ pub fn move_player(
         let mut carnage_bar = carnage.single_mut();
         carnage_bar.stealth += 10.;
         if let Some(door_type) = door_type {
+
+
+
+        /* TOODOODOODOODODOODODODOD HOW DO WE WANT TO HANDLE COLLISIONS with door */
+
+
+
             // Pass the door type to transition_map
-            transition_map(
-                &mut commands,
-                &asset_server,
-                &mut room_manager,
-                room_query,
-                door_query,
-                &mut player_query.single_mut().0,// this is broke cant be single
-                door_type,
-                carnage,
-            );
+            // transition_map(
+            //     &mut commands,
+            //     &asset_server,
+            //     &mut room_manager,
+            //     room_query,
+            //     door_query,
+            //     &mut player_query.single_mut().0,// this is broke cant be single
+            //     door_type,
+            //     carnage,
+            // );
         }
     }
 } 
@@ -1023,7 +1031,7 @@ pub fn handle_player_collisions(
     pt: &mut Transform,
     change: Vec2,
     enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
-    room_manager: &mut RoomManager,
+    room_manager: &mut ClientRoomManager,
     door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
     inner_wall_query: &Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
     mut collision_state: &mut ResMut<CollisionState>,
@@ -1035,16 +1043,11 @@ pub fn handle_player_collisions(
     let new_pos = pt.translation + Vec3::new(change.x, change.y, 0.0);
     let player_aabb = collision::Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
 
-    // Translate player position to grid indices
-    let (_topleft, _topright, _bottomleft, _bottomright) =
-        translate_coords_to_grid(&player_aabb, room_manager);
-
     collision_state.colliding_with_wall = false;
 
     // Get the current room's grid size (room width and height)
-    let current_grid = room_manager.current_grid();
-    let room_width = current_grid.len() as f32 * TILE_SIZE as f32;
-    let room_height = current_grid[0].len() as f32 * TILE_SIZE as f32;
+    let room_height = room_manager.height;
+    let room_width = room_manager.width;
 
     // Check for collisions with enemies
     for enemy_transform in enemies.iter() {

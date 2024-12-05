@@ -9,7 +9,7 @@ use crate::network::{
     ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, PlayerSendable, Sequence, ServerPacket, UDP
 };
 use crate::player::*;
-use crate::room_gen::{ClientDoor, Door, DoorType, Potion, Room};
+use crate::room_gen::{ClientDoor, ClientRoomManager, Door, DoorType, Potion, Room};
 
 /* sends out all clientPackets from the ClientPacketQueue */
 pub fn client_send_packets(udp: Res<UDP>, mut packets: ResMut<ClientPacketQueue>) {
@@ -93,6 +93,7 @@ pub fn listen(
     mut client_id: ResMut<ClientId>,
     mut sequence: ResMut<Sequence>,
     mut room_query: Query<Entity, With<Room>>,
+    mut room_manager: ResMut<ClientRoomManager>,
 ) {
     //info!("Listening!!!");
     loop{
@@ -131,7 +132,7 @@ pub fn listen(
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
-            receive_map_packet(&mut commands, &asset_server, map_packet.matrix, &mut room_query);
+            receive_map_packet(&mut commands, &asset_server, &map_packet.matrix, &mut room_query, &mut room_manager);
             sequence.assign(&map_packet.head.sequence);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
@@ -464,9 +465,10 @@ fn recv_enemy(
     10 - pot */
 fn receive_map_packet (
     mut commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    map_array: Vec<Vec<u8>>,
+    asset_server: &AssetServer,
+    map_array: &Vec<Vec<u8>>,
     mut room_query: &mut Query<Entity, With<Room>>,
+    mut room_manager: &mut ClientRoomManager,
 ) {
     let mut vertical = -((map_array.len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
     let mut horizontal = -((map_array[0].len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
@@ -535,6 +537,8 @@ fn receive_map_packet (
         }
         vertical = vertical + TILE_SIZE as f32;
     }
+    room_manager.height = vertical;
+    room_manager.width = horizontal;
 }
 
 pub fn send_player(
@@ -642,6 +646,7 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
     mut client_id: ResMut<ClientId>,
     mut sequence: ResMut<Sequence>,
     mut room_query: Query<Entity, With<Room>>,
+    mut room_manager: ResMut<ClientRoomManager>,
 ) {
     //info!("Listening!!!");
     loop{
@@ -679,7 +684,7 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
-            receive_map_packet(&mut commands, &asset_server, map_packet.matrix, &mut room_query);
+            receive_map_packet(&mut commands, &asset_server, &map_packet.matrix, &mut room_query, &mut room_manager);
             sequence.assign(&map_packet.head.sequence);
             return;
         }
