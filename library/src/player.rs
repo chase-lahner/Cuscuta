@@ -505,6 +505,7 @@ pub fn client_spawn_other_player(
  * it's own resource, maybe make an 'interactable'
  * trait for query? - rorto */
 pub fn player_interact(
+    mut commands: Commands,
     mut player: Query<
         (&mut Transform, &mut Velocity, &NetworkId,  &mut PotionStatus),
         (With<Player>, Without<Background>),
@@ -514,7 +515,7 @@ pub fn player_interact(
     mut pot_q: Query<&mut Pot>,
     mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>,
     mut texture_atlas: Query<&mut TextureAtlas, (With<Pot>, Without<Player>)>,
-    potion_query: Query<&Transform, (With<Potion>, Without<Player>, Without<Pot>)>,
+    potion_query: Query<(Entity, &Transform), (With<Potion>, Without<Player>, Without<Pot>)>,
 ) {
     let mut pot = pot_q.single_mut();
     let pot_transform = pot_transform_q.single_mut();
@@ -538,7 +539,7 @@ pub fn player_interact(
 
             
             // loop through potions in room
-            for potion_transform in potion_query.iter() {
+            for (potion_entity, potion_transform) in potion_query.iter() {
                 let potion_collider = Aabb::new(
                     potion_transform.translation, 
                     Vec2::splat(TILE_SIZE as f32)
@@ -552,11 +553,13 @@ pub fn player_interact(
                         "Player at {:?} picked up a potion at {:?}!",
                         player_transform.translation, potion_transform.translation
                     );
+                    
+                    // despawn potion
+                    commands.entity(potion_entity).despawn();
                 } 
 
             }
 
-            
             /* touch is how many frames since pressed
              * We only want to increment if not pressed
              * recently */
@@ -572,10 +575,34 @@ pub fn player_interact(
                 }
             
             }
-
-
         }
     }
+}
+
+pub fn restore_health(
+    input: Res<ButtonInput<KeyCode>>,
+    mut player: Query<(&mut Health, &mut PotionStatus), With<Player>>,
+) {
+    for (mut health, mut potion_status) in player.iter_mut() {
+        // check if the player has a potion and presses H
+        if input.just_pressed(KeyCode::KeyH) && potion_status.has_potion {
+            // restore 50 health and clamp
+            health.current = (health.current + 50.).min(health.max);
+
+            // set has potion to false
+            potion_status.has_potion = false;
+
+            info!("Player restored 50 health! Current health: {}", health.current);
+        }
+
+        // take damage keybind for testing
+        if input.just_pressed(KeyCode::KeyV) {
+            health.current = (health.current - 25.);
+            info!("Taking damage from keybind!");
+        }
+    }
+
+    
 }
 
 pub fn player_input(

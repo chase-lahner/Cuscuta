@@ -36,7 +36,8 @@ fn main() {
             camera::move_camera.after(player::animate_player),
             player::player_attack_enemy.after(player::player_attack),
             ui::update_ui_elements,
-            player::player_interact
+            player::player_interact,
+            player::restore_health,
         )) 
         /* networking shtuff. comment out if needed */
         .add_systems(FixedUpdate,
