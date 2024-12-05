@@ -34,6 +34,11 @@ pub const ENEMY_SPEED: f32 = 160.;
 pub const NUMBER_OF_ENEMIES: u32 = 10;
 pub const ENEMY_SPOT_DISTANCE: f32 = 192.;
 
+/* for cymbal monkey item */
+pub const MONKEY_HANDLE: &str = "monkey/cymbal_monkey1x2.png";
+pub const MONKEY_SPRITE_COL: u32 = 1;
+pub const MONKEY_SPRITE_ROW: u32 = 2;
+
 pub const TILE_SIZE: u32 = 32; 
 
 pub const LEVEL_W: f32 = 4800.; 

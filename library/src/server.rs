@@ -83,7 +83,6 @@ pub fn listen(
     mut n_p: ResMut<PlayerCount>,
     mut addresses: ResMut<AddressList>,
     mut server_seq: ResMut<Sequence>,
-    packet_q: ResMut<ServerPacketQueue>
 ) {
     loop{
    /* to hold msg */

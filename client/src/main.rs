@@ -44,5 +44,10 @@ fn main() {
             client::send_player
             //client::client_send_packets)
         )
+        /* monkey stuff */
+        .add_systems(Update, (
+            player::spawn_monkey,
+            player::update_monkey,
+        ))  
         .run();
 }
