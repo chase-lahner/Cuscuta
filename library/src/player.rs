@@ -18,6 +18,23 @@ use crate::{
 pub struct Player; // wow! it is he!
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Trackable;//used for enemy pathfinding
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Monkey;
+
+#[derive(Bundle)]
+pub struct CymbalMonkey{
+    pub track: Trackable,
+    pub transform: Transform,
+    pub asset: SpriteBundle,
+    pub distracto: Monkey,
+    pub atlas: TextureAtlas,
+    pub animation_timer: AnimationTimer,
+    pub animation_frames: AnimationFrameCount,
+}
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
     pub addr: SocketAddr,
@@ -162,7 +179,8 @@ pub struct ServerPlayerBundle {
     pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack,
-    pub player: Player
+    pub player: Player,
+    pub track: Trackable
     //pub inputs: InputQueue,
     //pub time: Timestamp,
 }
