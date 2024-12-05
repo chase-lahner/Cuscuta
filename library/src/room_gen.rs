@@ -23,7 +23,7 @@ pub struct InnerWallStartPos {
     pub y: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Component)]
 pub struct InnerWall {
     pub start_pos: InnerWallStartPos,
     pub length_direction_vector: (i32, i32),
@@ -470,7 +470,7 @@ pub fn spawn_start_room(
 
 
     // find the bounds of the start room and print them
-    if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
+    if let Some(_room) = room_manager.find_room_bounds(z_index as i32) {
         //println!("Start room bounds: Left: {}, Right: {}, Top: {}, Bottom: {}", left_x, right_x, top_y, bottom_y);
     } else {
         println!("Error: Could not find bounds for the start room.");
@@ -645,21 +645,12 @@ fn create_inner_walls(
 
 
     // loop through inner wall list at current z index
-    if let Some(walls) = room_manager.get_inner_walls(z_abs as usize) {
-        for (i, wall) in walls.iter().enumerate() {
-            // println!("Wall {} at Z index {}: Start position ({}, {}), Direction vector ({}, {})",
-            //     i,
-            //     z_abs,
-            //     wall.start_pos.x,
-            //     wall.start_pos.y,
-            //     wall.length_direction_vector.0,
-            //     wall.length_direction_vector.1
-            // );
-
-
-            draw_inner_wall(commands, asset_server, wall, z_abs, room_width, room_height);
+    if let Some(walls) = room_manager.get_inner_walls(z_abs) {
+        let walls_to_draw: Vec<_> = walls.clone(); // Clone to avoid mutable borrowing issues
+        for wall in walls_to_draw.iter() {
+            draw_inner_wall(commands, asset_server, wall, z_abs, room_width, room_height, room_manager);
         }
-    }  else {
+    } else {
         println!("No inner walls found for Z index {}", z_abs);
     }
     
@@ -673,6 +664,7 @@ fn draw_inner_wall(
     z_index: usize,
     room_width: usize,
     room_height: usize,
+    room_manager: &mut RoomManager,
 ){
     let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
 
@@ -698,7 +690,13 @@ fn draw_inner_wall(
                     },
                     Wall,
                     Room,
+                    inner_wall.clone(),
                 ));
+                 // call set_collide for this wall segment
+                 let grid_x = ((current_x + (room_width as f32 * TILE_SIZE as f32) / 2.0) / TILE_SIZE as f32).floor() as usize;
+                 let grid_y = ((current_y + (room_height as f32 * TILE_SIZE as f32) / 2.0) / TILE_SIZE as f32).floor() as usize;
+                 set_collide(room_manager, grid_x, grid_y, 1);
+
                 current_x += TILE_SIZE as f32;
             }
         } 
@@ -716,7 +714,13 @@ fn draw_inner_wall(
                     },
                     Wall,
                     Room,
+                    inner_wall.clone(),
                 ));
+                 // Call set_collide for this wall segment
+                 let grid_x = ((current_x + (room_width as f32 * TILE_SIZE as f32) / 2.0) / TILE_SIZE as f32).floor() as usize;
+                 let grid_y = ((current_y + (room_height as f32 * TILE_SIZE as f32) / 2.0) / TILE_SIZE as f32).floor() as usize;
+                 set_collide(room_manager, grid_x, grid_y, 1);
+
                 current_x -= TILE_SIZE as f32;
             }
         }
@@ -740,7 +744,14 @@ fn draw_inner_wall(
                     },
                     Wall,
                     Room,
+                    inner_wall.clone(),
                 ));
+                // Call set_collide for this wall segment
+                let grid_x = ((current_x + (room_width as f32 * TILE_SIZE as f32) / 2.0) / TILE_SIZE as f32).floor() as usize;
+                let grid_y = ((current_y + (room_height as f32 * TILE_SIZE as f32) / 2.0) / TILE_SIZE as f32).floor() as usize;
+                set_collide(room_manager, grid_x, grid_y, 1);
+ 
+
                 current_y += TILE_SIZE as f32;
             }
         } 
@@ -758,7 +769,14 @@ fn draw_inner_wall(
                     },
                     Wall,
                     Room,
+                    inner_wall.clone(),
                 ));
+                // Call set_collide for this wall segment
+                let grid_x = ((current_x + (room_width as f32 * TILE_SIZE as f32) / 2.0) / TILE_SIZE as f32).floor() as usize;
+                let grid_y = ((current_y + (room_height as f32 * TILE_SIZE as f32) / 2.0) / TILE_SIZE as f32).floor() as usize;
+                set_collide(room_manager, grid_x, grid_y, 1);
+ 
+
                 current_y -= TILE_SIZE as f32;
             }
         }
@@ -1293,17 +1311,11 @@ pub fn regenerate_existing_room(
         next_z_index,
     );
 
-    // **NEW**: Find and print the room bounds after generating the room
-    if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_for_regen as i32) {
-        //println!("Regenerating OLD ROOM: Left: {}, Right: {}, Top: {}, Bottom: {}, z_index: {}", left_x, right_x, top_y, bottom_y, z_for_regen);
-    } else {
-      //  println!("Error: Could not find bounds for the newly generated room. {}", global_z_index);
-    };
-
     // retrieve and spawn inner walls for the current room from `InnerWallList`
     if let Some(walls) = room_manager.get_inner_walls(z_abs as usize) {
-        for wall in walls.iter() {
-            draw_inner_wall(commands, asset_server, wall, z_abs, width, height);
+        let walls_to_draw: Vec<_> = walls.clone(); // Clone walls to a temporary variable
+        for wall in walls_to_draw.iter() {
+            draw_inner_wall(commands, asset_server, wall, z_abs, width, height, room_manager);
         }
     } else {
         println!("No inner walls found for Z index {}", z_abs);

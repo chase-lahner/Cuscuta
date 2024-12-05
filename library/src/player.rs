@@ -3,13 +3,13 @@ use std::collections::VecDeque;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-
-use crate::network::Sequence;
+use crate::enemies::{EnemyId, EnemyToKill};
+use crate::network::{ClientPacket, Header, KillEnemyPacket, Sequence, UDP};
 use crate::{
     collision::{self, *},
     cuscuta_resources::*,
     enemies::Enemy,
-    network::{PlayerSendable, Timestamp},
+    network::PlayerSendable,
     room_gen::*,
     ui::CarnageBar,
 };
@@ -108,6 +108,21 @@ impl Attack {
     }
 }
 
+#[derive(Resource)]
+pub struct CollisionState {
+    pub colliding_with_wall: bool,
+    pub last_position: Vec3,
+}
+
+impl CollisionState {
+    pub fn new() -> Self {
+        Self {
+            colliding_with_wall: false,
+            last_position: Vec3::ZERO,
+        }
+    }
+}
+
 #[derive(Component, Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct InputQueue {
     pub q: Vec<(u64, Vec<KeyCode>)>,
@@ -116,6 +131,19 @@ pub struct InputQueue {
 impl InputQueue {
     pub fn new() -> Self {
         Self { q: Vec::new() }
+    }
+}
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct PotionStatus {
+    pub has_potion: bool,
+}
+
+impl PotionStatus {
+    pub fn new() -> Self {
+        Self {
+            has_potion: false,
+        }
     }
 }
 
@@ -135,7 +163,8 @@ pub struct ClientPlayerBundle {
     pub sprinting: Sprint,
     pub attacking: Attack,
     pub inputs: InputQueue,
-    pub states: PastStateQueue
+    pub states: PastStateQueue,
+    pub potion_status: PotionStatus,
 }
 
 #[derive(Bundle, Serialize, Deserialize)]
@@ -152,6 +181,26 @@ pub struct ServerPlayerBundle {
     //pub inputs: InputQueue,
     //pub time: Timestamp,
 }
+
+#[derive(Component)]
+pub struct EnemyPastStateQueue{
+    pub q: VecDeque<EnemyPastState>
+
+}
+
+impl EnemyPastStateQueue{
+    pub fn new() -> Self{
+        Self{
+            q: VecDeque::with_capacity(2)
+        }
+    }
+}
+
+
+pub struct EnemyPastState{
+    pub transform: Transform,
+}
+
 
 #[derive(Component, Serialize, Deserialize)]
 pub struct PastStateQueue{
@@ -189,40 +238,6 @@ impl PastState{
         }
     }
 }
-
-/* we want to have a singular update fn, so we can call it from both the client
- * and player. I'm gonna have us pass the tuple deconstructed from a query,
- * so it makes it a bit more general. I think I may also have it return a tuple
- * of player, so we can apply as we feel necessary. */
-pub fn update_player(
-    mut player: (&mut Transform, &mut Velocity, &mut NetworkId, &mut InputQueue, &PastStateQueue),
-
-){
-    /* de tup-ify */
-    let (transform, velo, id, iq, psq) = player;
-
-    /* does this buff give us any "use this index rn" type stuff??
-     * Didn't see, so I am just iterating to find most recent state to use
-     * PastState::new() establishes Sequence with 0 index  */
-    let mut recent_state = &PastState::new();
-    for state in psq.q.iter(){
-        if state.seq.get() > recent_state.seq.get(){
-            recent_state = state;
-        }
-    }
-
-    /* we now have the most recent state sent by the server in recent_state */
-    
-
-
-
-}
-
-
-
-
-
-
 
 pub fn player_attack(
     time: Res<Time>,
@@ -324,8 +339,9 @@ pub fn player_attack(
 pub fn player_attack_enemy(
     mut commands: Commands,
     mut player: Query<(&Transform, &mut Attack, &NetworkId), With<Player>>,
-    enemies: Query<(Entity, &mut Transform), (With<Enemy>, Without<Player>)>,
+    enemies: Query<(Entity, &mut Transform, &mut EnemyId), (With<Enemy>, Without<Player>)>,
     client_id: Res<ClientId>,
+    udp: Res<UDP>,
 ) {
     for (ptransform, pattack, id) in player.iter_mut() {
         if id.id == client_id.id {
@@ -335,16 +351,26 @@ pub fn player_attack_enemy(
             let player_aabb =
                 collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
 
-            for (ent, enemy_transform) in enemies.iter() {
+            for (ent, enemy_transform, id) in enemies.iter() {
                 let enemy_aabb =
                     Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
                 if player_aabb.intersects(&enemy_aabb) {
+                    let packet = ClientPacket::KillEnemyPacket(KillEnemyPacket {
+                        enemy_id : id.clone()
+                    });
+                    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                    packet.serialize(&mut serializer).unwrap();
+                    let packet: &[u8] = serializer.view();
+                    info!("Sending packet to kill enemy");
+                    udp.socket.send_to(&packet, SERVER_ADR).unwrap();
                     commands.entity(ent).despawn();
                 }
             }
         }
     }
 }
+
+
 
 // /* Spawns in user player, uses PlayerBundle for some consistency*/
 // pub fn client_spawn_user_player(
@@ -441,7 +467,8 @@ pub fn client_spawn_other_player_new(
             attacking: player.attack,
         },
         inputs: InputQueue::new(),
-        states: PastStateQueue::new()
+        states: PastStateQueue::new(),
+        potion_status: PotionStatus::new()
     });
 }
 
@@ -493,7 +520,8 @@ pub fn client_spawn_other_player(
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
         inputs: InputQueue::new(),
-        states: PastStateQueue::new()
+        states: PastStateQueue::new(),
+        potion_status: PotionStatus::new()
     });
 }
 
@@ -503,8 +531,9 @@ pub fn client_spawn_other_player(
  * it's own resource, maybe make an 'interactable'
  * trait for query? - rorto */
 pub fn player_interact(
+    mut commands: Commands,
     mut player: Query<
-        (&mut Transform, &mut Velocity, &NetworkId),
+        (&mut Transform, &mut Velocity, &NetworkId,  &mut PotionStatus),
         (With<Player>, Without<Background>),
     >,
     input: Res<ButtonInput<KeyCode>>,
@@ -512,23 +541,56 @@ pub fn player_interact(
     mut pot_q: Query<&mut Pot>,
     mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>,
     mut texture_atlas: Query<&mut TextureAtlas, (With<Pot>, Without<Player>)>,
+    potion_query: Query<(Entity, &Transform), (With<Potion>, Without<Player>, Without<Pot>)>,
 ) {
     let mut pot = pot_q.single_mut();
     let pot_transform = pot_transform_q.single_mut();
     let mut pot_atlas = texture_atlas.single_mut();
-    for (player_transform, mut _player_velocity, id) in player.iter_mut() {
+
+    for (player_transform, mut _player_velocity, id, mut potion_status) in player.iter_mut() {
         if id.id == client_id.id {
-            /* Has nothing to do with particles */
-            let pot_particle_collider =
-                Aabb::new(pot_transform.translation, Vec2::splat(TILE_SIZE as f32));
-            let player_particle_collider =
-                collision::Aabb::new(player_transform.translation, Vec2::splat(TILE_SIZE as f32));
+            // player collider
+            let player_collider =
+                collision::Aabb::new(
+                    player_transform.translation, 
+                    Vec2::splat(TILE_SIZE as f32)
+            );
+
+            // Coin pot collider
+            let pot_collider =
+                Aabb::new(
+                    pot_transform.translation, 
+                    Vec2::splat(TILE_SIZE as f32)
+            );
+
+            
+            // loop through potions in room
+            for (potion_entity, potion_transform) in potion_query.iter() {
+                let potion_collider = Aabb::new(
+                    potion_transform.translation, 
+                    Vec2::splat(TILE_SIZE as f32)
+                );
+
+                // if player intersects 
+                if player_collider.intersects(&potion_collider) && !potion_status.has_potion {
+                    // check here if player is already carrying potion
+                    potion_status.has_potion = true; // Player now has a potion
+                    info!(
+                        "Player at {:?} picked up a potion at {:?}!",
+                        player_transform.translation, potion_transform.translation
+                    );
+                    
+                    // despawn potion
+                    commands.entity(potion_entity).despawn();
+                } 
+
+            }
 
             /* touch is how many frames since pressed
              * We only want to increment if not pressed
              * recently */
             if input.just_pressed(KeyCode::KeyE)
-                && pot_particle_collider.intersects(&player_particle_collider)
+                && pot_collider.intersects(&player_collider)
                 && pot.touch == 0
             {
                 info!("you got touched");
@@ -537,8 +599,31 @@ pub fn player_interact(
                 if pot.touch == 1 {
                     pot_atlas.index = pot_atlas.index + 1;
                 }
-                //TODO
+            
             }
+        }
+    }
+}
+
+pub fn restore_health(
+    input: Res<ButtonInput<KeyCode>>,
+    mut player: Query<(&mut Health, &mut PotionStatus), With<Player>>,
+) {
+    for (mut health, mut potion_status) in player.iter_mut() {
+        // check if the player has a potion and presses H
+        if input.just_pressed(KeyCode::KeyH) && potion_status.has_potion && health.current < health.max{
+            // restore 50 health and clamp
+            health.current = (health.current + 25.).min(health.max);
+
+            // set has potion to false
+            potion_status.has_potion = false;
+
+        }
+
+        // take damage keybind for testing
+        if input.just_pressed(KeyCode::KeyV) {
+            health.current = (health.current - 25.);
+            info!("Taking damage from keybind!");
         }
     }
 }
@@ -681,10 +766,13 @@ pub fn move_player(
     room_query: Query<Entity, With<Room>>,
     client_id: Res<ClientId>,
     mut carnage: Query<&mut CarnageBar>,
+    inner_wall_query: Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
+    mut collision_state: ResMut<CollisionState>, 
 ) {
     let mut hit_door = false;
     let mut _player_transform = Vec3::ZERO;
     let mut door_type: Option<DoorType> = Option::None;
+
 
     // Player movement
     for (mut pt, mut pv, id) in player_query.iter_mut() {
@@ -743,12 +831,6 @@ pub fn move_player(
         let change = pv.velocity * deltat;
         let (room_width, room_height) = room_manager.current_room_size();
 
-        // let mut help = false;
-        // if !help{
-        //     //println!("--HELP-- Room Width: {} Room Height: {}",room_width,room_height);
-        //     help = true;
-        // }
-
         // Calculate new player position and clamp within room boundaries
         let new_pos_x = (pt.translation.x + change.x).clamp(
             -room_width / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
@@ -765,16 +847,26 @@ pub fn move_player(
         // Store the player's position for later use
         _player_transform = pt.translation;
 
+        if !collision_state.colliding_with_wall {
+            collision_state.last_position = pt.translation;
+        } else {
+            pt.translation = collision_state.last_position; 
+        }
+
         let baban = handle_movement_and_enemy_collisions(
             &mut pt,
             change,
             &mut enemies,
             &mut room_manager,
             &door_query,
+            &inner_wall_query,
+            &mut collision_state,
         );
         hit_door = baban.0;
         door_type = baban.1;
     }
+
+
     // If a door was hit, handle the transition
     if hit_door {
         let mut carnage_bar = carnage.single_mut();
@@ -787,13 +879,13 @@ pub fn move_player(
                 &mut room_manager,
                 room_query,
                 door_query,
-                &mut player_query.single_mut().0,
+                &mut player_query.single_mut().0,// this is broke cant be single
                 door_type,
                 carnage,
             );
         }
     }
-}
+} 
 
 pub fn handle_movement_and_enemy_collisions(
     pt: &mut Transform,
@@ -801,6 +893,8 @@ pub fn handle_movement_and_enemy_collisions(
     enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     room_manager: &mut RoomManager,
     door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    inner_wall_query: &Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
+    mut collision_state: &mut ResMut<CollisionState>, 
 ) -> (bool, Option<DoorType>) {
     let mut hit_door = false;
     let mut door_type = None;
@@ -825,6 +919,8 @@ pub fn handle_movement_and_enemy_collisions(
         room_manager,
         enemies,
         &door_query,
+        inner_wall_query,
+        collision_state,
     );
     handle_movement(
         pt,
@@ -832,6 +928,8 @@ pub fn handle_movement_and_enemy_collisions(
         room_manager,
         enemies,
         &door_query,
+        inner_wall_query,
+        collision_state,
     );
 
     for (door_transform, door) in door_query.iter() {
@@ -853,9 +951,13 @@ pub fn handle_movement(
     room_manager: &mut RoomManager,
     enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    inner_wall_query: &Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
+    mut collision_state: &mut ResMut<CollisionState>, 
 ) -> Option<DoorType> {
     let new_pos = pt.translation + change;
     let player_aabb = collision::Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
+
+    collision_state.colliding_with_wall = false;
 
     // Get the current room's grid size (room width and height)
     let current_grid = room_manager.current_grid();
@@ -865,11 +967,11 @@ pub fn handle_movement(
     let (topleft, topright, bottomleft, bottomright) =
         translate_coords_to_grid(&player_aabb, room_manager);
 
+
     // check for collisions with enemies
     for enemy_transform in enemies.iter() {
         let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
         if player_aabb.intersects(&enemy_aabb) {
-            // handle enemy collision here (if necessary)
             return None;
         }
     }
@@ -884,8 +986,22 @@ pub fn handle_movement(
         && bottomleft != 1
         && bottomright != 1
     {
+        // save last valid position
         pt.translation = new_pos;
     }
+
+    // check for inner wall collisions
+    for inner_wall_transform in inner_wall_query.iter() {
+        let inner_wall_aabb = Aabb::new(inner_wall_transform.translation, Vec2::splat(TILE_SIZE as f32));
+
+        if player_aabb.intersects(&inner_wall_aabb) {
+            // set position to last position (outside of wall)
+            pt.translation = pt.translation - change; 
+            collision_state.colliding_with_wall = true;
+            return None; // Stop movement if collision detected
+        }
+    }
+
 
     // check for door transition
     if topleft == 2 || topright == 2 || bottomleft == 2 || bottomright == 2 {

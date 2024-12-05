@@ -3,7 +3,7 @@ use std::net::UdpSocket;
 use bevy::prelude::*;
 
 
-use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, network::*, room_gen::*, ui::client_spawn_ui, markov_chains::*,
+use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, EnemiesToKill, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, markov_chains::*, network::*, room_gen::*, ui::client_spawn_ui
 };
 
 pub fn ip_setup(
@@ -26,7 +26,7 @@ pub fn client_setup(
     asset_server: Res<AssetServer>, // to access images
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
     mut room_manager: ResMut<RoomManager>,
-    mut last_attribute_array: ResMut<LastAttributeArray>, // LastAttributeArray as a mutable resource
+    last_attribute_array: ResMut<LastAttributeArray>, // LastAttributeArray as a mutable resource
 ) {
 
 
@@ -43,7 +43,7 @@ pub fn client_setup(
     commands.insert_resource(Sequence::new(0));
 
     // spawn camera
-    spawn_camera(&mut commands, &asset_server);
+    spawn_camera(&mut commands);
 
     client_spawn_ui(&mut commands, &asset_server);
     /* spawn pot to play with */
@@ -77,6 +77,8 @@ pub fn server_setup(
     commands.insert_resource(PlayerCount{count:0});
     /* to hold mid frame packeets, sent every tick */
     commands.insert_resource(ServerPacketQueue::new());
+
+    commands.insert_resource(EnemiesToKill::new());
 
     commands.insert_resource(EnemyId::new(0, EnemyKind::skeleton()));
     info!("done setup");

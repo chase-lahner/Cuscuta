@@ -1,8 +1,9 @@
-use bevy::{prelude::*, window::PresentMode};
+use bevy::{prelude::*, time::common_conditions::on_timer, window::PresentMode};
 use cuscuta_resources::TICKS_PER_SECOND;
 use library::*;
-use std::env;
+use std::{env, time::Duration};
 use markov_chains::*;
+use player::CollisionState;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
@@ -10,6 +11,7 @@ fn main() {
         /* room manager necessary? */
         .insert_resource(room_gen::RoomManager::new())
         .insert_resource(LastAttributeArray::new()) 
+        .insert_resource(CollisionState::new())
         .insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND))
         .add_systems(PreStartup, init::ip_setup) // should run before we spawn / send data to server
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -26,29 +28,22 @@ fn main() {
             client::id_request.after(init::client_setup))
         )
         .add_systems(Update, (
-            client::gather_input,
             player::move_player,
-            //player::player_input,
-            //player::update_player_position.after(player::player_input),
+            client::listen,
             player::animate_player.after(player::move_player),
+            enemies::handle_enemy_collision.after(player::move_player),
             player::player_attack.after(player::animate_player),
             player::player_roll.after(player::animate_player),
             camera::move_camera.after(player::animate_player),
             player::player_attack_enemy.after(player::player_attack),
             ui::update_ui_elements,
-            player::player_interact
+            player::player_interact,
+            player::restore_health,
         )) 
         /* networking shtuff. comment out if needed */
-
-        .add_systems(Update, (
-            client::gather_input,
-            client::listen,
-        ))
-
-
         .add_systems(FixedUpdate,
-            (client::send_player,
-            client::client_send_packets)
+            client::send_player
+            //client::client_send_packets)
         )
         .run();
 }

@@ -6,7 +6,8 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use flexbuffers::FlexbufferSerializer;
 use serde::{Deserialize, Serialize};
-use std::env;
+
+use crate::network::KillEnemyPacket;
 
 
 pub const CLIENT_ID_DEFAULT: u8 = 0;
@@ -14,7 +15,6 @@ pub const CLIENT_ID_DEFAULT: u8 = 0;
 pub const TICKS_PER_SECOND: f64 = 60.;
 
 pub const SERVER_ADR: &str = "127.0.0.1:5001"; //136.142.159.86:5001
-
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;
 pub const PLAYER_DATA: u8 = 254;
@@ -120,6 +120,19 @@ pub struct AddressList{
     pub list: Vec<SocketAddr>,
 }
 impl AddressList{
+    pub fn new() -> Self{
+        Self{
+            list: Vec::new()
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct EnemiesToKill{
+    pub list: Vec<KillEnemyPacket>,
+}
+
+impl EnemiesToKill{
     pub fn new() -> Self{
         Self{
             list: Vec::new()
