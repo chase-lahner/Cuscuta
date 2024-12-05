@@ -596,10 +596,10 @@ pub fn restore_health(
         }
 
         // take damage keybind for testing
-    if input.just_pressed(KeyCode::KeyV) {
-        health.current = (health.current - 25.);
-        info!("Taking damage from keybind!");
-    }
+        if input.just_pressed(KeyCode::KeyV) {
+            health.current = (health.current - 25.);
+            info!("Taking damage from keybind!");
+        }
     }
 
     
