@@ -21,6 +21,7 @@ fn main() {
             (
                 server::listen,//.run_if(on_timer(Duration::from_millis(5))),
                 server::send_despawn_command,
+                enemies::enemy_movement,
                 server::send_enemies.after(server::listen),
                 server::send_player.after(server::listen),
                 //server::server_send_packets.after(server::send_player),
