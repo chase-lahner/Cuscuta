@@ -10,6 +10,7 @@ use crate::network::{
     client_seq_update, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, PlayerSendable, Sequence, ServerPacket, Timestamp, UDP
 };
 use crate::player::*;
+use crate::room_gen::Room;
 
 
 /* sends out all clientPackets from the ClientPacketQueue */
@@ -212,7 +213,8 @@ pub fn listen(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     client_id: ResMut<ClientId>,
     mut sequence: ResMut<Sequence>,
-    mut packets: ResMut<ClientPacketQueue>
+    mut packets: ResMut<ClientPacketQueue>,
+    mut room_query: Query<Entity, With<Room>>,
 ) {
     //info!("Listening!!!");
     /* to hold msg */
@@ -249,7 +251,7 @@ pub fn listen(
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
-            receive_map_packet(commands, &asset_server, map_packet.matrix);
+            receive_map_packet(commands, &asset_server, map_packet.matrix, room_query);
             client_seq_update(&map_packet.head.sequence, sequence, packets);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
@@ -546,10 +548,16 @@ fn recv_enemy(
 fn receive_map_packet (
     mut commands: Commands,
     asset_server: &Res<AssetServer>,
-    map_array: Vec<Vec<u8>>
+    map_array: Vec<Vec<u8>>,
+    mut room_query: Query<Entity, With<Room>>,
 ) {
     let mut vertical = -((map_array.len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
     let mut horizontal = -((map_array[0].len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
+
+    for tile in room_query.iter_mut()
+    {
+        commands.entity(tile).despawn();
+    }
 
     for a in 0..map_array.len() {
         for b in 0..map_array[0].len() {
@@ -558,47 +566,47 @@ fn receive_map_packet (
                 0 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/cobblestone_floor/cobblestone_floor.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.0),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 1 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/left_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 2 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/right_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 3 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/1x2_pot.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 4 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.2),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 5 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.3),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 6 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.4),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 7 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.5),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 8 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/north_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.2),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 9 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.2),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
                 _ => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
                     transform: Transform::from_xyz(-10000.0, -10000.0, 0.2),
-                    ..default() },)),
+                    ..default() },Wall,Room,)),
             };
             horizontal = horizontal + TILE_SIZE as f32;
         }

@@ -4,7 +4,7 @@ use bevy::{input::keyboard::Key, prelude::*};
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{cuscuta_resources::{self, AddressList, Background, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
+use crate::{cuscuta_resources::{self, AddressList, Background, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{self, Door, DoorType, Potion, Room, RoomManager}};
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client via the packet queue */
@@ -15,6 +15,11 @@ pub fn send_id(
     mut addresses: ResMut<AddressList>,
     mut server_seq: ResMut<Sequence>,
     mut packet_q: ResMut<ServerPacketQueue>,
+    door_query: Query<(&Transform, &DoorType), With<Door>>, 
+    wall_query: Query<&Transform, With<Wall>>, 
+    background_query: Query<&Transform, With<Background>>,
+    potion_query: Query<&Transform, With<Potion>>,
+    roomman: ResMut<RoomManager>,
     udp: Res<UDP>
 ) {
     /* assign id, update player count */
@@ -67,6 +72,9 @@ pub fn send_id(
     playa.serialize(&mut serial).unwrap();
     let packet: &[u8] = serial.view();
     udp.socket.send_to(&packet, source_addr).unwrap();
+
+    send_map_packet(commands, door_query, wall_query, background_query, potion_query, packet_q, server_seq, roomman);
+
 }
 
 /* Server side listener for packets,  */
@@ -80,7 +88,12 @@ pub fn listen(
     mut n_p: ResMut<PlayerCount>,
     addresses: ResMut<AddressList>,
     server_seq: ResMut<Sequence>,
-    packet_q: ResMut<ServerPacketQueue>
+    packet_q: ResMut<ServerPacketQueue>,
+    door_query: Query<(&Transform, &DoorType), With<Door>>, 
+    wall_query: Query<&Transform, With<Wall>>, 
+    background_query: Query<&Transform, With<Background>>,
+    potion_query: Query<&Transform, With<Potion>>,
+    roomman: ResMut<RoomManager>,
 ) {
     /* to hold msg */
     let mut buf: [u8; 1024] = [0;1024];
@@ -104,7 +117,7 @@ pub fn listen(
     match player_struct {
         ClientPacket::IdPacket(_id_packet) => {
             info!("sending id to client");
-            send_id(src,  n_p.as_mut(), commands, addresses, server_seq, packet_q,udp)},
+            send_id(src,  n_p.as_mut(), commands, addresses, server_seq, packet_q,door_query,wall_query,background_query,potion_query,roomman,udp)},
         ClientPacket::PlayerPacket(player_packet) => {
             // TODO: Fix this
             update_player_state(src, players_q, player_packet, commands);
@@ -379,18 +392,19 @@ fn update_player_state(
 7 - bottom door 
 8 - top wall
 9 - bottom wall */
-fn send_map_packet (
-    mut commands: Commands,
-    mut door_query: Query<(&Transform, &DoorType), With<Door>>, 
-    mut wall_query: Query<&Transform, With<Wall>>, 
-    mut background_query: Query<&Transform, With<Background>>,
-    mut potion_query: Query<&Transform, With<Potion>>,
+pub fn send_map_packet (
+    commands: Commands,
+    door_query: Query<(&Transform, &DoorType), With<Door>>, 
+    wall_query: Query<&Transform, With<Wall>>, 
+    background_query: Query<&Transform, With<Background>>,
+    potion_query: Query<&Transform, With<Potion>>,
     mut packet_q: ResMut<ServerPacketQueue>,
     server_seq: ResMut<Sequence>,
+    roomman: ResMut<RoomManager>,
 ) {
     let mut map_array: Vec<Vec<u8>> = vec![];
-    let room_w = 10; //need to grab these values from roomgen fn()
-    let room_h = 5;
+    let (x,y):(f32, f32) = room_gen::RoomManager::current_room_size(&roomman);
+    let room_w = x as i32; //need to grab these values from roomgen fn()
 
     for tile in background_query.iter()
     {
@@ -403,12 +417,12 @@ fn send_map_packet (
     {
         let arr_x:usize = (tile.0.translation.x - 16.0) as usize / 32;
         let arr_y:usize = (tile.0.translation.y - 16.0) as usize / 32;
-        // match tile.1{
-        //     0 => map_array[arr_x][arr_y] = 5, RIGHT LEFT TOP BOTTOM WHAT IS IT
-        //     1 => map_array[arr_x][arr_y] = 4,
-        //     2 => map_array[arr_x][arr_y] = 6,
-        //     3 => map_array[arr_x][arr_y] = 7
-        // }
+        match tile.1{
+            DoorType::Right => map_array[arr_x][arr_y] = 5, 
+            DoorType::Left => map_array[arr_x][arr_y] = 4,
+            DoorType::Top => map_array[arr_x][arr_y] = 6,
+            DoorType::Bottom => map_array[arr_x][arr_y] = 7
+        }
     }
 
     for tile in wall_query.iter()
