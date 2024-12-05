@@ -119,6 +119,8 @@ pub struct RoomManager {
     pub room_sizes: Vec<(f32, f32)>,
     pub room_array: RoomArray,
     pub max_sizes: Vec<(f32, f32)>,  
+    //MARKOV impl 2
+    pub state_vector: Vec<(usize)>,
     // z of room that player is currently in
     pub current_z_index: f32,  
     // z of room that was most recently generated (used so we can backtrack w/o screwing everything up)
@@ -138,6 +140,7 @@ impl RoomManager {
             room_array: RoomArray::new(),
             room_sizes: Vec::new(),
             max_sizes: Vec::new(), 
+            state_vector: Vec::new(),
             current_z_index: -2.0,
             global_z_index: -2.0,
             inner_wall_list: InnerWallList { walls: vec![Vec::new(); 100] },
@@ -153,6 +156,16 @@ impl RoomManager {
     // Getter for global Z index
     pub fn get_global_z_index(&self) -> f32 {
         self.global_z_index
+    }
+
+    //MARKOV impl 3
+    pub fn get_state_vector(&self) -> &Vec<usize> {
+        &self.state_vector
+    }
+
+    // Setter for state_vector (replaces the entire vector)
+    pub fn set_state_vector(&mut self, new_state_vector: Vec<usize>) {
+        self.state_vector = new_state_vector;
     }
 
     // add new grid for new room 
@@ -962,9 +975,42 @@ fn generate_room_boundaries(
     // ADD REFERENCE TO MARKOV CHAIN FILE HERE THAT WE CAN USE
     //let room_size_original_matrix = Room_Attributes::Room_Size.get_preset_vector();
     //let skewed_matrix = Skew(room_size_original_matrix, carnage_percent);
+    //                                  |
+    //                                  |
+    //MARKOV impl 1 THE GENERATOR       V
 
+    let current_states = room_manager.get_state_vector();
+    let mut future_states = current_states.clone();
+
+    //LOOP THRU CURRENT STATES TO GET TO INDIVIDUAL MATRICES AND PROCEEDS TO SKEW ONLY THE REQUIRED ROW
+    //
+    for (index, state) in current_states.iter().enumerate() {
+        println!("State {}: {}", index + 1, state);
+            
+        //let current_row = Skew_Row(Room_Attributes::get_matrix_by_index(index),carnage_percent,current_states[index]); DEPRECATED?!?!?!?
+        
+        if let Some(matrix) = Room_Attributes::get_matrix_by_index(index) {
+            let current_row = Skew_Row(matrix, carnage_percent, current_states[index]);
+            let rand_percent: f32 = rng.gen_range(0.0..1.0);
+
+            //Deciding the fate of the state
+            future_states[index] = if rand_percent < current_row[0] {
+                //stealth state
+                0
+            } else if rand_percent < current_row[1] {
+                //normal
+                1
+            } else {
+                //carnage
+                2
+            };
+        } else {
+            println!("Invalid index: {}", index);
+        }
+    }
     // randomly select size based on skewed values
 
+    // ONLY FUTURE STATES FROM HERE ON OUT
 
     // Generate random width and height between 40 and 80 tiles
     let random_width = rng.gen_range(40..=80);
