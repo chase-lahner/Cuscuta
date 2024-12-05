@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{Rng, distributions::{Distribution, WeightedIndex}};
 use crate::collision::*;
 use crate::cuscuta_resources::*;
 use crate::player::*;
@@ -429,26 +429,91 @@ pub fn spawn_start_room(
     commands: &mut Commands, 
     asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
-    last_attribute_array: ResMut<LastAttributeArray>, // Add reference here
+    last_attribute_array: ResMut<LastAttributeArray>, 
+    carnage_percent: f32,
 ) {
+    // get last attribute array
+    // index 0: room size 
+    // index 1: inner walls
+    // index 2: enemy count
+    // index 3: enemy type
+    // index 4: item count
 
-    // get a reference to the last attribute array
-    // Access last attribute array
-    println!("Last Attribute Array: {:?}", last_attribute_array.attributes);
+    // get value at index 0 (get_attribute))
+    // use that attribute to grab the correct matrix (get_matrix_for_attribute)
+    // skewed_matrix = skew(matrix, carnage%)
+    // get most probable from skewed matrix
 
-    // Example: Update an attribute
-    //last_attribute_array.set_attribute(0, 2); // Set Room_Size to "low"
+    // get value at index 1 (get_attribute))
+    // use that attribute to grab the correct matrix (get_matrix_for_attribute)
+    // skewed_matrix = skew(matrix, carnage%)
+    // get most probable from skewed matrix
 
+    // repeat for rest
     let mut rng = rand::thread_rng();
 
-    let enemy_type_matrix = Room_Attributes::get_preset_matrix()[3].clone(); // Get the Room_Size matrix
-    println!("Room Size Matrix: {:?}", enemy_type_matrix);
+    // initialize last attribute array (1,1,1,1,1)
+    let mut last_attribute_array = LastAttributeArray::new();
 
-    // generate random integers between 50 and 250, * 32
-    let random_width = rng.gen_range(40..=40);
-    let random_height = rng.gen_range(40..=40);
+    // initialize the next attributes array
+    let mut next_attribute_array = NextAttributeArray::new();
+
+    // iterate through each attribute
+    for i in 0..5 {
+        // map index to Room_Attributes enum
+        let room_attribute = match i {
+            0 => Room_Attributes::Room_Size,
+            1 => Room_Attributes::Inner_Walls,
+            2 => Room_Attributes::Enemy_Count,
+            3 => Room_Attributes::Enemy_Type,
+            4 => Room_Attributes::Item_Count,
+            _ => panic!("Invalid attribute index!"),
+        };
+
+        // get the last attribute value (1)
+        let last_attribute_value = last_attribute_array.get_attribute(i).unwrap_or(1);
+
+        // retrieve the corresponding matrix for the attribute
+        let base_matrix = Room_Attributes::get_matrix_for_attribute(&room_attribute);
+
+        // apply skew to the matrix
+        let skewed_matrix = Skew(base_matrix, carnage_percent);
+
+        // use the last value to determine weights for the next state
+        let weights = skewed_matrix[last_attribute_value as usize].clone();
+
+        // Print skewed matrix and weights for debugging
+        info!(
+            "Attribute {:?}, Last Value: {}, Skewed Matrix: {:?}, skewed Weights: {:?}",
+            room_attribute, last_attribute_value, skewed_matrix, skewed_matrix[last_attribute_value as usize]
+        );
+
+        // determine the next state using a weighted random distribution
+        let dist = WeightedIndex::new(&weights).unwrap();
+        let next_value = dist.sample(&mut rng);
+
+
+        // set the next attribute
+        next_attribute_array.set_next_attribute(i, next_value as u8);
+    }
+
+    // Use the generated attributes to configure the room
+    //let room_size = next_attributes[0]; // Example usage: Room size (0 = Large, 1 = Medium, 2 = Small)
+    // let wall_count = next_attributes[1]; // Example usage: Number of inner walls
+ 
+    //println!("Generated Attributes: {:?}", next_attributes);
+
+    // Example: Adjust room size based on `room_size`
+    //  let (random_width, random_height) = match room_size {
+    //      0 => (60, 60), // Large room
+    //      1 => (40, 40), // Medium room
+    //      _ => (20, 20), // Small room
+    //  };
+ 
     // Room width & height as a multiple of 32
     // * 32d = pixel count
+    let random_width = rng.gen_range(40..=40);
+    let random_height = rng.gen_range(40..=40);
     let room_width = random_width as f32 * TILE_SIZE as f32;  
     let room_height = random_height as f32 * TILE_SIZE as f32;
 
@@ -1351,8 +1416,6 @@ pub fn transition_map(
     } else {
         println!("Error: Could not find bounds for the newly generated room. {}", z_in);
     }
-
-    
 
     let _max_x = room_manager.current_room_max().0;
     let _max_y = room_manager.current_room_max().1;

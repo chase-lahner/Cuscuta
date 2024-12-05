@@ -31,7 +31,7 @@ pub fn client_setup(
 
 
     // spawn the starting room & next room
-    spawn_start_room(&mut commands, &asset_server, &mut room_manager, last_attribute_array);
+    spawn_start_room(&mut commands, &asset_server, &mut room_manager, last_attribute_array, 0.5);
 
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */

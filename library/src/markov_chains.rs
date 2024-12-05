@@ -3,6 +3,7 @@ use crate::cuscuta_resources::*;
 use crate::ui::CarnageBar;
 use bevy::prelude::*;
 
+#[derive(Debug)]
 pub enum Room_Attributes{
     Room_Size,
     Inner_Walls,
@@ -47,8 +48,8 @@ impl Room_Attributes {
         ]
     }
 
-    pub fn get_matrix_for_attribute(attribute: Room_Attributes) -> Vec<Vec<f32>> {
-        let all_vectors = Room_Attributes::get_preset_matrix();
+    pub fn get_matrix_for_attribute(attribute: &Room_Attributes) -> Vec<Vec<f32>> {
+        let all_vectors: [Vec<Vec<f32>>; 5] = Room_Attributes::get_preset_matrix();
         match attribute {
             Room_Attributes::Room_Size => all_vectors[0].clone(),
             Room_Attributes::Inner_Walls => all_vectors[1].clone(),
@@ -59,7 +60,7 @@ impl Room_Attributes {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct LastAttributeArray {
     pub attributes: [u8; 5], 
 }
@@ -85,7 +86,7 @@ impl LastAttributeArray {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct NextAttributeArray {
     pub attributes: [u8; 5], 
 }
