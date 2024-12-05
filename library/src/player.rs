@@ -18,6 +18,14 @@ use crate::{
 pub struct Player; // wow! it is he!
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Trackable;//used for enemy pathfinding
+
+#[derive(Bundle)]
+pub struct Distractor{
+
+}
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct NetworkId {
     pub id: u8, // we will have at most 2 players so no more than a u8 is needed
     pub addr: SocketAddr,
@@ -162,7 +170,8 @@ pub struct ServerPlayerBundle {
     pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack,
-    pub player: Player
+    pub player: Player,
+    pub track: Trackable
     //pub inputs: InputQueue,
     //pub time: Timestamp,
 }
