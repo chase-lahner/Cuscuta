@@ -20,9 +20,18 @@ pub struct Player; // wow! it is he!
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Trackable;//used for enemy pathfinding
 
-#[derive(Bundle)]
-pub struct Distractor{
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Monkey;
 
+#[derive(Bundle)]
+pub struct CymbalMonkey{
+    pub track: Trackable,
+    pub transform: Transform,
+    pub asset: SpriteBundle,
+    pub distracto: Monkey,
+    pub atlas: TextureAtlas,
+    pub animation_timer: AnimationTimer,
+    pub animation_frames: AnimationFrameCount,
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
