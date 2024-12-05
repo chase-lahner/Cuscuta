@@ -342,6 +342,7 @@ pub fn player_attack_enemy(
     enemies: Query<(Entity, &mut Transform, &mut EnemyId), (With<Enemy>, Without<Player>)>,
     client_id: Res<ClientId>,
     udp: Res<UDP>,
+    sequence: ResMut<Sequence>
 ) {
     for (ptransform, pattack, id) in player.iter_mut() {
         if id.id == client_id.id {
@@ -356,7 +357,11 @@ pub fn player_attack_enemy(
                     Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
                 if player_aabb.intersects(&enemy_aabb) {
                     let packet = ClientPacket::KillEnemyPacket(KillEnemyPacket {
-                        enemy_id : id.clone()
+                        enemy_id : id.clone(),
+                        head: Header{
+                            network_id: client_id.id,
+                            sequence: sequence.clone(),
+                        }
                     });
                     let mut serializer = flexbuffers::FlexbufferSerializer::new();
                     packet.serialize(&mut serializer).unwrap();

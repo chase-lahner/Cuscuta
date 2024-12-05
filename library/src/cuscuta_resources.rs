@@ -70,6 +70,13 @@ pub struct Pot{
     pub touch: u8
 }
 
+impl Pot{
+    pub fn new() -> Self{
+        Self{
+            touch: 0
+        }
+    }
+}
 #[derive(Component)]
 pub struct Wall;
 
