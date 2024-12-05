@@ -3,8 +3,10 @@ use std::collections::VecDeque;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+
 use crate::enemies::{EnemyId, EnemyToKill};
 use crate::network::{ClientPacket, Header, KillEnemyPacket, Sequence, UDP};
+
 use crate::{
     collision::{self, *},
     cuscuta_resources::*,
@@ -16,6 +18,44 @@ use crate::{
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Player; // wow! it is he!
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Trackable;//used for enemy pathfinding
+
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Monkey;
+
+/* used by monkey to kill after x time */
+#[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub struct Lifetime{
+    pub life: u32
+}
+impl Lifetime{
+    pub fn new() -> Self{
+        Self{
+            life: 0
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct ClientCymbalMonkey{
+    pub track: Trackable,
+    pub sprite: SpriteBundle,
+    pub distracto: Monkey,
+    pub atlas: TextureAtlas,
+    pub animation_timer: AnimationTimer,
+    pub animation_frames: AnimationFrameCount,
+    pub lifetime: Lifetime
+}
+
+#[derive(Bundle)]
+pub struct ServerCymbalMonkey{
+    pub track: Trackable,
+    pub monke: Monkey,
+    pub lifetime: Lifetime,
+    pub transform: Transform,
+}
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct NetworkId {
@@ -135,13 +175,15 @@ impl InputQueue {
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
-pub struct PotionStatus {
+pub struct ItemStatus {
     pub has_potion: bool,
+    pub has_monkey: bool,
 }
 
-impl PotionStatus {
+impl ItemStatus {
     pub fn new() -> Self {
         Self {
+            has_monkey: false,
             has_potion: false,
         }
     }
@@ -164,7 +206,7 @@ pub struct ClientPlayerBundle {
     pub attacking: Attack,
     pub inputs: InputQueue,
     pub states: PastStateQueue,
-    pub potion_status: PotionStatus,
+    pub potion_status: ItemStatus,
 }
 
 #[derive(Bundle, Serialize, Deserialize)]
@@ -177,7 +219,8 @@ pub struct ServerPlayerBundle {
     pub rolling: Roll,
     pub sprinting: Sprint,
     pub attacking: Attack,
-    pub player: Player
+    pub player: Player,
+    pub track: Trackable
     //pub inputs: InputQueue,
     //pub time: Timestamp,
 }
@@ -473,7 +516,7 @@ pub fn client_spawn_other_player_new(
         },
         inputs: InputQueue::new(),
         states: PastStateQueue::new(),
-        potion_status: PotionStatus::new()
+        potion_status: ItemStatus::new()
     });
 }
 
@@ -526,7 +569,7 @@ pub fn client_spawn_other_player(
         attacking: Attack { attacking: false },
         inputs: InputQueue::new(),
         states: PastStateQueue::new(),
-        potion_status: PotionStatus::new()
+        potion_status: ItemStatus::new()
     });
 }
 
@@ -538,7 +581,7 @@ pub fn client_spawn_other_player(
 pub fn player_interact(
     mut commands: Commands,
     mut player: Query<
-        (&mut Transform, &mut Velocity, &NetworkId,  &mut PotionStatus),
+        (&mut Transform, &mut Velocity, &NetworkId,  &mut ItemStatus),
         (With<Player>, Without<Background>),
     >,
     input: Res<ButtonInput<KeyCode>>,
@@ -608,11 +651,95 @@ pub fn player_interact(
             }
         }
     }
+}      
+
+pub fn spawn_monkey(
+    player_q: Query<(&Transform, &NetworkId ),(With<Player>)>,
+    mut command: Commands,   
+    us: Res<ClientId>,
+    keys: Res<ButtonInput<KeyCode>>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    udp: Res<UDP>,
+){
+
+    /* for all players, we match to find us */
+    for (t,id) in player_q.iter(){
+        if us.id != id.id{
+            continue;
+        }
+        /* can assume that we are us yk yk yk (client player nont p2) */
+
+        // AAAA_______________AAAA______________________
+        // VVVV               VVVV
+        // (__)               (__)
+        //  \ \               / /
+        //   \ \   \\|||//   / /
+        //    > \   _   _   / <
+        //     > \ / \ / \ / <
+        //      > \\_o_o_// <
+        //       > ( (_) ) <
+        //        >|     |<
+        //       / |\___/| \
+        //       / (_____) \
+        //       /         \
+        //        /   o   \
+        //         ) ___ (
+        //        / /   \ \
+        //       ( /     \ )
+        //       ><       ><
+        //      ///\     /\\\
+        //      '''       '''               Michel Boisset -- grabbed from some ascii art site
+        /* MAKE DA MONKE */
+        if keys.just_pressed(KeyCode::Tab){
+
+            /* lots of spawning in stuffs. textures are a lot */
+            let monkey_handle: Handle<Image> = asset_server.load(MONKEY_HANDLE);
+            let monkey_layout = TextureAtlasLayout::from_grid(
+                UVec2::splat(TILE_SIZE),
+                MONKEY_SPRITE_COL,
+                MONKEY_SPRITE_ROW,
+                None,
+                None
+            );
+            let monkey_len = monkey_layout.textures.len();
+            let monkey_layout_handle = texture_atlases.add(monkey_layout);
+            info!("Monkey spawn");
+            command.spawn(ClientCymbalMonkey{
+                track: Trackable,
+                sprite: SpriteBundle{
+                    texture: monkey_handle,
+                    transform: t.clone(),
+                    ..default()
+                },  
+                distracto: Monkey,
+                atlas: TextureAtlas{
+                    layout: monkey_layout_handle,
+                    index: 0,
+                },
+                animation_timer:AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+                animation_frames: AnimationFrameCount(monkey_len),
+                lifetime: Lifetime::new()
+            });
+
+            /* once we have spawned in, then we swtich off to send it to the server, so
+             * the enemies can pathfind to it, and os that the other clients can also have a lil peek */
+            
+
+        }
+    }
 }
+
+pub fn update_monkey(
+
+){
+
+}
+
 
 pub fn restore_health(
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&mut Health, &mut PotionStatus), With<Player>>,
+    mut player: Query<(&mut Health, &mut ItemStatus), With<Player>>,
 ) {
     for (mut health, mut potion_status) in player.iter_mut() {
         // check if the player has a potion and presses H
@@ -858,7 +985,7 @@ pub fn move_player(
             pt.translation = collision_state.last_position; 
         }
 
-        let baban = handle_movement_and_enemy_collisions(
+        let baban = handle_player_collisions(
             &mut pt,
             change,
             &mut enemies,
@@ -892,14 +1019,14 @@ pub fn move_player(
     }
 } 
 
-pub fn handle_movement_and_enemy_collisions(
+pub fn handle_player_collisions(
     pt: &mut Transform,
     change: Vec2,
     enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     room_manager: &mut RoomManager,
     door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
     inner_wall_query: &Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
-    mut collision_state: &mut ResMut<CollisionState>, 
+    mut collision_state: &mut ResMut<CollisionState>,
 ) -> (bool, Option<DoorType>) {
     let mut hit_door = false;
     let mut door_type = None;
@@ -912,31 +1039,46 @@ pub fn handle_movement_and_enemy_collisions(
     let (_topleft, _topright, _bottomleft, _bottomright) =
         translate_coords_to_grid(&player_aabb, room_manager);
 
-    // Translate player position to grid indices
-    let _grid_x = (new_pos.x / TILE_SIZE as f32).floor();
-    let _grid_y = (new_pos.y / TILE_SIZE as f32).floor();
-    //println!("Player grid position: x = {}, y = {}", grid_x, grid_y);
+    collision_state.colliding_with_wall = false;
 
-    // Handle collisions and movement within the grid
-    handle_movement(
-        pt,
-        Vec3::new(change.x, 0., 0.),
-        room_manager,
-        enemies,
-        &door_query,
-        inner_wall_query,
-        collision_state,
-    );
-    handle_movement(
-        pt,
-        Vec3::new(0., change.y, 0.),
-        room_manager,
-        enemies,
-        &door_query,
-        inner_wall_query,
-        collision_state,
-    );
+    // Get the current room's grid size (room width and height)
+    let current_grid = room_manager.current_grid();
+    let room_width = current_grid.len() as f32 * TILE_SIZE as f32;
+    let room_height = current_grid[0].len() as f32 * TILE_SIZE as f32;
 
+    // Check for collisions with enemies
+    for enemy_transform in enemies.iter() {
+        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&enemy_aabb) {
+            // Collision with an enemy
+            return (false, None);
+        }
+    }
+
+    // Check if movement is within bounds and avoid collisions with walls
+    if new_pos.x >= -room_width / 2.0 + TILE_SIZE as f32 / 2.
+        && new_pos.x <= room_width / 2.0 - TILE_SIZE as f32 / 2.
+        && new_pos.y >= -room_height / 2.0 + TILE_SIZE as f32 / 2.
+        && new_pos.y <= room_height / 2.0 - TILE_SIZE as f32 / 2.
+    {
+        pt.translation = new_pos;
+    } else {
+        pt.translation = pt.translation - Vec3::new(change.x, change.y, 0.0);
+        collision_state.colliding_with_wall = true;
+        return (false, None);
+    }
+
+    // Check for collisions with inner walls
+    for inner_wall_transform in inner_wall_query.iter() {
+        let inner_wall_aabb = Aabb::new(inner_wall_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&inner_wall_aabb) {
+            pt.translation = pt.translation - Vec3::new(change.x, change.y, 0.0);
+            collision_state.colliding_with_wall = true;
+            return (false, None);
+        }
+    }
+
+    // Check for collisions with doors
     for (door_transform, door) in door_query.iter() {
         let door_aabb = Aabb::new(door_transform.translation, Vec2::splat(TILE_SIZE as f32));
         if player_aabb.intersects(&door_aabb) {
@@ -946,80 +1088,8 @@ pub fn handle_movement_and_enemy_collisions(
         }
     }
 
-    // Return the hit_door state and door type
+    // Return whether a door was hit and the type of the door
     (hit_door, door_type)
-}
-
-pub fn handle_movement(
-    pt: &mut Transform,
-    change: Vec3,
-    room_manager: &mut RoomManager,
-    enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
-    door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
-    inner_wall_query: &Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
-    mut collision_state: &mut ResMut<CollisionState>, 
-) -> Option<DoorType> {
-    let new_pos = pt.translation + change;
-    let player_aabb = collision::Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
-
-    collision_state.colliding_with_wall = false;
-
-    // Get the current room's grid size (room width and height)
-    let current_grid = room_manager.current_grid();
-    let room_width = current_grid.len() as f32 * TILE_SIZE as f32;
-    let room_height = current_grid[0].len() as f32 * TILE_SIZE as f32;
-
-    let (topleft, topright, bottomleft, bottomright) =
-        translate_coords_to_grid(&player_aabb, room_manager);
-
-
-    // check for collisions with enemies
-    for enemy_transform in enemies.iter() {
-        let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
-        if player_aabb.intersects(&enemy_aabb) {
-            return None;
-        }
-    }
-
-    // movement within bounds and wall/door collision check
-    if new_pos.x >= -room_width / 2.0 + TILE_SIZE as f32 / 2.
-        && new_pos.x <= room_width / 2.0 - TILE_SIZE as f32 / 2.
-        && new_pos.y >= -room_height / 2.0 + TILE_SIZE as f32 / 2.
-        && new_pos.y <= room_height / 2.0 - TILE_SIZE as f32 / 2.
-        && topleft != 1
-        && topright != 1
-        && bottomleft != 1
-        && bottomright != 1
-    {
-        // save last valid position
-        pt.translation = new_pos;
-    }
-
-    // check for inner wall collisions
-    for inner_wall_transform in inner_wall_query.iter() {
-        let inner_wall_aabb = Aabb::new(inner_wall_transform.translation, Vec2::splat(TILE_SIZE as f32));
-
-        if player_aabb.intersects(&inner_wall_aabb) {
-            // set position to last position (outside of wall)
-            pt.translation = pt.translation - change; 
-            collision_state.colliding_with_wall = true;
-            return None; // Stop movement if collision detected
-        }
-    }
-
-
-    // check for door transition
-    if topleft == 2 || topright == 2 || bottomleft == 2 || bottomright == 2 {
-        // If door is hit, return the door type
-        for (door_transform, door) in door_query.iter() {
-            let door_aabb = Aabb::new(door_transform.translation, Vec2::splat(TILE_SIZE as f32));
-            if player_aabb.intersects(&door_aabb) {
-                return Some(door.door_type); // Return the type of door hit
-            }
-        }
-    }
-
-    None // No door was hit
 }
 
 pub fn animate_player(

@@ -5,7 +5,9 @@ use network::*;
 use serde::{Deserialize, Serialize};
 
 
-use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, InputQueue, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{self, Door, DoorType, Potion, Room, RoomManager}};
+
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint}, room_gen::{Door, DoorType, Potion, Room}};
+
 
 /* Upon request, sends an id to client, spawns a player, and
  * punts player state off to client via the packet queue */
@@ -46,7 +48,8 @@ pub fn send_id(
         rolling: Roll::new(),
         sprinting: Sprint::new(),
         attacking: Attack::new(),
-        player: Player
+        player: Player,
+        track: Trackable
     });
     /* same shit but now we sending off to the cleint */
     let playa = ServerPacket::PlayerPacket(PlayerSendable{
@@ -90,6 +93,7 @@ pub fn listen(
     mut roomman: ResMut<RoomManager>,
     mut addresses: ResMut<AddressList>,
     mut server_seq: ResMut<Sequence>,
+
     mut enemies_to_kill: ResMut<EnemiesToKill>,
     mut enemies: Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform), (With<Enemy>, Without<Player>)>,
 ) {
@@ -322,7 +326,8 @@ fn update_player_state(
             crouching: Crouch::new_set(player_struct.crouch),
             sprinting: Sprint::new_set(player_struct.sprint),
             attacking: Attack::new_set(player_struct.attack), 
-            player: Player
+            player: Player,
+            track: Trackable,
         });
     }
 }

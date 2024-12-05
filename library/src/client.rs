@@ -262,7 +262,7 @@ fn receive_player_packet(
             },
             inputs: InputQueue::new(),
             states: PastStateQueue::new(),
-            potion_status: PotionStatus::new(),
+            potion_status: ItemStatus::new(),
         });
     }
 }

@@ -294,12 +294,11 @@ impl EnemyId {
 // }
 
 pub fn enemy_movement(
-    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement), Without<Player>>,
+    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement), With<Enemy>>,
     mut player_query: Query<
-        (&mut Transform, &Player, &mut Health),
-        With<Player>,
-    >,
-    wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<EnemyTimer>)>,
+        (&mut Transform, &mut Health),
+        (With<Trackable>, Without<Enemy>)>,
+    wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<EnemyTimer>, Without<Trackable>)>,
     time: Res<Time>,
 ) {
    // info!("running enemy mvmt");
@@ -311,7 +310,7 @@ pub fn enemy_movement(
                                                                                // checking which player is closest
         let mut longest: f32 = 99999999999.0;
         // for every player
-        for (mut pt, _p, mut ph) in player_query.iter_mut() {
+        for (mut pt, mut ph) in player_query.iter_mut() {
             // find hypotenuse to get distance to player
             let xdis = (pt.translation.x - transform.translation.x).abs()
                 * (pt.translation.x - transform.translation.x).abs();
