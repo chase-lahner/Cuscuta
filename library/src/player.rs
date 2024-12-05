@@ -108,6 +108,21 @@ impl Attack {
     }
 }
 
+#[derive(Resource)]
+pub struct CollisionState {
+    pub colliding_with_wall: bool,
+    pub last_position: Vec3,
+}
+
+impl CollisionState {
+    pub fn new() -> Self {
+        Self {
+            colliding_with_wall: false,
+            last_position: Vec3::ZERO,
+        }
+    }
+}
+
 #[derive(Component, Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct InputQueue {
     pub q: Vec<(u64, Vec<KeyCode>)>,
@@ -585,14 +600,13 @@ pub fn restore_health(
 ) {
     for (mut health, mut potion_status) in player.iter_mut() {
         // check if the player has a potion and presses H
-        if input.just_pressed(KeyCode::KeyH) && potion_status.has_potion {
+        if input.just_pressed(KeyCode::KeyH) && potion_status.has_potion && health.current < health.max{
             // restore 50 health and clamp
-            health.current = (health.current + 50.).min(health.max);
+            health.current = (health.current + 25.).min(health.max);
 
             // set has potion to false
             potion_status.has_potion = false;
 
-            info!("Player restored 50 health! Current health: {}", health.current);
         }
 
         // take damage keybind for testing
@@ -601,8 +615,6 @@ pub fn restore_health(
             info!("Taking damage from keybind!");
         }
     }
-
-    
 }
 
 pub fn player_input(
@@ -743,10 +755,13 @@ pub fn move_player(
     room_query: Query<Entity, With<Room>>,
     client_id: Res<ClientId>,
     mut carnage: Query<&mut CarnageBar>,
+    inner_wall_query: Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
+    mut collision_state: ResMut<CollisionState>, 
 ) {
     let mut hit_door = false;
     let mut _player_transform = Vec3::ZERO;
     let mut door_type: Option<DoorType> = Option::None;
+
 
     // Player movement
     for (mut pt, mut pv, id) in player_query.iter_mut() {
@@ -805,12 +820,6 @@ pub fn move_player(
         let change = pv.velocity * deltat;
         let (room_width, room_height) = room_manager.current_room_size();
 
-        // let mut help = false;
-        // if !help{
-        //     //println!("--HELP-- Room Width: {} Room Height: {}",room_width,room_height);
-        //     help = true;
-        // }
-
         // Calculate new player position and clamp within room boundaries
         let new_pos_x = (pt.translation.x + change.x).clamp(
             -room_width / 2.0 + TILE_SIZE as f32 + TILE_SIZE as f32 / 2.0,
@@ -827,16 +836,26 @@ pub fn move_player(
         // Store the player's position for later use
         _player_transform = pt.translation;
 
+        if !collision_state.colliding_with_wall {
+            collision_state.last_position = pt.translation;
+        } else {
+            pt.translation = collision_state.last_position; 
+        }
+
         let baban = handle_movement_and_enemy_collisions(
             &mut pt,
             change,
             &mut enemies,
             &mut room_manager,
             &door_query,
+            &inner_wall_query,
+            &mut collision_state,
         );
         hit_door = baban.0;
         door_type = baban.1;
     }
+
+
     // If a door was hit, handle the transition
     if hit_door {
         let mut carnage_bar = carnage.single_mut();
@@ -855,7 +874,7 @@ pub fn move_player(
             );
         }
     }
-}
+} 
 
 pub fn handle_movement_and_enemy_collisions(
     pt: &mut Transform,
@@ -863,6 +882,8 @@ pub fn handle_movement_and_enemy_collisions(
     enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     room_manager: &mut RoomManager,
     door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    inner_wall_query: &Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
+    mut collision_state: &mut ResMut<CollisionState>, 
 ) -> (bool, Option<DoorType>) {
     let mut hit_door = false;
     let mut door_type = None;
@@ -887,6 +908,8 @@ pub fn handle_movement_and_enemy_collisions(
         room_manager,
         enemies,
         &door_query,
+        inner_wall_query,
+        collision_state,
     );
     handle_movement(
         pt,
@@ -894,6 +917,8 @@ pub fn handle_movement_and_enemy_collisions(
         room_manager,
         enemies,
         &door_query,
+        inner_wall_query,
+        collision_state,
     );
 
     for (door_transform, door) in door_query.iter() {
@@ -915,9 +940,13 @@ pub fn handle_movement(
     room_manager: &mut RoomManager,
     enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    inner_wall_query: &Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
+    mut collision_state: &mut ResMut<CollisionState>, 
 ) -> Option<DoorType> {
     let new_pos = pt.translation + change;
     let player_aabb = collision::Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
+
+    collision_state.colliding_with_wall = false;
 
     // Get the current room's grid size (room width and height)
     let current_grid = room_manager.current_grid();
@@ -927,11 +956,11 @@ pub fn handle_movement(
     let (topleft, topright, bottomleft, bottomright) =
         translate_coords_to_grid(&player_aabb, room_manager);
 
+
     // check for collisions with enemies
     for enemy_transform in enemies.iter() {
         let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
         if player_aabb.intersects(&enemy_aabb) {
-            // handle enemy collision here (if necessary)
             return None;
         }
     }
@@ -946,8 +975,22 @@ pub fn handle_movement(
         && bottomleft != 1
         && bottomright != 1
     {
+        // save last valid position
         pt.translation = new_pos;
     }
+
+    // check for inner wall collisions
+    for inner_wall_transform in inner_wall_query.iter() {
+        let inner_wall_aabb = Aabb::new(inner_wall_transform.translation, Vec2::splat(TILE_SIZE as f32));
+
+        if player_aabb.intersects(&inner_wall_aabb) {
+            // set position to last position (outside of wall)
+            pt.translation = pt.translation - change; 
+            collision_state.colliding_with_wall = true;
+            return None; // Stop movement if collision detected
+        }
+    }
+
 
     // check for door transition
     if topleft == 2 || topright == 2 || bottomleft == 2 || bottomright == 2 {
