@@ -586,28 +586,15 @@ pub fn player_interact(
     >,
     input: Res<ButtonInput<KeyCode>>,
     client_id: Res<ClientId>,
-    mut pot_q: Query<&mut Pot>,
-    mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>,
-    mut texture_atlas: Query<&mut TextureAtlas, (With<Pot>, Without<Player>)>,
+    mut pot_q: Query<(& Transform, &mut Pot, &mut TextureAtlas), (With<Pot>, Without<Player>)>,
     potion_query: Query<(Entity, &Transform), (With<Potion>, Without<Player>, Without<Pot>)>,
 ) {
-    let mut pot = pot_q.single_mut();
-    let pot_transform = pot_transform_q.single_mut();
-    let mut pot_atlas = texture_atlas.single_mut();
-
     for (player_transform, mut _player_velocity, id, mut potion_status) in player.iter_mut() {
         if id.id == client_id.id {
             // player collider
             let player_collider =
                 collision::Aabb::new(
                     player_transform.translation, 
-                    Vec2::splat(TILE_SIZE as f32)
-            );
-
-            // Coin pot collider
-            let pot_collider =
-                Aabb::new(
-                    pot_transform.translation, 
                     Vec2::splat(TILE_SIZE as f32)
             );
 
@@ -634,20 +621,31 @@ pub fn player_interact(
 
             }
 
-            /* touch is how many frames since pressed
-             * We only want to increment if not pressed
-             * recently */
-            if input.just_pressed(KeyCode::KeyE)
-                && pot_collider.intersects(&player_collider)
-                && pot.touch == 0
-            {
-                info!("you got touched");
-                pot.touch += 1;
+            for (pot_transform, mut pot, mut pot_atlas) in pot_q.iter_mut(){
 
-                if pot.touch == 1 {
-                    pot_atlas.index = pot_atlas.index + 1;
+                 // Coin pot collider
+                let pot_collider =
+                Aabb::new(
+                    pot_transform.translation, 
+                    Vec2::splat(TILE_SIZE as f32)
+                );
+                /* touch is how many frames since pressed
+                * We only want to increment if not pressed
+                * recently */
+                if input.just_pressed(KeyCode::KeyE)
+                    && pot_collider.intersects(&player_collider)
+                    && pot.touch == 0
+                {
+                    info!("you got touched");
+                    pot.touch += 1;
+
+                    if pot.touch == 1 {
+                        pot_atlas.index = pot_atlas.index + 1;
+                    }
+                
                 }
-            
+
+                
             }
         }
     }

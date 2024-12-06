@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::cuscuta_resources::*;
 use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::network::{
-    ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, PlayerSendable, Sequence, ServerPacket, UDP
+    ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, MapS2C, PlayerSendable, Sequence, ServerPacket, UDP
 };
 use crate::player::*;
 use crate::room_gen::{ClientDoor, ClientRoomManager, Door, DoorType, Potion, Room};
@@ -116,7 +116,6 @@ pub fn listen(
 
     /* match to figure out. MAKE SURE WE SEQUENCE::ASSIGN() on every
      * packet!! is essential for lamportaging */
-    info!("recv packet");
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
             info!("matching idpacket");
@@ -132,7 +131,7 @@ pub fn listen(
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
-            receive_map_packet(&mut commands, &asset_server, &map_packet.matrix, &mut room_query, &mut room_manager);
+            receive_map_packet(&mut commands, &asset_server, &map_packet, &mut room_query, &mut room_manager);
             sequence.assign(&map_packet.head.sequence);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
@@ -466,13 +465,26 @@ fn recv_enemy(
 fn receive_map_packet (
     mut commands: &mut Commands,
     asset_server: &AssetServer,
-    map_array: &Vec<Vec<u8>>,
+    mut map_packet: &MapS2C,
     mut room_query: &mut Query<Entity, With<Room>>,
     mut room_manager: &mut ClientRoomManager,
 ) {
+
+    let map_array = &map_packet.matrix;
     let mut vertical = -((map_array.len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
     let mut horizontal = -((map_array[0].len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
+    /* ye ol sliding room problem. Kinda funny, never
+     * reset so we made a slinky */
+    let og_horizontal = horizontal;
 
+    /* setters for clientside room stats
+     * Is there a one liner? probabaly. idk im lazy */
+    let (new_width, new_height) = map_packet.size;
+    room_manager.width = new_width;
+    room_manager.height = new_height;
+
+
+    /* get rid of room */
     for tile in room_query.iter_mut()
     {
         commands.entity(tile).despawn();
@@ -533,12 +545,11 @@ fn receive_map_packet (
                     transform: Transform::from_xyz(-10000.0, -10000.0, 0.2),
                     ..default() },Wall,Room,)),
             };
-            horizontal = horizontal + TILE_SIZE as f32;
+            horizontal += TILE_SIZE as f32;
         }
-        vertical = vertical + TILE_SIZE as f32;
+        vertical += TILE_SIZE as f32;
+        horizontal = og_horizontal;
     }
-    room_manager.height = vertical;
-    room_manager.width = horizontal;
 }
 
 pub fn send_player(
@@ -684,7 +695,7 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
-            receive_map_packet(&mut commands, &asset_server, &map_packet.matrix, &mut room_query, &mut room_manager);
+            receive_map_packet(&mut commands, &asset_server, &map_packet, &mut room_query, &mut room_manager);
             sequence.assign(&map_packet.head.sequence);
             return;
         }
