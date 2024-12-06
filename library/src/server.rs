@@ -528,7 +528,7 @@ fn send_map_packet (
         let arr_y: usize = (tile.translation.y - 16.0) as usize / 32;
         map_array[arr_x][arr_y] = 10;
     }
-
+    println!("{:?},", map_array);
     let mappy = ServerPacket::MapPacket(MapS2C{
         head: Header::new(0,server_seq.clone()),// server id == 0
         matrix: map_array,
