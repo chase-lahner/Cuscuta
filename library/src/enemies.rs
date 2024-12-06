@@ -311,6 +311,9 @@ pub fn enemy_movement(
         let mut longest: f32 = 99999999999.0;
         // for every player
         for (mut pt, mut ph) in player_query.iter_mut() {
+            if ph.current <= 0. {
+                continue;
+            }
             // find hypotenuse to get distance to player
             let xdis = (pt.translation.x - transform.translation.x).abs()
                 * (pt.translation.x - transform.translation.x).abs();
@@ -499,12 +502,15 @@ pub fn handle_enemy_collision(
             if network_id.id != client_id.id {
                 continue;
             }
+            if health.current <= 0. {
+                continue;
+            }
             // info!("handling enemy collision");
             let enemy_aabb = Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
             let player_aabb = Aabb::new(player_transform.translation, Vec2::splat(TILE_SIZE as f32));
 
             if enemy_aabb.intersects(&player_aabb) {
-                info!("we collided in dis");
+               // info!("we collided in dis");
                 health.current -= 5.;
 
                 let direction_to_player = player_transform.translation - enemy_transform.translation;

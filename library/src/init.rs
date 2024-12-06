@@ -3,7 +3,7 @@ use std::net::UdpSocket;
 use bevy::prelude::*;
 
 
-use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, EnemiesToKill, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, markov_chains::*, network::*, room_gen::*, ui::client_spawn_ui
+use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, EnemiesToKill, PlayerCount, PlayerDeathTimer, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, markov_chains::*, network::*, room_gen::*, ui::client_spawn_ui
 };
 
 pub fn ip_setup(
@@ -41,6 +41,8 @@ pub fn client_setup(
      * for now, which is the server's id but we will reassign
      * when we recv a packet from the server */
     commands.insert_resource(Sequence::new(0));
+
+    commands.insert_resource(PlayerDeathTimer::new());
 
     // spawn camera
     spawn_camera(&mut commands);

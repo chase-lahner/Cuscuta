@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::color::palettes::css::{SEA_GREEN, RED, MAROON, BLACK};
 
 use crate::cuscuta_resources::{ClientId, Health, TILE_SIZE};
-use crate::player::{NetworkId, Player, PotionStatus};
+use crate::player::{NetworkId, Player, ItemStatus};
 
 
 /* stupud to do math like this but basically window is  */
@@ -192,7 +192,7 @@ pub fn update_ui_elements(
     mut green_q: Query<&mut Style, (With<Green>, Without<Red>, Without<Health>, Without<CarnageBar>)>,
     mut health_bar : Query<&mut Style, (With<Health>, Without<Green>, Without<Red>, Without<CarnageBar>)>,
     mut potion_icon_q: Query<&mut UiImage, With<PotionIcon>>,
-    player_q : Query<(&Health, &PotionStatus, &NetworkId), With<Player>>, 
+    player_q : Query<(&Health, &ItemStatus, &NetworkId), With<Player>>, 
     mut carnage_q: Query<&CarnageBar>,
     asset_server: Res<AssetServer>,
     client_id : Res<ClientId>,
