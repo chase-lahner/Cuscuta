@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 
 
-use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{Door, DoorType, Potion, Room, RoomManager}};
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{Door, DoorType, Potion, Room, RoomManager}};
 
 
 /* Upon request, sends an id to client, spawns a player, and
@@ -481,22 +481,27 @@ fn send_map_packet (
     udp: &UDP,
     addresses: &mut AddressList,
 ) {
-    let mut map_array: Vec<Vec<u8>> =vec![vec![0; 75]; 75];
 
-    let (x,y):(f32, f32) = RoomManager::current_room_size(&roomman);
-    let room_w = x as usize; //need to grab these values from roomgen fn()
+    let (room_w,room_h):(f32, f32) = RoomManager::current_room_size(&roomman);
+    println!("Width:{}  height:{}", room_w, room_h);
+    let room_tile_w = room_w / TILE_SIZE as f32;
+    let room_tile_h = room_h / TILE_SIZE as f32;
+    let mut map_array: Vec<Vec<u8>> =vec![vec![0; room_tile_h as usize + 1]; room_tile_w as usize + 1];
+    
 
+    let max_x = room_w / 2.0 ;
+    let max_y = room_h / 2.0 ;
     for tile in background_query.iter()
     {
-        let arr_x:usize = (tile.translation.x - 16.0) as usize / 32;
-        let arr_y:usize = (tile.translation.y - 16.0) as usize / 32;
+        let arr_x:usize = (tile.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.translation.y + max_y - 16.0) as usize / 32;
         map_array[arr_x][arr_y] = 0;
     }
 
     for tile in door_query.iter()
     {
-        let arr_x:usize = (tile.0.translation.x - 16.0) as usize / 32;
-        let arr_y:usize = (tile.0.translation.y - 16.0) as usize / 32;
+        let arr_x:usize = (tile.0.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.0.translation.y + max_y - 16.0) as usize / 32;
         match tile.1{
             DoorType::Right => map_array[arr_x][arr_y] = 5, 
             DoorType::Left => map_array[arr_x][arr_y] = 4,
@@ -507,25 +512,25 @@ fn send_map_packet (
 
     for tile in wall_query.iter()
     {
-        let arr_x:usize = (tile.translation.x - 16.0) as usize / 32;
-        let arr_y:usize = (tile.translation.y - 16.0) as usize / 32;
+        let arr_x:usize = (tile.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.translation.y + max_y - 16.0) as usize / 32;
         if arr_x == 0 {map_array[arr_x][arr_y as usize] = 1;}
         else if arr_y == 0 {map_array[arr_x][arr_y] = 9;}
-        else if arr_x == room_w/32 {map_array[arr_x][arr_y] = 2;}
+        else if arr_x == room_w as usize/32 {map_array[arr_x][arr_y] = 2;}
         else {map_array[arr_x][arr_y] = 8;}
     }
 
     for tile in potion_query.iter()
     {
-        let arr_x: usize = (tile.translation.x - 16.0) as usize / 32;
-        let arr_y: usize = (tile.translation.y - 16.0) as usize / 32;
+        let arr_x: usize = (tile.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y: usize = (tile.translation.y + max_y - 16.0) as usize / 32;
         map_array[arr_x][arr_y] = 3;
     }
 
     for tile in pot_query.iter()
     {
-        let arr_x: usize = (tile.translation.x - 16.0) as usize / 32;
-        let arr_y: usize = (tile.translation.y - 16.0) as usize / 32;
+        let arr_x: usize = (tile.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y: usize = (tile.translation.y + max_y - 16.0) as usize / 32;
         map_array[arr_x][arr_y] = 10;
     }
     println!("{:?},", map_array);
