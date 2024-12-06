@@ -159,6 +159,7 @@ pub fn listen(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
+            &mut Visibility
         ),
         With<Player>,
     >,
@@ -200,7 +201,7 @@ pub fn listen(
             info!("Matching Player  {}", player_packet.head.network_id);
             /*  gahhhh sequence borrow checker is giving me hell */
             /* if we encounter porblems, it's herer fs */ 
-            receive_player_packet( &mut commands, &mut players_q, &asset_server, &player_packet, &mut texture_atlases, src);
+            receive_player_packet( &mut commands, &mut players_q, &asset_server, &player_packet, &mut texture_atlases, src,);
             sequence.assign(&player_packet.head.sequence);
         }
         ServerPacket::MapPacket(map_packet) => {
@@ -215,7 +216,7 @@ pub fn listen(
         }
         ServerPacket::DespawnPacket(despawn_packet) => {
             info!("Matching Despawn Packet");
-            // despawn_enemy(&mut commands, &despawn_packet.enemy_id);
+           // despawn_enemy(&mut commands, &despawn_packet.enemy_id);
             // sequence.assign(&despawn_packet.head.sequence);
         }
     }
@@ -235,6 +236,7 @@ fn receive_player_packet(
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
+            &mut Visibility
         ),
         With<Player>,
     >,
@@ -246,7 +248,7 @@ fn receive_player_packet(
     /* need to know if we were sent a player we don't currently have */
     let mut found_packet = false;
     /* for all players, find what was sent */
-    for (mut v, mut t, _p, mut h, mut c, mut r, mut s, mut a, id) in players.iter_mut() {
+    for (mut v, mut t, _p, mut h, mut c, mut r, mut s, mut a, id, mut visibility) in players.iter_mut() {
         if id.id == saranpack.head.network_id {
             /* we found! */
             found_packet = true;
@@ -262,6 +264,13 @@ fn receive_player_packet(
             a.set(saranpack.attack);
             r.rolling = saranpack.roll;
 
+        }
+        if h.current <= 0.{
+            *visibility = Visibility::Hidden;
+        }
+        else
+        {
+            *visibility = Visibility::Visible;
         }
     }
 
