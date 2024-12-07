@@ -1,4 +1,5 @@
 use bevy::{prelude::*, time::common_conditions::on_timer, window::PresentMode};
+use client::id_request;
 use cuscuta_resources::TICKS_PER_SECOND;
 use library::*;
 use std::{env, time::Duration};
@@ -10,8 +11,6 @@ fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     App::new()
         /* room manager necessary? */
-        .insert_resource(room_gen::RoomManager::new())
-        .insert_resource(LastAttributeArray::new()) 
         .insert_resource(CollisionState::new())
         .insert_resource(RoomConfig::new())
         .insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND))
@@ -27,7 +26,8 @@ fn main() {
          }))
          .add_systems(Startup,(
             init::client_setup, 
-            client::id_request.after(init::client_setup))
+            client::id_request.after(init::client_setup),
+            client::init_listen.after(id_request)),
         )
         .add_systems(Update, (
             player::move_player,

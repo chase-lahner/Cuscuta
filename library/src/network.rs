@@ -174,6 +174,9 @@ pub struct PlayerSendable{
 pub struct MapS2C{
     pub head: Header,
     pub matrix: Vec<Vec<u8>>,
+    pub size: (f32, f32),
+    pub max: (f32, f32),
+    pub z: f32,
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EnemyS2C{
@@ -191,7 +194,7 @@ pub struct IdPacket{
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct KillEnemyPacket{
-    pub enemy_id: EnemyId
+    pub enemy_id: EnemyId,
 }
 
 #[derive(Component, Serialize,Deserialize, PartialEq, Debug, Clone)]

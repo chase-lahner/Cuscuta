@@ -371,6 +371,7 @@ pub fn player_attack_enemy(
     mut enemies: Query<(Entity, &mut Transform, &mut EnemyId, &mut Health), (With<Enemy>, Without<Player>)>,
     client_id: Res<ClientId>,
     udp: Res<UDP>,
+    sequence: ResMut<Sequence>
 ) {
    // info!("checking for player attack");
     for (ptransform, pattack, id) in player.iter_mut() {
@@ -633,24 +634,14 @@ pub fn player_interact(
     >,
     input: Res<ButtonInput<KeyCode>>,
     client_id: Res<ClientId>,
-    mut pot_q: Query<&mut Pot>,
-    mut pot_transform_q: Query<&mut Transform, (With<Pot>, Without<Player>)>,
-    mut texture_atlas: Query<&mut TextureAtlas, (With<Pot>, Without<Player>)>,
+    mut pot_q: Query<(& Transform, &mut Pot, &mut TextureAtlas), (With<Pot>, Without<Player>)>,
     potion_query: Query<(Entity, &Transform), (With<Potion>, Without<Player>, Without<Pot>)>,
 ) {
-    let mut pot = pot_q.single_mut();
-    let pot_transform = pot_transform_q.single_mut();
-    let mut pot_atlas = texture_atlas.single_mut();
-
     for (player_transform, mut _player_velocity, id, mut potion_status) in player.iter_mut() {
         if id.id == client_id.id {
             // player collider
             let player_collider =
                 collision::Aabb::new(player_transform.translation, Vec2::splat(TILE_SIZE as f32));
-
-            // Coin pot collider
-            let pot_collider = Aabb::new(pot_transform.translation, Vec2::splat(TILE_SIZE as f32));
-
             // loop through potions in room
             for (potion_entity, potion_transform) in potion_query.iter() {
                 let potion_collider =
@@ -670,18 +661,28 @@ pub fn player_interact(
                 }
             }
 
-            /* touch is how many frames since pressed
-             * We only want to increment if not pressed
-             * recently */
-            if input.just_pressed(KeyCode::KeyE)
-                && pot_collider.intersects(&player_collider)
-                && pot.touch == 0
-            {
-                info!("you got touched");
-                pot.touch += 1;
+            for (pot_transform, mut pot, mut pot_atlas) in pot_q.iter_mut(){
 
-                if pot.touch == 1 {
-                    pot_atlas.index = pot_atlas.index + 1;
+                 // Coin pot collider
+                let pot_collider =
+                Aabb::new(
+                    pot_transform.translation, 
+                    Vec2::splat(TILE_SIZE as f32)
+                );
+                /* touch is how many frames since pressed
+                * We only want to increment if not pressed
+                * recently */
+                if input.just_pressed(KeyCode::KeyE)
+                    && pot_collider.intersects(&player_collider)
+                    && pot.touch == 0
+                {
+                    info!("you got touched");
+                    pot.touch += 1;
+
+                    if pot.touch == 1 {
+                        pot_atlas.index = pot_atlas.index + 1;
+                    }
+                
                 }
             }
         }
@@ -916,13 +917,8 @@ pub fn move_player(
     >,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
-    mut room_manager: ResMut<RoomManager>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    room_query: Query<Entity, With<Room>>,
+    mut room_manager: ResMut<ClientRoomManager>,
     client_id: Res<ClientId>,
-    mut carnage: Query<&mut CarnageBar>,
-    mut last_attribute_array: ResMut<LastAttributeArray>,
     inner_wall_query: Query<
         (&Transform),
         (
@@ -933,7 +929,6 @@ pub fn move_player(
         ),
     >,
     mut collision_state: ResMut<CollisionState>,
-    room_config: Res<RoomConfig>,
 ) {
     
     let mut hit_door = false;
@@ -998,7 +993,8 @@ pub fn move_player(
         };
 
         let change = pv.velocity * deltat;
-        let (room_width, room_height) = room_manager.current_room_size();
+        let room_width = room_manager.width;
+        let room_height = room_manager.height;
 
         // Calculate new player position and clamp within room boundaries
         let new_pos_x = (pt.translation.x + change.x).clamp(
@@ -1022,7 +1018,7 @@ pub fn move_player(
             pt.translation = collision_state.last_position;
         }
 
-        let baban = handle_player_collisions(
+        handle_player_collisions(
             &mut pt,
             change,
             &mut enemies,
@@ -1031,37 +1027,15 @@ pub fn move_player(
             &inner_wall_query,
             &mut collision_state,
         );
-        hit_door = baban.0;
-        door_type = baban.1;
-    }
-
-    // If a door was hit, handle the transition
-    if hit_door {
-        let mut carnage_bar = carnage.single_mut();
-        carnage_bar.stealth += 10.;
-        if let Some(door_type) = door_type {
-            // Pass the door type to transition_map
-            transition_map(
-                &mut commands,
-                &asset_server,
-                &mut room_manager,
-                room_query,
-                door_query,
-                &mut player_query.single_mut().0, // this is broke cant be single
-                door_type,
-                carnage,
-                &mut last_attribute_array,
-                &room_config,
-            );
-        }
     }
 }
+
 
 pub fn handle_player_collisions(
     pt: &mut Transform,
     change: Vec2,
     enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
-    room_manager: &mut RoomManager,
+    room_manager: &mut ClientRoomManager,
     door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
     inner_wall_query: &Query<
         (&Transform),
@@ -1081,16 +1055,11 @@ pub fn handle_player_collisions(
     let new_pos = pt.translation + Vec3::new(change.x, change.y, 0.0);
     let player_aabb = collision::Aabb::new(new_pos, Vec2::splat(TILE_SIZE as f32));
 
-    // Translate player position to grid indices
-    let (_topleft, _topright, _bottomleft, _bottomright) =
-        translate_coords_to_grid(&player_aabb, room_manager);
-
     collision_state.colliding_with_wall = false;
 
     // Get the current room's grid size (room width and height)
-    let current_grid = room_manager.current_grid();
-    let room_width = current_grid.len() as f32 * TILE_SIZE as f32;
-    let room_height = current_grid[0].len() as f32 * TILE_SIZE as f32;
+    let room_height = room_manager.height;
+    let room_width = room_manager.width;
 
     // Check for collisions with enemies
     for enemy_transform in enemies.iter() {
@@ -1138,6 +1107,25 @@ pub fn handle_player_collisions(
     }
 
     // Return whether a door was hit and the type of the door
+    (hit_door, door_type)
+}
+
+pub fn check_door_collision(
+    door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    player_transform: &Transform,
+)-> (bool, Option<DoorType>){
+    let player_aabb = collision::Aabb::new(player_transform.translation,
+         Vec2::splat(TILE_SIZE as f32));
+    let mut hit_door = false;
+    let mut door_type = None;
+    for (door_transform, door) in door_query.iter() {
+        let door_aabb = Aabb::new(door_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&door_aabb) {
+            hit_door = true;
+            door_type = Some(door.door_type);
+            break;
+        }
+    }
     (hit_door, door_type)
 }
 

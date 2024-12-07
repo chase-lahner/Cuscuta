@@ -2,10 +2,36 @@ use bevy::prelude::*;
 use rand::{Rng, distributions::{Distribution, WeightedIndex}};
 use crate::collision::*;
 use crate::cuscuta_resources::*;
+use crate::network::Sequence;
 use crate::player::*;
 use crate::enemies::*;
 use crate::markov_chains::*;
+use crate::server::send_player_to_self;
 use crate::ui::*;
+use crate::network::UDP;
+
+#[derive(Event)]
+pub struct RoomChangeEvent(pub bool);
+
+#[derive(Resource)]
+pub struct ClientRoomManager{
+    pub max_x: f32,
+    pub max_y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl ClientRoomManager{
+    pub fn new() -> Self{
+        Self {
+            width: 40. * TILE_SIZE as f32,
+            height: 40. * TILE_SIZE as f32,
+            max_x: 0.,
+            max_y: 0.,
+        }
+    }
+}
+
 
 #[derive(Component)]
 pub struct Potion;
@@ -98,6 +124,11 @@ impl RoomArray {
 #[derive(Component)]
 pub struct Door {
     pub next: Option<f32>,
+    pub door_type: DoorType,
+}
+
+#[derive(Component)]
+pub struct ClientDoor {
     pub door_type: DoorType,
 }
 
@@ -477,12 +508,9 @@ impl RoomConfig {
 
 pub fn spawn_potions_in_room(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     room_manager: &RoomManager,
     num_potions: usize,
 ) {
-    let potion_texture_handle = asset_server.load("items/potion.png");
-
     // Get room boundaries
     let (room_width, room_height) = room_manager.current_room_size();
     let max_x = room_width / 2.0;
@@ -498,11 +526,7 @@ pub fn spawn_potions_in_room(
 
         // Spawn the potion
         commands.spawn((
-            SpriteBundle {
-                texture: potion_texture_handle.clone(),
-                transform: Transform::from_xyz(x_position, y_position, z_index + 0.1),
-                ..default()
-            },
+            Transform::from_xyz(x_position, y_position, z_index + 0.1),
             Potion,
         ));
     }
@@ -513,12 +537,11 @@ pub fn spawn_potions_in_room(
 pub struct Room;
 
 pub fn spawn_start_room(
-    commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
-    room_manager: &mut RoomManager,
-    carnage_percent: f32,
-    last_attribute_array: &mut LastAttributeArray,
 
+    mut commands: &mut Commands, 
+    mut room_manager: &mut RoomManager,
+    mut last_attribute_array: &mut LastAttributeArray, // Add reference here
+    carnage_percent: f32,
 ) {
     // repeat for rest
     let mut rng = rand::thread_rng();
@@ -617,12 +640,6 @@ pub fn spawn_start_room(
     } else {
         println!("Error: Could not find bounds for the start room.");
     }
-    // texture inputs
-    let bg_texture_handle = asset_server.load("tiles/solid_floor/solid_floor.png");
-    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
-    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
-    let east_wall_handle = asset_server.load("tiles/walls/right_wall.png");
-    let west_wall_handle = asset_server.load("tiles/walls/left_wall.png");
 
     // offset for spawning tiles
     let mut x_offset = -max_x + ((TILE_SIZE / 2) as f32);
@@ -635,11 +652,7 @@ pub fn spawn_start_room(
 
          /* Spawn in north wall */
          commands.spawn((
-            SpriteBundle {
-                texture: north_wall_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), z_index),
-                ..default()
-            }, 
+            Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), z_index),
             Wall, 
             Room,
         ));
@@ -647,11 +660,7 @@ pub fn spawn_start_room(
 
         /* Spawn in south wall */
         commands.spawn((
-            SpriteBundle {
-                texture: south_wall_handle.clone(),
-                transform: Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), z_index),
-                ..default()
-            }, 
+            Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), z_index),
             Wall, 
             Room,
         ));
@@ -662,11 +671,7 @@ pub fn spawn_start_room(
 
             /* East wall */
             commands.spawn((
-                SpriteBundle {
-                    texture: east_wall_handle.clone(),
-                    transform: Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.1),
-                    ..default()
-                }, 
+                Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.1),
                 Wall, 
                 Room,
             ));
@@ -674,22 +679,18 @@ pub fn spawn_start_room(
 
             /* West wall */
             commands.spawn((
-                SpriteBundle {
-                    texture: west_wall_handle.clone(),
-                    transform: Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.2),
-                    ..default()
-                }, 
+                Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.2),
                 Wall, 
                 Room,
             ));
             set_collide(room_manager, (-max_x / TILE_SIZE as f32).floor() as usize, ycoord, 1);
 
             /* Floor tiles */
-            commands.spawn(SpriteBundle {
-                texture: bg_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, y_offset, z_index - 0.3),
-                ..default()
-            }).insert(Room).insert(Background);
+            commands.spawn((
+                Transform::from_xyz(x_offset, y_offset, z_index - 0.3),
+                Room,
+                Background,
+            ));
 
             y_offset += TILE_SIZE as f32;
         }
@@ -704,27 +705,25 @@ pub fn spawn_start_room(
     let wall_count = rng.gen_range(1..=3);
 
     for _ in 0..wall_count {
-        create_inner_walls(commands, asset_server, room_manager, random_width, random_height, current_z_index as isize);
+        create_inner_walls(&mut commands, &mut room_manager, random_width, random_height, current_z_index as isize);
     }
 
     // end new fn
 
     generate_doors(
-        commands,
-        asset_server,
-        room_manager,
+        &mut commands,
+        &mut room_manager,
         max_x,
         max_y,
         z_index,
     );
 
-    spawn_potions_in_room(commands, asset_server, &room_manager, 2);
+    spawn_potions_in_room(&mut commands, &room_manager, 2);
 
 }
 
 fn create_inner_walls(
     commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     room_width: usize,
     room_height: usize,
@@ -790,7 +789,7 @@ fn create_inner_walls(
     if let Some(walls) = room_manager.get_inner_walls(z_abs) {
         let walls_to_draw: Vec<_> = walls.clone(); // Clone to avoid mutable borrowing issues
         for wall in walls_to_draw.iter() {
-            draw_inner_wall(commands, asset_server, wall, z_abs, room_width, room_height, room_manager);
+            draw_inner_wall(commands, wall, z_abs, room_width, room_height, room_manager);
         }
     } else {
         println!("No inner walls found for Z index {}", z_abs);
@@ -801,14 +800,12 @@ fn create_inner_walls(
 
 fn draw_inner_wall(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     inner_wall: &InnerWall,
     z_index: usize,
     room_width: usize,
     room_height: usize,
     room_manager: &mut RoomManager,
 ){
-    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
 
     // get start pos out of inner wall
     let mut current_x = inner_wall.start_pos.x as f32 * TILE_SIZE as f32 - ((room_width * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
@@ -825,11 +822,7 @@ fn draw_inner_wall(
 
             while current_x <= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                     inner_wall.clone(),
@@ -849,11 +842,7 @@ fn draw_inner_wall(
 
             while current_x >= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                     inner_wall.clone(),
@@ -879,11 +868,7 @@ fn draw_inner_wall(
 
             while current_y <= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                     inner_wall.clone(),
@@ -904,11 +889,7 @@ fn draw_inner_wall(
 
             while current_y >= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                     inner_wall.clone(),
@@ -927,14 +908,11 @@ fn draw_inner_wall(
 
 fn regen_draw_inner_wall(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     inner_wall: &InnerWall,
     z_index: usize,
     room_width: usize,
     room_height: usize,
 ){
-    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
-
     // get start pos out of inner wall
     let mut current_x = inner_wall.start_pos.x as f32 * TILE_SIZE as f32 - ((room_width * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
     let mut current_y = inner_wall.start_pos.y as f32 * TILE_SIZE as f32 - ((room_height * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
@@ -950,11 +928,7 @@ fn regen_draw_inner_wall(
 
             while current_x <= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                 ));
@@ -967,11 +941,7 @@ fn regen_draw_inner_wall(
 
             while current_x >= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                 ));
@@ -991,11 +961,7 @@ fn regen_draw_inner_wall(
 
             while current_y <= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                 ));
@@ -1008,11 +974,7 @@ fn regen_draw_inner_wall(
 
             while current_y >= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                 ));
@@ -1027,9 +989,10 @@ fn regen_draw_inner_wall(
 /// Returns the room width, room height, max x, max y, and z-index.
 fn generate_room_boundaries(
     room_manager: &mut RoomManager,
-    mut carnage_query: Query<&mut CarnageBar>, 
+    mut carnage_query: &mut Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
+
 ) -> (f32, f32, f32, f32, f32) {
     let mut rng = rand::thread_rng();
 
@@ -1125,18 +1088,12 @@ fn generate_room_boundaries(
 /// Generates walls and floors for the room.
 fn generate_walls_and_floors(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     _room_width: f32,
     _room_height: f32,
     max_x: f32,
     max_y: f32,
     z_index: f32,
 ) {
-    let bg_texture_handle = asset_server.load("tiles/solid_floor/solid_floor.png");
-    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
-    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
-    let east_wall_handle = asset_server.load("tiles/walls/right_wall.png");
-    let west_wall_handle = asset_server.load("tiles/walls/left_wall.png");
 
     // Offset for spawning tiles
     let mut x_offset = -max_x + ((TILE_SIZE / 2) as f32);
@@ -1146,20 +1103,12 @@ fn generate_walls_and_floors(
     while x_offset < max_x {
         /* Spawn north and south walls */
         commands.spawn((
-            SpriteBundle {
-                texture: north_wall_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), z_index),
-                ..default()
-            },
+            Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), z_index),
             Wall,
             Room,
         ));
         commands.spawn((
-            SpriteBundle {
-                texture: south_wall_handle.clone(),
-                transform: Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), z_index),
-                ..default()
-            },
+            Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), z_index),
             Wall,
             Room,
         ));
@@ -1167,31 +1116,19 @@ fn generate_walls_and_floors(
         /* Spawn east and west walls */
         while y_offset < max_y + (TILE_SIZE as f32) {
             commands.spawn((
-                SpriteBundle {
-                    texture: east_wall_handle.clone(),
-                    transform: Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.1),
                 Wall,
                 Room,
             ));
             commands.spawn((
-                SpriteBundle {
-                    texture: west_wall_handle.clone(),
-                    transform: Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.2),
-                    ..default()
-                },
+                Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.2),
                 Wall,
                 Room,
             ));
 
             /* Spawn floor tiles */
             commands.spawn((
-                SpriteBundle {
-                    texture: bg_texture_handle.clone(),
-                    transform: Transform::from_xyz(x_offset, y_offset, z_index - 0.3),
-                    ..default()
-                },
+                Transform::from_xyz(x_offset, y_offset, z_index - 0.3),
                 Room,
                 Background,
             ));
@@ -1209,13 +1146,11 @@ fn generate_walls_and_floors(
 // take in the correct door type
 fn generate_doors(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     max_x: f32,
     max_y: f32,
     z_index: f32,
 ) {
-    let door_handle = asset_server.load("tiles/walls/black_void.png");
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
         let height = bottom_y - top_y;
         let width = right_x - left_x;
@@ -1229,18 +1164,14 @@ fn generate_doors(
             let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
             let door_left_y = TILE_SIZE as f32 / 2.0;
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Left,
                 },
                 Room,
             ));
-
+            println!("Spawningn left door");
             let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
             let ycoord_left = (door_left_y + max_y) as usize;
             set_collide(room_manager, xcoord_left, ycoord_left, 2);
@@ -1250,18 +1181,14 @@ fn generate_doors(
              let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
              let door_left_y = TILE_SIZE as f32 / 2.0;
              commands.spawn((
-                 SpriteBundle {
-                     texture: door_handle.clone(),
-                     transform: Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
-                     ..default()
-                 },
-                 Door {
+                Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
+                Door {
                      next: Some(room_manager.global_z_index),
                      door_type: DoorType::Left,
-                 },
-                 Room,
+                },
+                Room,
              ));
- 
+            println!("Spawningn left door");
              let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
              let ycoord_left = (door_left_y + max_y) as usize;
              set_collide(room_manager, xcoord_left, ycoord_left, 2);
@@ -1274,11 +1201,7 @@ fn generate_doors(
             let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
             let door_y = TILE_SIZE as f32 / 2.0;  
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_x, door_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_x, door_y, z_index + 0.1),
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Right,
@@ -1296,16 +1219,12 @@ fn generate_doors(
              let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
              let door_y = TILE_SIZE as f32 / 2.0;  
              commands.spawn((
-                 SpriteBundle {
-                     texture: door_handle.clone(),
-                     transform: Transform::from_xyz(door_x, door_y, z_index + 0.1),
-                     ..default()
-                 },
-                 Door {
+                Transform::from_xyz(door_x, door_y, z_index + 0.1),
+                Door {
                      next: Some(room_manager.global_z_index),
                      door_type: DoorType::Right,
-                 },
-                 Room,
+                },
+                Room,
              ));
              
              let xcoord_right = ((max_x * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
@@ -1319,11 +1238,8 @@ fn generate_doors(
              let door_top_x = TILE_SIZE as f32 / 2.0;
              let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
              commands.spawn((
-                 SpriteBundle {
-                     texture: door_handle.clone(),
-                     transform: Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
-                     ..default()
-                 },
+                Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
+                
                  Door {
                      next: Some(room_manager.global_z_index),
                      door_type: DoorType::Top,
@@ -1340,11 +1256,8 @@ fn generate_doors(
             let door_top_x = TILE_SIZE as f32 / 2.0;
             let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
+               
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Top,
@@ -1363,11 +1276,8 @@ fn generate_doors(
             let door_bottom_x = TILE_SIZE as f32 / 2.0;
             let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
+                
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Bottom,
@@ -1382,11 +1292,8 @@ fn generate_doors(
             let door_bottom_x = TILE_SIZE as f32 / 2.0;
             let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
+                
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Bottom,
@@ -1402,7 +1309,6 @@ fn generate_doors(
 
 pub fn generate_random_room_with_bounds(
     commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     width: usize,
     height: usize,
@@ -1427,7 +1333,6 @@ pub fn generate_random_room_with_bounds(
     // Generate walls and floors
     generate_walls_and_floors(
         commands,
-        asset_server,
         room_width,
         room_height,
         max_x,
@@ -1441,13 +1346,12 @@ pub fn generate_random_room_with_bounds(
     
     // add inner walls
     for _ in 0..wall_count {
-        create_inner_walls(commands, asset_server, room_manager, width, height, global_z_index as isize);
+        create_inner_walls(commands, room_manager, width, height, global_z_index as isize);
     }
 
     // Generate doors
     generate_doors(
         commands,
-        asset_server,
         room_manager,
         max_x,
         max_y,
@@ -1464,7 +1368,6 @@ pub fn generate_random_room_with_bounds(
 
 pub fn regenerate_existing_room(
     commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     width: usize,
     height: usize,
@@ -1489,7 +1392,6 @@ pub fn regenerate_existing_room(
     // Generate walls and floors
     generate_walls_and_floors(
         commands,
-        asset_server,
         room_width,
         room_height,
         max_x,
@@ -1501,7 +1403,6 @@ pub fn regenerate_existing_room(
     // Generate doors
     generate_doors(
         commands,
-        asset_server,
         room_manager,
         max_x,
         max_y,
@@ -1512,22 +1413,23 @@ pub fn regenerate_existing_room(
     if let Some(walls) = room_manager.get_inner_walls(z_abs as usize) {
         let walls_to_draw: Vec<_> = walls.clone(); // Clone walls to a temporary variable
         for wall in walls_to_draw.iter() {
-            draw_inner_wall(commands, asset_server, wall, z_abs, width, height, room_manager);
+            draw_inner_wall(commands, wall, z_abs, width, height, room_manager);
         }
     } else {
         println!("No inner walls found for Z index {}", z_abs);
     }
 }
 
+/* transitions room to room. I have made this an amalgamous mess. Lots going
+ * on here, we despawn old room, check which door we're on to generate a new room,
+ * and send out player packets to let the youngins know where they should be */
 pub fn transition_map(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
-    mut room_query: Query<Entity, With<Room>>, 
-    _door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,  
-    pt: &mut Transform,
+    mut room_query: &mut Query<Entity, With<Room>>, 
+    player : &mut Query<(&mut Transform), With<Player>>,
     door_type: DoorType, 
-    mut carnage_query: Query<&mut CarnageBar>, 
+    mut carnage_query: &mut Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
 ) {
@@ -1583,7 +1485,6 @@ pub fn transition_map(
                 // generate the room with random bounds
                 generate_random_room_with_bounds(
                     commands,
-                    &asset_server,
                     room_manager,
                     room_width as usize / TILE_SIZE as usize,
                     room_height as usize / TILE_SIZE as usize,
@@ -1591,8 +1492,10 @@ pub fn transition_map(
                 // pass in right door
                 //generate_random_room(commands, &asset_server, room_manager);
 
-                // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                // Spawn the players a little away from the right door
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1604,13 +1507,15 @@ pub fn transition_map(
 
                         regenerate_existing_room(
                             commands,
-                            &asset_server,
                             room_manager,
                             width as usize,
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
+                        // Spawn the players a little away from the right door
+                    for mut transform in player.iter_mut(){
+                        transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
+                    }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1642,16 +1547,16 @@ pub fn transition_map(
                 // generate the room with random bounds
                 generate_random_room_with_bounds(
                     commands,
-                    &asset_server,
                     room_manager,
                     room_width as usize / TILE_SIZE as usize,
                     room_height as usize / TILE_SIZE as usize,
                 );
                 // pass in right door
                 //generate_random_room(commands, &asset_server, room_manager);
-
-                // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                // Spawn the players a little away from the right door
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1663,13 +1568,15 @@ pub fn transition_map(
 
                         regenerate_existing_room(
                             commands,
-                            &asset_server,
                             room_manager,
                             width as usize,
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                        // Spawn the players a little away from the right door
+                        for mut transform in player.iter_mut(){
+                            transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1703,16 +1610,16 @@ pub fn transition_map(
                 // generate the room with random bounds
                 generate_random_room_with_bounds(
                     commands,
-                    &asset_server,
                     room_manager,
                     room_width as usize / TILE_SIZE as usize,
                     room_height as usize / TILE_SIZE as usize,
                 );
-                // pass in right door
-                //generate_random_room(commands, &asset_server, room_manager);
+          
 
-                // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                // Spawn the players a little away from the bottom door
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1724,13 +1631,15 @@ pub fn transition_map(
 
                         regenerate_existing_room(
                             commands,
-                            &asset_server,
                             room_manager,
                             width as usize,
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        // Spawn the players a little away from the bottom door
+                        for mut transform in player.iter_mut(){
+                            transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1766,7 +1675,6 @@ pub fn transition_map(
                 // generate the room with random bounds
                 generate_random_room_with_bounds(
                     commands,
-                    &asset_server,
                     room_manager,
                     room_width as usize / TILE_SIZE as usize,
                     room_height as usize / TILE_SIZE as usize,
@@ -1774,8 +1682,10 @@ pub fn transition_map(
                 // pass in right door
                 //generate_random_room(commands, &asset_server, room_manager);
 
-                // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                // Spawn the player a little away from the top door
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1787,13 +1697,15 @@ pub fn transition_map(
 
                         regenerate_existing_room(
                             commands,
-                            &asset_server,
                             room_manager,
                             width as usize,
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        // Spawn the players a little away from the right door
+                        for mut transform in player.iter_mut(){
+                            transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
