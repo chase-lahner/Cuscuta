@@ -14,6 +14,7 @@ use crate::{
     network::PlayerSendable,
     room_gen::*,
     ui::CarnageBar,
+    markov_chains::LastAttributeArray,
 };
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -901,13 +902,6 @@ pub fn update_player_position(
         transform.translation.y += velocity.velocity.y * time.delta_seconds();
 
         let mut _hit_door = false;
-        // take care of horizontal and vertical movement + enemy collision check
-        // TODODODODODODODODODODODO
-
-        // if we hit a door
-        // if hit_door {
-        //     transition_map(&mut _commands, &_asset_server, &mut room_manager, room_query, &mut pt); // Pass room_query as argument
-        // }
     }
 }
 
@@ -928,6 +922,7 @@ pub fn move_player(
     room_query: Query<Entity, With<Room>>,
     client_id: Res<ClientId>,
     mut carnage: Query<&mut CarnageBar>,
+    mut last_attribute_array: ResMut<LastAttributeArray>,
     inner_wall_query: Query<
         (&Transform),
         (
@@ -1054,6 +1049,7 @@ pub fn move_player(
                 &mut player_query.single_mut().0, // this is broke cant be single
                 door_type,
                 carnage,
+                &mut last_attribute_array
             );
         }
     }

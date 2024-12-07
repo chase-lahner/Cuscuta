@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{Rng, distributions::{Distribution, WeightedIndex}};
 use crate::collision::*;
 use crate::cuscuta_resources::*;
 use crate::player::*;
@@ -442,28 +442,81 @@ pub fn spawn_start_room(
     commands: &mut Commands, 
     asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
-    last_attribute_array: ResMut<LastAttributeArray>, // Add reference here
+    carnage_percent: f32,
+    last_attribute_array: &mut LastAttributeArray,
+
 ) {
-
-    // get a reference to the last attribute array
-    // Access last attribute array
-    println!("Last Attribute Array: {:?}", last_attribute_array.attributes);
-
-    // Example: Update an attribute
-    //last_attribute_array.set_attribute(0, 2); // Set Room_Size to "low"
-
+    // repeat for rest
     let mut rng = rand::thread_rng();
 
-    let enemy_type_matrix = Room_Attributes::get_preset_matrix()[3].clone(); // Get the Room_Size matrix
-    println!("Room Size Matrix: {:?}", enemy_type_matrix);
-    
-    //MARKOV impl 4
-    room_manager.set_state_vector(vec![1; 5]);
-    // generate random integers between 50 and 250, * 32
-    let random_width = rng.gen_range(40..=40);
-    let random_height = rng.gen_range(40..=40);
+    // initialize the next attributes array
+    let mut next_attribute_array = NextAttributeArray::new();
+
+
+    // iterate through each attribute
+    for i in 0..5 {
+        // map index to Room_Attributes enum
+        let room_attribute = match i {
+            0 => Room_Attributes::Room_Size,
+            1 => Room_Attributes::Inner_Walls,
+            2 => Room_Attributes::Enemy_Count,
+            3 => Room_Attributes::Enemy_Type,
+            4 => Room_Attributes::Item_Count,
+            _ => panic!("Invalid attribute index!"),
+        };
+
+        // get the last attribute value (1)
+        let last_attribute_value = last_attribute_array.get_attribute(i).unwrap_or(1);
+
+        // retrieve the corresponding matrix for the attribute
+        let base_matrix = Room_Attributes::get_matrix_for_attribute(&room_attribute);
+
+        // apply skew to the matrix
+        let skewed_matrix = Skew_Row(base_matrix, carnage_percent, last_attribute_value as usize);
+
+        // Log the skewed matrix for debugging
+        info!(
+            "Skewed matrix for START ROOM: {:?} with carnage_percent {}: {:?}",
+            room_attribute, carnage_percent, skewed_matrix
+        );
+
+        let rand_percent: f32 = rng.gen_range(0.0..1.0);
+
+        let next_state = if rand_percent < skewed_matrix[0] {
+            //stealth state
+            0
+        } else if rand_percent < skewed_matrix[1] {
+            //normal
+            1
+        } else {
+            //carnage
+            2
+        };
+
+        next_attribute_array.set_next_attribute(i, next_state);
+    }
+
+    // copy values from next attribute array into last attribute array
+    last_attribute_array.attributes = next_attribute_array.attributes;
+
+
+    // Use the generated attributes to configure the room
+    // let room_size = last_attributes[0]; // Example usage: Room size (0 = Large, 1 = Medium, 2 = Small)
+    // let wall_count = last_attributes[1]; // Example usage: Number of inner walls
+ 
+    //println!("Generated Attributes: {:?}", next_attributes);
+
+    // Example: Adjust room size based on `room_size`
+    //  let (random_width, random_height) = match room_size {
+    //      0 => (60, 60), // Large room
+    //      1 => (40, 40), // Medium room
+    //      _ => (20, 20), // Small room
+    //  };
+ 
     // Room width & height as a multiple of 32
     // * 32d = pixel count
+    let random_width = rng.gen_range(40..=40);
+    let random_height = rng.gen_range(40..=40);
     let room_width = random_width as f32 * TILE_SIZE as f32;  
     let room_height = random_height as f32 * TILE_SIZE as f32;
 
@@ -901,13 +954,72 @@ fn regen_draw_inner_wall(
 fn generate_room_boundaries(
     room_manager: &mut RoomManager,
     mut carnage_query: Query<&mut CarnageBar>, 
+    last_attribute_array: &mut LastAttributeArray, 
 ) -> (f32, f32, f32, f32, f32) {
     let mut rng = rand::thread_rng();
+
+    let mut next_attribute_array = NextAttributeArray::new();
 
     // GET CARNAGE PERCENT FROM UI VALUE
     let carnage_percent: f32 = carnage_query.single_mut().get_overall_percentage();
 
-    println!("carnage percent: {}", carnage_percent);
+
+    // iterate through each attribute
+    for i in 0..5 {
+        // map index to Room_Attributes enum
+        let room_attribute = match i {
+            0 => Room_Attributes::Room_Size,
+            1 => Room_Attributes::Inner_Walls,
+            2 => Room_Attributes::Enemy_Count,
+            3 => Room_Attributes::Enemy_Type,
+            4 => Room_Attributes::Item_Count,
+            _ => panic!("Invalid attribute index!"),
+        };
+
+        // get the last attribute value (1)
+        let last_attribute_value = last_attribute_array.get_attribute(i).unwrap_or(1);
+
+        // retrieve the corresponding matrix for the attribute
+        let base_matrix = Room_Attributes::get_matrix_for_attribute(&room_attribute);
+
+        // apply skew to the matrix
+        let skewed_matrix = Skew_Row(base_matrix, carnage_percent, last_attribute_value as usize);
+
+        // Log the skewed matrix for debugging
+        info!(
+            "Skewed matrix for NEW ROOM: {:?} with carnage_percent {}: {:?}",
+            room_attribute, carnage_percent, skewed_matrix
+        );
+
+        let rand_percent: f32 = rng.gen_range(0.0..1.0);
+
+        let mut next_state = if rand_percent < skewed_matrix[0] {
+            //stealth state
+            0
+        } else if rand_percent < skewed_matrix[1] {
+            //normal
+            1
+        } else {
+            //carnage
+            2
+        };
+
+        info!("next state :D: {}", next_state);
+
+        next_attribute_array.set_next_attribute(i, next_state);
+    }
+
+    // copy values from next attribute array into last attribute array
+    last_attribute_array.attributes = next_attribute_array.attributes;
+
+
+
+    let mut rng = rand::thread_rng();
+
+    // GET CARNAGE PERCENT FROM UI VALUE
+    let carnage_percent: f32 = carnage_query.single_mut().get_overall_percentage();
+    info!("carnage percent: {}", carnage_percent);
+
 
     // ADD REFERENCE TO MARKOV CHAIN FILE HERE THAT WE CAN USE
     //let room_size_original_matrix = Room_Attributes::Room_Size.get_preset_vector();
@@ -1379,6 +1491,7 @@ pub fn transition_map(
     pt: &mut Transform,
     door_type: DoorType, 
     mut carnage_query: Query<&mut CarnageBar>, 
+    last_attribute_array: &mut LastAttributeArray, 
 ) {
     let mut right_x_out = 0;
     let mut left_x_out = 0;
@@ -1390,6 +1503,8 @@ pub fn transition_map(
         commands.entity(entity).despawn();
     }
     
+    // get carnage percent from carnage query
+
     let z_in = room_manager.get_current_z_index();
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_in as i32) {
         right_x_out = right_x;
@@ -1400,13 +1515,11 @@ pub fn transition_map(
         println!("Error: Could not find bounds for the newly generated room. {}", z_in);
     }
 
-    
-
     let _max_x = room_manager.current_room_max().0;
     let _max_y = room_manager.current_room_max().1;
 
     // generate random room boundaries for upcoming room
-    let (room_width, room_height, max_x, max_y, _z_index) = generate_room_boundaries(room_manager, carnage_query);
+    let (room_width, room_height, max_x, max_y, _z_index) = generate_room_boundaries(room_manager, carnage_query, last_attribute_array);
 
     // Adjust the player's position based on the door they entered
     match door_type {
