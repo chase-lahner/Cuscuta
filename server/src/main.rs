@@ -1,6 +1,7 @@
 use bevy::{prelude::*, time::common_conditions::on_timer};
 use library::*;
 use room_gen::RoomChangeEvent;
+use ui::CarnageChangeEvent;
 use std::{env, time::Duration};
 
 /* Rate at which we will be sending/recieving packets */
@@ -13,6 +14,7 @@ fn main() {
         .add_plugins(MinimalPlugins)
         /* for room change packet sending */
         .add_event::<RoomChangeEvent>()
+        .add_event::<CarnageChangeEvent>()
         /* sets up server/start room */
         .add_systems(
             Startup,
@@ -29,6 +31,7 @@ fn main() {
 
                 server::check_door.after(server::listen),
                 server::room_change_infodump.after(server::check_door),
+                server::carnage_update.after(server::check_door),
                 server::send_despawn_command,
                 enemies::enemy_movement,
                 server::send_enemies.after(server::listen),

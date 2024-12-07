@@ -143,7 +143,9 @@ pub fn listen(
         ServerPacket::DespawnPacket(despawn_packet) => {
             info!("Matching Despawn Packet");
             despawn_enemy(&mut commands, &mut enemy_q, &despawn_packet.enemy_id);
-
+        }
+        ServerPacket::CarnagePacket(carnage) => {
+            update_carnage();
         }
     }
 }// stupid loop
@@ -663,3 +665,5 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
     }
 }// stupid loop
 }
+
+pub fn update_carnage(){}
