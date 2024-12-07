@@ -32,6 +32,8 @@ fn main() {
             client::listen,
             player::animate_player.after(player::move_player),
             enemies::handle_enemy_collision.after(player::move_player),
+            player::check_handle_player_death.after(player::move_player),
+            player::tick_timer.after(player::move_player),
             player::player_attack.after(player::animate_player),
             player::player_roll.after(player::animate_player),
             camera::move_camera.after(player::animate_player),
@@ -45,5 +47,10 @@ fn main() {
             client::send_player
             //client::client_send_packets)
         )
+        /* monkey stuff */
+        .add_systems(Update, (
+            player::spawn_monkey,
+            player::update_monkey,
+        ))  
         .run();
 }
