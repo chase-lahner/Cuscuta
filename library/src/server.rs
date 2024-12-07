@@ -434,8 +434,10 @@ pub fn send_despawn_command(
     for (v, t, i, h, c, r, s, a,)  in player.iter(){
         /* packet-ify it */
         info!("Sending {}", i.id);
+        let mut better_z = *t;
+        better_z.translation.z = 100.;
         let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
-            transform: *t,
+            transform: better_z,
             head: Header::new(i.id,server_seq.clone()),
             attack: a.attacking,
             velocity: v.velocity,
@@ -490,10 +492,7 @@ pub fn send_player_to_self(
         outgoing_state.serialize(&mut serializer).unwrap();
         let packet: &[u8] = serializer.view();
         for addr in addresses.list.iter(){
-            if *addr == i.addr {
-                udp.socket.send_to(&packet, addr).unwrap();
-
-            }
+            udp.socket.send_to(&packet, addr).unwrap();
         }
     }
 }   

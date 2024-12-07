@@ -360,74 +360,6 @@ fn recv_enemy(
 }
 
 
-
-// /* once we have our packeet, we must use it to update
-//  * the player specified, there's another in server.rs */
-// fn update_player_state(
-//     /* fake query, passed from above system */
-//     mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
-//     player_struct: PlayerPacket,
-//     mut commands: Commands,
-//     asset_server: &Res<AssetServer>,
-//     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-//     source_ip: SocketAddr
-// ) {
-//     // let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
-//     // let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
-//     let mut found = false;
-//     for (mut velo, mut transform, network_id) in players.iter_mut(){
-//         info!("REc: {}  Actual:: {}", player_struct.id, network_id.id);
-//         if network_id.id == player_struct.id{
-//             transform.translation.x = player_struct.transform_x;
-//             transform.translation.y = player_struct.transform_y;
-//             velo.velocity.x = player_struct.velocity_x;
-//             velo.velocity.y = player_struct.velocity_y;
-//             found = true;
-//         }
-//     }
-//     if !found{
-//         info!("new player!");
-//         client_spawn_other_player(&mut commands, asset_server, texture_atlases,player_struct, source_ip);
-//     }
-// }
-
-// fn update_player_state_new(
-//     mut players: Query<(&mut Velocity, &mut Transform, &mut Player, &mut Health, &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), With<Player>>,
-//     player_struct: NewPlayerPacket,
-//     mut commands: Commands,
-//     asset_server: &Res<AssetServer>,
-//     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-//     source_ip: SocketAddr
-// ){
-//     let mut found = false;
-//     for(mut velocity, mut transform,mut player,mut health, mut crouch, mut roll, mut sprint, mut attack, mut network_id) in players.iter_mut(){
-//         if network_id.id == player_struct.client_bundle.id.id{
-//            // *transform = player_struct.client_bundle.transform;
-//             transform.translation.x = player_struct.client_bundle.transform.translation.x;
-//             transform.translation.y = player_struct.client_bundle.transform.translation.y;
-//             velocity.velocity.x = player_struct.client_bundle.velo.velocity.x;
-//             velocity.velocity.y = player_struct.client_bundle.velo.velocity.y;
-//             health.current = player_struct.client_bundle.health.current;
-//             crouch.crouching = player_struct.client_bundle.crouching.crouching;
-//             roll.rolling = player_struct.client_bundle.rolling.rolling;
-//             sprint.sprinting = player_struct.client_bundle.sprinting.sprinting;
-//             attack.attacking = player_struct.client_bundle.attacking.attacking;
-//            // *velocity = player_struct.client_bundle.velo;
-//             // *health = player_struct.client_bundle.health;
-//             // *crouch = player_struct.client_bundle.crouching;
-//             // *roll = player_struct.client_bundle.rolling;
-//             // *sprint = player_struct.client_bundle.sprinting;
-//             // *attack = player_struct.client_bundle.attacking;
-//             found = true;
-//         }
-//     }
-//     if !found {
-//         info!("new player!");
-//         let v = player_struct.client_bundle.velo;
-//         client_spawn_other_player_new(&mut commands, asset_server, texture_atlases, player_struct, source_ip);
-//     }
-// }
-
 /** INDEX TO USE
     0 - floor
     1 - left wall
@@ -449,16 +381,17 @@ fn receive_map_packet (
 ) {
     /* setters for clientside room stats
      * Is there a one liner? probabaly. idk im lazy */
-     let (new_width, new_height) = map_packet.size;
-     room_manager.width = new_width;
-     room_manager.height = new_height;
+    let (new_width, new_height) = map_packet.size;
+    room_manager.width = new_width;
+    room_manager.height = new_height;
 
     let map_array = &map_packet.matrix;
-    let mut vertical = -(new_width / 2.0) + (TILE_SIZE as f32 / 2.0);
-    let mut horizontal = -(new_height / 2.0) + (TILE_SIZE as f32 / 2.0);
+    let mut horizontal = -(new_width / 2.0) + (TILE_SIZE as f32 / 2.0);
+    let mut vertical = -(new_height / 2.0) + (TILE_SIZE as f32 / 2.0);
     /* ye ol sliding room problem. Kinda funny, never
      * reset so we made a slinky */
     let og_horizontal = horizontal;
+    let og_vertical = vertical;
     let og_vertical = vertical;
     let z_index = map_packet.z;
 
@@ -474,6 +407,7 @@ fn receive_map_packet (
     for a in 0..map_array.len() {
         for b in 0..map_array[0].len() {
             let val = map_array[a][b];
+            info!("[{}][{}] = ({}, {})",a,b,horizontal,vertical);
             match val {
                 0 => commands.spawn((SpriteBundle {
                     texture: asset_server
