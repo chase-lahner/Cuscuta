@@ -12,6 +12,7 @@ use crate::{
     network::PlayerSendable,
     room_gen::*,
     ui::CarnageBar,
+    markov_chains::LastAttributeArray,
 };
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -761,6 +762,7 @@ pub fn move_player(
     mut carnage: Query<&mut CarnageBar>,
     inner_wall_query: Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
     mut collision_state: ResMut<CollisionState>, 
+    mut last_attribute_array: ResMut<LastAttributeArray>, 
 ) {
     let mut hit_door = false;
     let mut _player_transform = Vec3::ZERO;
@@ -875,6 +877,7 @@ pub fn move_player(
                 &mut player_query.single_mut().0,// this is broke cant be single
                 door_type,
                 carnage,
+                &mut last_attribute_array
             );
         }
     }
