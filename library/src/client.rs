@@ -163,7 +163,7 @@ pub fn listen(
         ),
         With<Player>,
     >,
-    mut enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,
+    mut enemy_q: Query<(Entity, &mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue, &mut Health),(With<Enemy>, Without<Player>)>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut client_id: ResMut<ClientId>,
@@ -216,8 +216,8 @@ pub fn listen(
         }
         ServerPacket::DespawnPacket(despawn_packet) => {
             info!("Matching Despawn Packet");
-           // despawn_enemy(&mut commands, &despawn_packet.enemy_id);
-            // sequence.assign(&despawn_packet.head.sequence);
+            despawn_enemy(&mut commands, &mut enemy_q, &despawn_packet.enemy_id);
+           // sequence.assign(&despawn_packet.head.sequence);
         }
     }
 }// stupid loop
@@ -386,13 +386,14 @@ fn receive_player_packet(
 fn recv_enemy(
     pack: &EnemyS2C,
     mut commands: &mut Commands,
-    mut enemy_q: &mut Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,//TODO make ecs
+    mut enemy_q: &mut Query<(Entity, &mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue, &mut Health),(With<Enemy>, Without<Player>)>,//TODO make ecs
     asset_server: &AssetServer,
     tex_atlas: &mut ResMut<Assets<TextureAtlasLayout>>
 ){
   //  info!("rec'd enemy");
     let mut found = false;
-    for (mut t, _m, i, mut q) in enemy_q.iter_mut(){
+    for (mut _entity, mut t, _m, i, mut q, mut health) in enemy_q.iter_mut(){
+       // info!("in enemy for");
         if pack.enemytype.get_id() == i.id{
            // info!("here!"); 
             //info!("enemy queue length: {}", q.q.len());
@@ -409,6 +410,7 @@ fn recv_enemy(
             });
             t.translation.x = pack.transform.translation.x;
             t.translation.y = pack.transform.translation.y;
+            health.current = pack.health.current;
             // enemy.movement = pack.movement;
           //  enemy.movement.push(pack.movement.clone());
             found = true;
@@ -460,8 +462,22 @@ fn recv_enemy(
             movement: pack.movement.clone(),
             id: pack.enemytype.clone(),
             past: EnemyPastStateQueue::new(),
+            health: Health::new(&the_enemy.health),
         });
     };
+}
+
+fn despawn_enemy(
+    mut commands: &mut Commands,
+    mut enemy_q: &mut Query<(Entity, &mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue, &mut Health),(With<Enemy>, Without<Player>)>,
+    id: &EnemyId
+){
+    for (entity, _, _, enemy_id, _, _) in enemy_q.iter_mut(){
+        if enemy_id.id == id.id{
+            commands.entity(entity).despawn();
+            info!("killed dat");
+        }
+    }
 }
 
 
