@@ -52,7 +52,7 @@ fn main() {
         /* monkey stuff */
         .add_systems(Update, (
             player::spawn_monkey,
-            player::update_monkey,
+            player::update_monkey.after(player::spawn_monkey),
         ))  
         .run();
 }

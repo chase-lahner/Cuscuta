@@ -43,6 +43,8 @@ pub fn client_setup(
 
     commands.insert_resource(PlayerDeathTimer::new());
 
+    commands.insert_resource(EnemyIdChecker::new());
+
     // spawn camera
     spawn_camera(&mut commands);
 
