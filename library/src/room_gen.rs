@@ -401,6 +401,80 @@ impl RoomManager {
     }
 }
 
+
+#[derive(Component, Clone, Debug, Resource)]
+pub struct RoomConfig {
+    states: Vec<StateConfig>,
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct StateConfig {
+    width_range: (usize, usize),
+    height_range: (usize, usize),
+    inner_wall_count: (usize, usize),
+    enemy_count: (usize, usize),
+    enemy_type: (usize, usize),
+    item_count: (usize, usize),
+}
+
+
+impl RoomConfig {
+    pub fn new() -> Self {
+        RoomConfig {
+            states: vec![
+                StateConfig {
+                    width_range: (40, 59),
+                    height_range: (40, 59),
+                    inner_wall_count: (1, 3),
+                    enemy_count: (1, 2),
+                    enemy_type: (1, 1),
+                    item_count: (1, 2),
+                },
+                StateConfig {
+                    width_range: (60, 69),
+                    height_range: (60, 69),
+                    inner_wall_count: (2, 4),
+                    enemy_count: (2, 3),
+                    enemy_type: (2, 2),
+                    item_count: (2, 3),
+                },
+                StateConfig {
+                    width_range: (70, 80),
+                    height_range: (70, 80),
+                    inner_wall_count: (3, 5),
+                    enemy_count: (3, 5),
+                    enemy_type: (3, 3),
+                    item_count: (3, 4),
+                },
+            ],
+        }
+    }
+
+    pub fn get_width_range(&self, state: u8) -> (usize, usize) {
+        self.states.get(state as usize).expect("Invalid state").width_range
+    }
+
+    pub fn get_height_range(&self, state: u8) -> (usize, usize) {
+        self.states.get(state as usize).expect("Invalid state").height_range
+    }
+
+    pub fn get_inner_wall_count(&self, state: u8) -> (usize, usize) {
+        self.states.get(state as usize).expect("Invalid state").inner_wall_count
+    }
+
+    pub fn get_enemy_count(&self, state: u8) -> (usize, usize) {
+        self.states.get(state as usize).expect("Invalid state").enemy_count
+    }
+
+    pub fn get_enemy_type(&self, state: u8) -> (usize, usize) {
+        self.states.get(state as usize).expect("Invalid state").enemy_type
+    }
+
+    pub fn get_item_count(&self, state: u8) -> (usize, usize) {
+        self.states.get(state as usize).expect("Invalid state").item_count
+    }
+}
+
 pub fn spawn_potions_in_room(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -955,6 +1029,7 @@ fn generate_room_boundaries(
     room_manager: &mut RoomManager,
     mut carnage_query: Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
+    room_config: &RoomConfig,
 ) -> (f32, f32, f32, f32, f32) {
     let mut rng = rand::thread_rng();
 
@@ -962,6 +1037,9 @@ fn generate_room_boundaries(
 
     // GET CARNAGE PERCENT FROM UI VALUE
     let carnage_percent: f32 = carnage_query.single_mut().get_overall_percentage();
+
+     // Determine the next state for each attribute
+     let mut next_state: u8 = 0;
 
 
     // iterate through each attribute
@@ -993,15 +1071,16 @@ fn generate_room_boundaries(
 
         let rand_percent: f32 = rng.gen_range(0.0..1.0);
 
-        let mut next_state = if rand_percent < skewed_matrix[0] {
+        // determine next state
+        if rand_percent < skewed_matrix[0] {
             //stealth state
-            0
+            next_state = 0;
         } else if rand_percent < skewed_matrix[1] {
             //normal
-            1
+            next_state = 1;
         } else {
             //carnage
-            2
+            next_state = 2;
         };
 
         info!("next state :D: {}", next_state);
@@ -1013,72 +1092,30 @@ fn generate_room_boundaries(
     last_attribute_array.attributes = next_attribute_array.attributes;
 
 
-
-    let mut rng = rand::thread_rng();
-
-    // GET CARNAGE PERCENT FROM UI VALUE
-    let carnage_percent: f32 = carnage_query.single_mut().get_overall_percentage();
-    info!("carnage percent: {}", carnage_percent);
-
-
-    // ADD REFERENCE TO MARKOV CHAIN FILE HERE THAT WE CAN USE
-    //let room_size_original_matrix = Room_Attributes::Room_Size.get_preset_vector();
-    //let skewed_matrix = Skew(room_size_original_matrix, carnage_percent);
-    //                                  |
-    //                                  |
-    //MARKOV impl 1 THE GENERATOR       V
-
-    let current_states = room_manager.get_state_vector();
-    let mut future_states = current_states.clone();
-
-    //LOOP THRU CURRENT STATES TO GET TO INDIVIDUAL MATRICES AND PROCEEDS TO SKEW ONLY THE REQUIRED ROW
-    //
-    for (index, state) in current_states.iter().enumerate() {
-        println!("State {}: {}", index + 1, state);
-            
-        //let current_row = Skew_Row(Room_Attributes::get_matrix_by_index(index),carnage_percent,current_states[index]); DEPRECATED?!?!?!?
-        
-        if let Some(matrix) = Room_Attributes::get_matrix_by_index(index) {
-            let current_row = Skew_Row(matrix, carnage_percent, current_states[index]);
-            let rand_percent: f32 = rng.gen_range(0.0..1.0);
-
-            //Deciding the fate of the state
-            future_states[index] = if rand_percent < current_row[0] {
-                //stealth state
-                0
-            } else if rand_percent < current_row[1] {
-                //normal
-                1
-            } else {
-                //carnage
-                2
-            };
-        } else {
-            println!("Invalid index: {}", index);
-        }
-    }
-    // randomly select size based on skewed values
-
     // ONLY FUTURE STATES FROM HERE ON OUT
+    let width_range = room_config.get_width_range(next_state);
+    let height_range = room_config.get_height_range(next_state);
 
-    // Generate random width and height between 40 and 80 tiles
-    let random_width = rng.gen_range(40..=80);
-    let random_height = rng.gen_range(40..=80);
+    // generate random size within the bounds
+    let random_width = rng.gen_range(width_range.0..=width_range.1);
+    let random_height = rng.gen_range(height_range.0..=height_range.1);
 
-    // Convert to pixel sizes
+    info!("width, height: {} {}", random_width, random_height);
+
+    // convert to pixel sizes
     let room_width = random_width as f32 * TILE_SIZE as f32;
     let room_height = random_height as f32 * TILE_SIZE as f32;
 
-    // Add the room to the room manager
+    // add the room to the room manager
     room_manager.add_room(random_width, random_height, room_width, room_height);
 
-    // Get z-index for this room
+    // get z-index for this room
     let z_index = room_manager.get_global_z_index() - 2.0;
 
     // add room to rooms array
     room_manager.room_array.add_room_to_storage(z_index, random_width, random_height);
 
-    // Calculate maximum x and y coordinates (room boundaries)
+    // calculate maximum x and y coordinates (room boundaries)
     let max_x = room_width / 2.0;
     let max_y = room_height / 2.0;
 
@@ -1492,6 +1529,7 @@ pub fn transition_map(
     door_type: DoorType, 
     mut carnage_query: Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
+    room_config: &RoomConfig,
 ) {
     let mut right_x_out = 0;
     let mut left_x_out = 0;
@@ -1519,7 +1557,7 @@ pub fn transition_map(
     let _max_y = room_manager.current_room_max().1;
 
     // generate random room boundaries for upcoming room
-    let (room_width, room_height, max_x, max_y, _z_index) = generate_room_boundaries(room_manager, carnage_query, last_attribute_array);
+    let (room_width, room_height, max_x, max_y, _z_index) = generate_room_boundaries(room_manager, carnage_query, last_attribute_array, &room_config);
 
     // Adjust the player's position based on the door they entered
     match door_type {
