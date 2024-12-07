@@ -1617,7 +1617,6 @@ pub fn transition_map(
                             room_val_unwrapped as f32,
                         );
 
-                        info!("max x: {}", max_x);
                         // spawn at left door
                         pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
                     } else {
