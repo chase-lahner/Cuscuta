@@ -4,6 +4,7 @@ use library::*;
 use std::{env, time::Duration};
 use markov_chains::*;
 use player::CollisionState;
+use room_gen::RoomConfig;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
@@ -12,6 +13,7 @@ fn main() {
         .insert_resource(room_gen::RoomManager::new())
         .insert_resource(LastAttributeArray::new()) 
         .insert_resource(CollisionState::new())
+        .insert_resource(RoomConfig::new())
         .insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND))
         .add_systems(PreStartup, init::ip_setup) // should run before we spawn / send data to server
         .add_plugins(DefaultPlugins.set(WindowPlugin {

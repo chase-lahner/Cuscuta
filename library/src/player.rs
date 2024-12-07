@@ -433,7 +433,7 @@ pub fn tick_timer(
 ) {
 
     for (entity, mut health, id, mut visibility) in players.iter_mut() {
-        info!("cur health: {}", health.current);
+        //info!("cur health: {}", health.current);
         if us.id != id.id {
             continue;
         }
@@ -917,6 +917,7 @@ pub fn move_player(
         ),
     >,
     mut collision_state: ResMut<CollisionState>,
+    room_config: Res<RoomConfig>,
 ) {
     
     let mut hit_door = false;
@@ -1033,7 +1034,8 @@ pub fn move_player(
                 &mut player_query.single_mut().0, // this is broke cant be single
                 door_type,
                 carnage,
-                &mut last_attribute_array
+                &mut last_attribute_array,
+                &room_config,
             );
         }
     }
