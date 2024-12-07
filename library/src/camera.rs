@@ -26,10 +26,8 @@ pub fn move_camera(
             let height = room_manager.height;
             //println!("2. WIDTH: {} HEIGHT: {}",width,height);
 
-            let max_x = width / 2.0;
-            let max_y = height / 2.0;
-
-
+            let max_x = width/2.0;
+            let max_y = height/2.0;
 
         ct.translation.x = transform.translation.x.clamp(-max_x + (WIN_W / 2.), max_x - (WIN_W / 2.));
         ct.translation.y = transform.translation.y.clamp(-max_y + (WIN_H / 2.), max_y - (WIN_H / 2.));

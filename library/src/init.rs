@@ -30,19 +30,12 @@ pub fn ip_setup(
 pub fn client_setup(
     mut commands: Commands, // to spawn in entities
     asset_server: Res<AssetServer>, // to access images
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
-    mut room_manager: ResMut<RoomManager>,
-    mut last_attribute_array: ResMut<LastAttributeArray>,
-    room_config: Res<RoomConfig>,
 ) {
-
-
-    // spawn the starting room & next room
-    spawn_start_room(&mut commands, &asset_server, &mut room_manager, 0.2, &mut last_attribute_array, &room_config, &mut texture_atlases);
 
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */
     commands.insert_resource(ClientId::new());
+    
     
     /* sequence number! gives us a lil ordering... we put 0
      * for now, which is the server's id but we will reassign
@@ -58,7 +51,7 @@ pub fn client_setup(
     /* spawn pot to play with */
     //client_spawn_pot(&mut commands, &asset_server, &mut texture_atlases);
 
-   // commands.insert_resource(ClientRoomManager::new());
+    commands.insert_resource(ClientRoomManager::new());
     
 }
 
@@ -73,8 +66,9 @@ pub fn server_setup(
     socket.set_nonblocking(true).unwrap();
     commands.insert_resource(UDP{socket:socket});
 
+    let room_config = RoomConfig::new();
     
-    commands.insert_resource(RoomConfig::new());
+    commands.insert_resource(room_config.clone());
     /* who we connected to again?*/
     commands.insert_resource(AddressList::new());
     /* lilk ordering action. 0 is server's Sequence index/id */
@@ -96,7 +90,7 @@ pub fn server_setup(
     let mut last_attribute_array = LastAttributeArray::new();
 
 
-    spawn_start_room(&mut commands, &mut room_manager, &mut last_attribute_array, 0.);
+    spawn_start_room(&mut commands, &mut room_manager, 0., &mut last_attribute_array, &room_config);
     commands.insert_resource(room_manager);
     commands.insert_resource(last_attribute_array);
 

@@ -2,10 +2,36 @@ use bevy::prelude::*;
 use rand::{Rng, distributions::{Distribution, WeightedIndex}};
 use crate::collision::*;
 use crate::cuscuta_resources::*;
+use crate::network::Sequence;
 use crate::player::*;
 use crate::enemies::*;
 use crate::markov_chains::*;
+use crate::server::send_player_to_self;
 use crate::ui::*;
+use crate::network::UDP;
+
+#[derive(Event)]
+pub struct RoomChangeEvent(pub bool);
+
+#[derive(Resource)]
+pub struct ClientRoomManager{
+    pub max_x: f32,
+    pub max_y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl ClientRoomManager{
+    pub fn new() -> Self{
+        Self {
+            width: 40. * TILE_SIZE as f32,
+            height: 40. * TILE_SIZE as f32,
+            max_x: 0.,
+            max_y: 0.,
+        }
+    }
+}
+
 
 #[derive(Component)]
 pub struct Potion;
@@ -101,6 +127,11 @@ pub struct Door {
     pub door_type: DoorType,
 }
 
+#[derive(Component)]
+pub struct ClientDoor {
+    pub door_type: DoorType,
+}
+
 // enum to represent different door types
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DoorType {
@@ -172,11 +203,9 @@ impl RoomManager {
     pub fn add_room(&mut self, width: usize, height: usize, room_width: f32, room_height: f32) {
         let new_grid = vec![vec![0; height]; width];
         self.grids.push(new_grid);
-        // integer
         self.room_sizes.push((room_width, room_height));
         
         // Calculate and store the max_x and max_y based on room size
-        // pixels
         let max_x = room_width / 2.0;
         let max_y = room_height / 2.0;
         self.max_sizes.push((max_x, max_y));
@@ -212,6 +241,8 @@ impl RoomManager {
         new_width: usize, 
         new_height: usize
     ) {
+        // Find the bounds of the current room
+        
         if let Some((left_x, right_x, top_y, _bottom_y)) = self.find_room_bounds(z_index) {
             let old_x = (left_x + right_x) / 2;
             let old_y = top_y;
@@ -238,8 +269,6 @@ impl RoomManager {
         new_width: usize, 
         new_height: usize
     ) {
-        info!("add_room_to_map: current z index in add room to map: {}", z_index);
-        info!("add_room_to_map: new z index to add room at: {}", new_z_index);
         // Find the bounds of the current room
         if let Some((left_x, right_x, _top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_x = (left_x + right_x) / 2;
@@ -267,8 +296,6 @@ impl RoomManager {
         new_width: usize, 
         new_height: usize
     ) {
-        info!("add_room_to_map: current z index in add room to map: {}", z_index);
-        info!("add_room_to_map: new z index to add room at: {}", new_z_index);
         // Find the bounds of the current room
         if let Some((left_x, _right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_y = (top_y + bottom_y) / 2;
@@ -295,8 +322,6 @@ impl RoomManager {
         new_width: usize, 
         new_height: usize
     ) {
-        info!("add_room_to_map: current z index in add room to map: {}", z_index);
-        info!("add_room_to_map: new z index to add room at: {}", new_z_index);
         // Find the bounds of the current room
         if let Some((_left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_y = (top_y + bottom_y) / 2;
@@ -483,15 +508,10 @@ impl RoomConfig {
 
 pub fn spawn_items_in_room(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     room_manager: &RoomManager,
     last_attribute_array: &LastAttributeArray,
     room_config: &RoomConfig,
-    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    // potion texture
-    let potion_texture_handle = asset_server.load("items/potion.png");
-
     // coin pot texture
     // let pot_handle: Handle<Image> = asset_server.load("tiles/1x2_pot.png");
     
@@ -532,13 +552,8 @@ pub fn spawn_items_in_room(
 
         // Spawn the potion
         commands.spawn((
-            SpriteBundle {
-                texture: potion_texture_handle.clone(),
-                transform: Transform::from_xyz(x_position, y_position, z_index + 0.1),
-                ..default()
-            },
+            Transform::from_xyz(x_position, y_position, z_index + 0.1),
             Potion,
-            Room,
         ));
     }
 
@@ -572,12 +587,10 @@ pub struct Room;
 
 pub fn spawn_start_room(
     commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     carnage_percent: f32,
     last_attribute_array: &mut LastAttributeArray,
     room_config: &RoomConfig,
-    texture_atlas: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) {
     // repeat for rest
     let mut rng = rand::thread_rng();
@@ -606,6 +619,12 @@ pub fn spawn_start_room(
 
         // apply skew to the matrix
         let skewed_matrix = Skew_Row(base_matrix, carnage_percent, last_attribute_value as usize);
+
+        // Log the skewed matrix for debugging
+        info!(
+            "Skewed matrix for START ROOM: {:?} with carnage_percent {}: {:?}",
+            room_attribute, carnage_percent, skewed_matrix
+        );
 
         let rand_percent: f32 = rng.gen_range(0.0..1.0);
 
@@ -640,8 +659,6 @@ pub fn spawn_start_room(
     let max_x = room_width / 2.0;
     let max_y = room_height / 2.0;
 
-    info!("Start room max x: {} max y: {}", max_x, max_y);
-
     // get current room z index
     let z_index = room_manager.current_room_z_index();
 
@@ -658,12 +675,6 @@ pub fn spawn_start_room(
     } else {
         println!("Error: Could not find bounds for the start room.");
     }
-    // texture inputs
-    let bg_texture_handle = asset_server.load("tiles/solid_floor/solid_floor.png");
-    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
-    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
-    let east_wall_handle = asset_server.load("tiles/walls/right_wall.png");
-    let west_wall_handle = asset_server.load("tiles/walls/left_wall.png");
 
     // offset for spawning tiles
     let mut x_offset = -max_x + ((TILE_SIZE / 2) as f32);
@@ -676,11 +687,7 @@ pub fn spawn_start_room(
 
          /* Spawn in north wall */
          commands.spawn((
-            SpriteBundle {
-                texture: north_wall_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), z_index),
-                ..default()
-            }, 
+            Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), z_index),
             Wall, 
             Room,
         ));
@@ -688,11 +695,7 @@ pub fn spawn_start_room(
 
         /* Spawn in south wall */
         commands.spawn((
-            SpriteBundle {
-                texture: south_wall_handle.clone(),
-                transform: Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), z_index),
-                ..default()
-            }, 
+            Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), z_index),
             Wall, 
             Room,
         ));
@@ -703,11 +706,7 @@ pub fn spawn_start_room(
 
             /* East wall */
             commands.spawn((
-                SpriteBundle {
-                    texture: east_wall_handle.clone(),
-                    transform: Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.1),
-                    ..default()
-                }, 
+                Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.1),
                 Wall, 
                 Room,
             ));
@@ -715,22 +714,18 @@ pub fn spawn_start_room(
 
             /* West wall */
             commands.spawn((
-                SpriteBundle {
-                    texture: west_wall_handle.clone(),
-                    transform: Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.2),
-                    ..default()
-                }, 
+                Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.2),
                 Wall, 
                 Room,
             ));
             set_collide(room_manager, (-max_x / TILE_SIZE as f32).floor() as usize, ycoord, 1);
 
             /* Floor tiles */
-            commands.spawn(SpriteBundle {
-                texture: bg_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, y_offset, z_index - 0.3),
-                ..default()
-            }).insert(Room).insert(Background);
+            commands.spawn((
+                Transform::from_xyz(x_offset, y_offset, z_index - 0.3),
+                Room,
+                Background,
+            ));
 
             y_offset += TILE_SIZE as f32;
         }
@@ -739,6 +734,7 @@ pub fn spawn_start_room(
         x_offset += TILE_SIZE as f32;
     }
 
+    let current_z_index = room_manager.current_room_z_index();
 
     // GET WALL COUNT FROM MARKOV CHAIN
 
@@ -751,25 +747,24 @@ pub fn spawn_start_room(
     let inner_wall_count = rng.gen_range(num_walls_spawn_range.0..=num_walls_spawn_range.1);
 
     for _ in 0..inner_wall_count {
-        create_inner_walls(commands, asset_server, room_manager, random_width, random_height, z_index as isize);
+        create_inner_walls(commands, room_manager, random_width, random_height, z_index as isize);
     }
 
+    // end new fn
     generate_doors(
         commands,
-        asset_server,
         room_manager,
         max_x,
         max_y,
         z_index,
     );
 
-    spawn_items_in_room(commands, asset_server, &room_manager, &last_attribute_array, &room_config, texture_atlas);
+    spawn_items_in_room(commands, &room_manager, &last_attribute_array, &room_config);
 
 }
 
 fn create_inner_walls(
     commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     room_width: usize,
     room_height: usize,
@@ -835,7 +830,7 @@ fn create_inner_walls(
     if let Some(walls) = room_manager.get_inner_walls(z_abs) {
         let walls_to_draw: Vec<_> = walls.clone(); // Clone to avoid mutable borrowing issues
         for wall in walls_to_draw.iter() {
-            draw_inner_wall(commands, asset_server, wall, z_abs, room_width, room_height, room_manager);
+            draw_inner_wall(commands, wall, z_abs, room_width, room_height, room_manager);
         }
     } else {
         println!("No inner walls found for Z index {}", z_abs);
@@ -846,14 +841,12 @@ fn create_inner_walls(
 
 fn draw_inner_wall(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     inner_wall: &InnerWall,
     z_index: usize,
     room_width: usize,
     room_height: usize,
     room_manager: &mut RoomManager,
 ){
-    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
 
     // get start pos out of inner wall
     let mut current_x = inner_wall.start_pos.x as f32 * TILE_SIZE as f32 - ((room_width * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
@@ -870,11 +863,7 @@ fn draw_inner_wall(
 
             while current_x <= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                     inner_wall.clone(),
@@ -894,11 +883,7 @@ fn draw_inner_wall(
 
             while current_x >= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                     inner_wall.clone(),
@@ -924,11 +909,7 @@ fn draw_inner_wall(
 
             while current_y <= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                     inner_wall.clone(),
@@ -949,11 +930,7 @@ fn draw_inner_wall(
 
             while current_y >= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                     inner_wall.clone(),
@@ -972,14 +949,11 @@ fn draw_inner_wall(
 
 fn regen_draw_inner_wall(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     inner_wall: &InnerWall,
     z_index: usize,
     room_width: usize,
     room_height: usize,
 ){
-    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
-
     // get start pos out of inner wall
     let mut current_x = inner_wall.start_pos.x as f32 * TILE_SIZE as f32 - ((room_width * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
     let mut current_y = inner_wall.start_pos.y as f32 * TILE_SIZE as f32 - ((room_height * 32) / 2) as f32 - (TILE_SIZE / 2) as f32;
@@ -995,11 +969,7 @@ fn regen_draw_inner_wall(
 
             while current_x <= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                 ));
@@ -1012,11 +982,7 @@ fn regen_draw_inner_wall(
 
             while current_x >= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                 ));
@@ -1036,11 +1002,7 @@ fn regen_draw_inner_wall(
 
             while current_y <= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                 ));
@@ -1053,11 +1015,7 @@ fn regen_draw_inner_wall(
 
             while current_y >= end_value {
                 commands.spawn((
-                    SpriteBundle {
-                        texture: north_wall_texture_handle.clone(),
-                        transform: Transform::from_xyz(current_x, current_y, z_index as f32),
-                        ..default()
-                    },
+                    Transform::from_xyz(current_x, current_y, z_index as f32),
                     Wall,
                     Room,
                 ));
@@ -1070,63 +1028,113 @@ fn regen_draw_inner_wall(
 
 /// Generates random room boundaries and adds the room to the room manager.
 /// Returns the room width, room height, max x, max y, and z-index.
-// fn generate_room_boundaries(
-//     room_manager: &mut RoomManager,
-//     mut carnage_query: &Query<&mut CarnageBar>, 
-//     last_attribute_array: &mut LastAttributeArray, 
-//     room_config: &RoomConfig,
-//     commands: &mut Commands, 
-//     asset_server: &Res<AssetServer>,
-//     texture_atlas: &mut ResMut<Assets<TextureAtlasLayout>>,
-// ) -> (f32, f32, f32, f32, f32) {
-//     let mut rng = rand::thread_rng();
+fn generate_room_boundaries(
+    room_manager: &mut RoomManager,
+    mut carnage_query: &mut Query<&mut CarnageBar>, 
+    last_attribute_array: &mut LastAttributeArray, 
+    room_config: &RoomConfig,
 
-//     // // ONLY FUTURE STATES FROM HERE ON OUT
-//     // let width_range = room_config.get_width_range(next_state);
-//     // let height_range = room_config.get_height_range(next_state);
+) -> (f32, f32, f32, f32, f32) {
+    let mut rng = rand::thread_rng();
 
-//     // // generate random size within the bounds
-//     // let random_width = rng.gen_range(width_range.0..=width_range.1);
-//     // let random_height = rng.gen_range(height_range.0..=height_range.1);
+    let mut next_attribute_array = NextAttributeArray::new();
 
-//     // convert to pixel sizes
-//     let room_width = random_width as f32 * TILE_SIZE as f32;
-//     let room_height = random_height as f32 * TILE_SIZE as f32;
+    // GET CARNAGE PERCENT FROM UI VALUE
+    let carnage_percent: f32 = carnage_query.single_mut().get_overall_percentage();
 
-//     // add the room to the room manager
-//     room_manager.add_room(random_width, random_height, room_width, room_height);
+     // Determine the next state for each attribute
+     let mut next_state: u8 = 0;
 
-//     // get z-index for this room
-//     let z_index = room_manager.get_global_z_index() - 2.0;
 
-//     // add room to rooms array
-//     room_manager.room_array.add_room_to_storage(z_index, random_width, random_height);
+    // iterate through each attribute
+    for i in 0..5 {
+        // map index to Room_Attributes enum
+        let room_attribute = match i {
+            0 => Room_Attributes::Room_Size,
+            1 => Room_Attributes::Inner_Walls,
+            2 => Room_Attributes::Enemy_Count,
+            3 => Room_Attributes::Enemy_Type,
+            4 => Room_Attributes::Item_Count,
+            _ => panic!("Invalid attribute index!"),
+        };
 
-//     // calculate maximum x and y coordinates (room boundaries)
-//     let max_x = room_width / 2.0;
-//     let max_y = room_height / 2.0;
+        // get the last attribute value (1)
+        let last_attribute_value = last_attribute_array.get_attribute(i).unwrap_or(1);
 
-//     // spawn items!
-//     spawn_items_in_room(commands, asset_server, &room_manager, &last_attribute_array, &room_config, texture_atlas);
+        // retrieve the corresponding matrix for the attribute
+        let base_matrix = Room_Attributes::get_matrix_for_attribute(&room_attribute);
 
-//     (room_width, room_height, max_x, max_y, z_index)
-// }
+        // apply skew to the matrix
+        let skewed_matrix = Skew_Row(base_matrix, carnage_percent, last_attribute_value as usize);
+
+        // Log the skewed matrix for debugging
+        info!(
+            "Skewed matrix for NEW ROOM: {:?} with carnage_percent {}: {:?}",
+            room_attribute, carnage_percent, skewed_matrix
+        );
+
+        let rand_percent: f32 = rng.gen_range(0.0..1.0);
+
+        // determine next state
+        if rand_percent < skewed_matrix[0] {
+            //stealth state
+            next_state = 0;
+        } else if rand_percent < skewed_matrix[1] {
+            //normal
+            next_state = 1;
+        } else {
+            //carnage
+            next_state = 2;
+        };
+
+        info!("next state :D: {}", next_state);
+
+        next_attribute_array.set_next_attribute(i, next_state);
+    }
+
+    // copy values from next attribute array into last attribute array
+    last_attribute_array.attributes = next_attribute_array.attributes;
+
+
+    // ONLY FUTURE STATES FROM HERE ON OUT
+    let width_range = room_config.get_width_range(next_state);
+    let height_range = room_config.get_height_range(next_state);
+
+    // generate random size within the bounds
+    let random_width = rng.gen_range(width_range.0..=width_range.1);
+    let random_height = rng.gen_range(height_range.0..=height_range.1);
+
+    info!("width, height: {} {}", random_width, random_height);
+
+    // convert to pixel sizes
+    let room_width = random_width as f32 * TILE_SIZE as f32;
+    let room_height = random_height as f32 * TILE_SIZE as f32;
+
+    // add the room to the room manager
+    room_manager.add_room(random_width, random_height, room_width, room_height);
+
+    // get z-index for this room
+    let z_index = room_manager.get_global_z_index() - 2.0;
+
+    // add room to rooms array
+    room_manager.room_array.add_room_to_storage(z_index, random_width, random_height);
+
+    // calculate maximum x and y coordinates (room boundaries)
+    let max_x = room_width / 2.0;
+    let max_y = room_height / 2.0;
+
+    (room_width, room_height, max_x, max_y, z_index)
+}
 
 /// Generates walls and floors for the room.
 fn generate_walls_and_floors(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     _room_width: f32,
     _room_height: f32,
     max_x: f32,
     max_y: f32,
     z_index: f32,
 ) {
-    let bg_texture_handle = asset_server.load("tiles/solid_floor/solid_floor.png");
-    let north_wall_texture_handle = asset_server.load("tiles/walls/north_wall.png");
-    let south_wall_handle = asset_server.load("tiles/walls/bottom_wall.png");
-    let east_wall_handle = asset_server.load("tiles/walls/right_wall.png");
-    let west_wall_handle = asset_server.load("tiles/walls/left_wall.png");
 
     // Offset for spawning tiles
     let mut x_offset = -max_x + ((TILE_SIZE / 2) as f32);
@@ -1136,20 +1144,12 @@ fn generate_walls_and_floors(
     while x_offset < max_x {
         /* Spawn north and south walls */
         commands.spawn((
-            SpriteBundle {
-                texture: north_wall_texture_handle.clone(),
-                transform: Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), z_index),
-                ..default()
-            },
+            Transform::from_xyz(x_offset, max_y - ((TILE_SIZE / 2) as f32), z_index),
             Wall,
             Room,
         ));
         commands.spawn((
-            SpriteBundle {
-                texture: south_wall_handle.clone(),
-                transform: Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), z_index),
-                ..default()
-            },
+            Transform::from_xyz(x_offset, -max_y + ((TILE_SIZE / 2) as f32), z_index),
             Wall,
             Room,
         ));
@@ -1157,31 +1157,19 @@ fn generate_walls_and_floors(
         /* Spawn east and west walls */
         while y_offset < max_y + (TILE_SIZE as f32) {
             commands.spawn((
-                SpriteBundle {
-                    texture: east_wall_handle.clone(),
-                    transform: Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(max_x - ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.1),
                 Wall,
                 Room,
             ));
             commands.spawn((
-                SpriteBundle {
-                    texture: west_wall_handle.clone(),
-                    transform: Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.2),
-                    ..default()
-                },
+                Transform::from_xyz(-max_x + ((TILE_SIZE / 2) as f32), y_offset, z_index - 0.2),
                 Wall,
                 Room,
             ));
 
             /* Spawn floor tiles */
             commands.spawn((
-                SpriteBundle {
-                    texture: bg_texture_handle.clone(),
-                    transform: Transform::from_xyz(x_offset, y_offset, z_index - 0.3),
-                    ..default()
-                },
+                Transform::from_xyz(x_offset, y_offset, z_index - 0.3),
                 Room,
                 Background,
             ));
@@ -1199,18 +1187,17 @@ fn generate_walls_and_floors(
 // take in the correct door type
 fn generate_doors(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     max_x: f32,
     max_y: f32,
     z_index: f32,
 ) {
-    let door_handle = asset_server.load("tiles/walls/black_void.png");
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
         let height = bottom_y - top_y;
         let width = right_x - left_x;
         let half_height = height / 2;
         let half_width = width / 2;
+
 
         // LEFT DOOR
         if room_manager.get_room_value(left_x - 1, top_y + half_height) != Some(1) {
@@ -1218,18 +1205,14 @@ fn generate_doors(
             let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
             let door_left_y = TILE_SIZE as f32 / 2.0;
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Left,
                 },
                 Room,
             ));
-
+            println!("Spawningn left door");
             let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
             let ycoord_left = (door_left_y + max_y) as usize;
             set_collide(room_manager, xcoord_left, ycoord_left, 2);
@@ -1239,18 +1222,14 @@ fn generate_doors(
              let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
              let door_left_y = TILE_SIZE as f32 / 2.0;
              commands.spawn((
-                 SpriteBundle {
-                     texture: door_handle.clone(),
-                     transform: Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
-                     ..default()
-                 },
-                 Door {
+                Transform::from_xyz(door_left_x, door_left_y, z_index + 0.1),
+                Door {
                      next: Some(room_manager.global_z_index),
                      door_type: DoorType::Left,
-                 },
-                 Room,
+                },
+                Room,
              ));
- 
+            println!("Spawningn left door");
              let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
              let ycoord_left = (door_left_y + max_y) as usize;
              set_collide(room_manager, xcoord_left, ycoord_left, 2);
@@ -1263,11 +1242,7 @@ fn generate_doors(
             let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
             let door_y = TILE_SIZE as f32 / 2.0;  
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_x, door_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_x, door_y, z_index + 0.1),
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Right,
@@ -1285,16 +1260,12 @@ fn generate_doors(
              let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
              let door_y = TILE_SIZE as f32 / 2.0;  
              commands.spawn((
-                 SpriteBundle {
-                     texture: door_handle.clone(),
-                     transform: Transform::from_xyz(door_x, door_y, z_index + 0.1),
-                     ..default()
-                 },
-                 Door {
+                Transform::from_xyz(door_x, door_y, z_index + 0.1),
+                Door {
                      next: Some(room_manager.global_z_index),
                      door_type: DoorType::Right,
-                 },
-                 Room,
+                },
+                Room,
              ));
              
              let xcoord_right = ((max_x * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) + TILE_SIZE as f32) as usize;
@@ -1308,11 +1279,8 @@ fn generate_doors(
              let door_top_x = TILE_SIZE as f32 / 2.0;
              let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
              commands.spawn((
-                 SpriteBundle {
-                     texture: door_handle.clone(),
-                     transform: Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
-                     ..default()
-                 },
+                Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
+                
                  Door {
                      next: Some(room_manager.global_z_index),
                      door_type: DoorType::Top,
@@ -1329,11 +1297,8 @@ fn generate_doors(
             let door_top_x = TILE_SIZE as f32 / 2.0;
             let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_top_x, door_top_y, z_index + 0.1),
+               
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Top,
@@ -1352,11 +1317,8 @@ fn generate_doors(
             let door_bottom_x = TILE_SIZE as f32 / 2.0;
             let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
+                
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Bottom,
@@ -1371,11 +1333,8 @@ fn generate_doors(
             let door_bottom_x = TILE_SIZE as f32 / 2.0;
             let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
             commands.spawn((
-                SpriteBundle {
-                    texture: door_handle.clone(),
-                    transform: Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
-                    ..default()
-                },
+                Transform::from_xyz(door_bottom_x, door_bottom_y, z_index + 0.1),
+                
                 Door {
                     next: Some(room_manager.global_z_index),
                     door_type: DoorType::Bottom,
@@ -1386,14 +1345,11 @@ fn generate_doors(
             let ycoord_bottom = ((-max_y * 2.0 - (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
             set_collide(room_manager, xcoord_bottom, ycoord_bottom, 2);
         }
-    } else {
-        info!("COULD NOT FIND ROOM AT Z INDEX: {}", z_index);
     }
 }
 
 pub fn generate_random_room_with_bounds(
     commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     carnage_query: &mut Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
@@ -1503,7 +1459,6 @@ pub fn generate_random_room_with_bounds(
     // Generate walls and floors
     generate_walls_and_floors(
         commands,
-        asset_server,
         random_width as f32,
         random_height as f32,
         max_x as f32,
@@ -1516,15 +1471,15 @@ pub fn generate_random_room_with_bounds(
     
     // add inner walls
     for _ in 0..wall_count {
-        create_inner_walls(commands, asset_server, room_manager, random_width, random_height, global_z_index as isize);
+        create_inner_walls(commands, room_manager, random_width, random_height, global_z_index as isize);
     }
 
    return (random_width, random_height, max_x as f32, max_y as f32, current_z_index);
 }
 
+
 pub fn regenerate_existing_room(
     commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
     width: usize,
     height: usize,
@@ -1542,7 +1497,6 @@ pub fn regenerate_existing_room(
     // Generate walls and floors
     generate_walls_and_floors(
         commands,
-        asset_server,
         room_width,
         room_height,
         max_x,
@@ -1552,7 +1506,6 @@ pub fn regenerate_existing_room(
 
     generate_doors(
         commands,
-        asset_server,
         room_manager,
         max_x,
         max_y,
@@ -1563,25 +1516,26 @@ pub fn regenerate_existing_room(
     if let Some(walls) = room_manager.get_inner_walls(z_abs as usize) {
         let walls_to_draw: Vec<_> = walls.clone(); // Clone walls to a temporary variable
         for wall in walls_to_draw.iter() {
-            draw_inner_wall(commands, asset_server, wall, z_abs, width, height, room_manager);
+            draw_inner_wall(commands, wall, z_abs, width, height, room_manager);
         }
     } else {
         println!("No inner walls found for Z index {}", z_abs);
     }
 }
 
+/* transitions room to room. I have made this an amalgamous mess. Lots going
+ * on here, we despawn old room, check which door we're on to generate a new room,
+ * and send out player packets to let the youngins know where they should be */
 pub fn transition_map(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
     room_manager: &mut RoomManager,
-    mut room_query: Query<Entity, With<Room>>, 
-    _door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,  
+    room_query: &mut Query<Entity, With<Room>>, 
+    _door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,  
     pt: &mut Transform,
     door_type: DoorType, 
     mut carnage_query: &mut Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
-    texture_atlas: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let mut right_x_out = 0;
     let mut left_x_out = 0;
@@ -1620,7 +1574,6 @@ pub fn transition_map(
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
                     commands,
-                    &asset_server,
                     room_manager,
                     &mut carnage_query, 
                     last_attribute_array, 
@@ -1638,7 +1591,6 @@ pub fn transition_map(
                 // generate doors
                 generate_doors(
                     commands,
-                    asset_server,
                     room_manager,
                     max_x as f32,
                     max_y as f32,
@@ -1659,7 +1611,6 @@ pub fn transition_map(
 
                         regenerate_existing_room(
                             commands,
-                            &asset_server,
                             room_manager,
                             width as usize,
                             height as usize,
@@ -1692,7 +1643,6 @@ pub fn transition_map(
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
                     commands,
-                    &asset_server,
                     room_manager,
                     &mut carnage_query, 
                     last_attribute_array, 
@@ -1710,7 +1660,6 @@ pub fn transition_map(
                 // generate doors
                 generate_doors(
                     commands,
-                    asset_server,
                     room_manager,
                     max_x as f32,
                     max_y as f32,
@@ -1733,7 +1682,6 @@ pub fn transition_map(
 
                         regenerate_existing_room(
                             commands,
-                            &asset_server,
                             room_manager,
                             width as usize,
                             height as usize,
@@ -1767,7 +1715,6 @@ pub fn transition_map(
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
                     commands,
-                    &asset_server,
                     room_manager,
                     &mut carnage_query, 
                     last_attribute_array, 
@@ -1785,7 +1732,6 @@ pub fn transition_map(
                 // generate doors
                 generate_doors(
                     commands,
-                    asset_server,
                     room_manager,
                     max_x as f32,
                     max_y as f32,
@@ -1807,7 +1753,6 @@ pub fn transition_map(
     
                         regenerate_existing_room(
                             commands,
-                            &asset_server,
                             room_manager,
                             width as usize,
                             height as usize,
@@ -1842,7 +1787,6 @@ pub fn transition_map(
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
                     commands,
-                    &asset_server,
                     room_manager,
                     &mut carnage_query, 
                     last_attribute_array, 
@@ -1860,7 +1804,6 @@ pub fn transition_map(
                 // generate doors
                 generate_doors(
                     commands,
-                    asset_server,
                     room_manager,
                     max_x as f32,
                     max_y as f32,
@@ -1880,7 +1823,6 @@ pub fn transition_map(
 
                         regenerate_existing_room(
                             commands,
-                            &asset_server,
                             room_manager,
                             width as usize,
                             height as usize,
@@ -1941,6 +1883,7 @@ pub fn client_spawn_pot(
     );
     let _pot_layout_len = pot_layout.textures.len();
     let pot_layout_handle = texture_atlases.add(pot_layout);
+    info!("spawning pot");
     commands.spawn((
         SpriteBundle{
             texture: pot_handle,
@@ -1956,3 +1899,4 @@ pub fn client_spawn_pot(
         }
     ));
 }
+
