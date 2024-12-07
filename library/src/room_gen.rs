@@ -11,7 +11,7 @@ use crate::ui::*;
 use crate::network::UDP;
 
 #[derive(Event)]
-pub struct RoomChangeEvent(bool);
+pub struct RoomChangeEvent(pub bool);
 
 #[derive(Resource)]
 pub struct ClientRoomManager{
