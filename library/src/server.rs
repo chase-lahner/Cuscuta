@@ -480,8 +480,12 @@ pub fn check_door(
     let mut all_hit = true;
     let mut have_player = false;
     let mut final_door = None;
+
+    let mut player_transform: Option<Transform> = None;
+    
     /* for all players */
     for transform in player.iter(){
+        player_transform = Some(*transform); 
         let (door_hit, door_type) = check_door_collision(&door_query, transform);
         /* ah boolean. ensures if we get false, it'll
          * stay false. do need to make sure we have a player lol.. */
@@ -508,19 +512,24 @@ pub fn check_door(
     // If a door was hit, handle the transition
     if all_hit && have_player{
         if let Some(final_door) = final_door {
-            transition_map(
-                &mut commands,
-                &mut room_manager,
-                &mut room_query,
-                &mut player,
-                final_door,
-                &mut carnage,
-                &mut last_attribute_array,
-                &room_config,
-            );
-            room_change.send(RoomChangeEvent(all_hit));
-            carnage.single_mut().up_stealth(5.);
-            carnage_event.send(CarnageChangeEvent(true));
+            if let Some(mut transform) = player_transform {
+                transition_map(
+                    &mut commands,
+                    &mut room_manager,
+                    &mut room_query,
+                    &door_query,
+                    &mut transform,
+                    final_door,
+                    &mut carnage,
+                    &mut last_attribute_array,
+                    &room_config,
+                );
+                  room_change.send(RoomChangeEvent(all_hit));
+                  carnage.single_mut().up_stealth(5.);
+                  carnage_event.send(CarnageChangeEvent(true));
+            } else {
+                eprintln!("Error: Player transform was not set!");
+            }
         }
     }
 }   
