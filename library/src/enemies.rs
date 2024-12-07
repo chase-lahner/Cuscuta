@@ -515,10 +515,10 @@ pub fn handle_enemy_collision(
                // info!("we collided in dis");
                 health.current -= 5.;
 
-                // let direction_to_player = player_transform.translation - enemy_transform.translation;
-                // let normalized_direction = direction_to_player.normalize();
-                // player_transform.translation.x += normalized_direction.x * 64.;
-                // player_transform.translation.y += normalized_direction.y * 64.;
+                let direction_to_player = player_transform.translation - enemy_transform.translation;
+                let normalized_direction = direction_to_player.normalize();
+                player_transform.translation.x += normalized_direction.x * 64.;
+                player_transform.translation.y += normalized_direction.y * 64.;
             }
         }
     }
