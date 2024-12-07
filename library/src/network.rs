@@ -195,7 +195,6 @@ pub struct IdPacket{
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct KillEnemyPacket{
     pub enemy_id: EnemyId,
-    pub head: Header
 }
 
 #[derive(Component, Serialize,Deserialize, PartialEq, Debug, Clone)]

@@ -642,9 +642,6 @@ pub fn player_interact(
             // player collider
             let player_collider =
                 collision::Aabb::new(player_transform.translation, Vec2::splat(TILE_SIZE as f32));
-            // Coin pot collider
-            let pot_collider = Aabb::new(pot_transform.translation, Vec2::splat(TILE_SIZE as f32));
-
             // loop through potions in room
             for (potion_entity, potion_transform) in potion_query.iter() {
                 let potion_collider =
@@ -921,12 +918,7 @@ pub fn move_player(
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
     mut room_manager: ResMut<ClientRoomManager>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    room_query: Query<Entity, With<Room>>,
     client_id: Res<ClientId>,
-    mut carnage: Query<&mut CarnageBar>,
-    mut last_attribute_array: ResMut<LastAttributeArray>,
     inner_wall_query: Query<
         (&Transform),
         (
@@ -937,7 +929,6 @@ pub fn move_player(
         ),
     >,
     mut collision_state: ResMut<CollisionState>,
-    room_config: Res<RoomConfig>,
 ) {
     
     let mut hit_door = false;
@@ -1027,7 +1018,7 @@ pub fn move_player(
             pt.translation = collision_state.last_position;
         }
 
-        let baban = handle_player_collisions(
+        handle_player_collisions(
             &mut pt,
             change,
             &mut enemies,
@@ -1036,12 +1027,9 @@ pub fn move_player(
             &inner_wall_query,
             &mut collision_state,
         );
-        hit_door = baban.0;
-        door_type = baban.1;
-    }
-        }
     }
 }
+
 
 pub fn handle_player_collisions(
     pt: &mut Transform,

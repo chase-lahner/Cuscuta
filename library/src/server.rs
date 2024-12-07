@@ -4,7 +4,8 @@ use bevy:: prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-use crate::room_gen::RoomChangeEvent;
+use crate::markov_chains::LastAttributeArray;
+use crate::room_gen::{RoomChangeEvent, RoomConfig};
 use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{transition_map, Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
 
 
@@ -614,6 +615,8 @@ pub fn check_door(
     mut room_manager: ResMut<RoomManager>,
     mut room_query: Query<Entity, With<Room>>,
     mut room_change: EventWriter<RoomChangeEvent>,
+    mut last_attribute_array: ResMut<LastAttributeArray>,
+    room_config: Res<RoomConfig>,
 ){
     /* are allthe players standing on a door? */
     let mut all_hit = true;
@@ -656,6 +659,8 @@ pub fn check_door(
                 &mut player,
                 final_door,
                 &mut carnage,
+                &mut last_attribute_array,
+                &room_config,
             );
             room_change.send(RoomChangeEvent(all_hit));
         }

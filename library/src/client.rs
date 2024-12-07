@@ -583,7 +583,7 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
  pub fn init_listen(
     udp: Res<UDP>,
     mut commands: Commands,
-    mut players_q: Query<
+    mut players: Query<
         (
             &mut Velocity,
             &mut Transform,
@@ -594,10 +594,11 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
             &mut Sprint,
             &mut Attack,
             &mut NetworkId,
+            &mut Visibility
         ),
         With<Player>,
     >,
-    mut enemy_q: Query<(&mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue),(With<Enemy>, Without<Player>)>,
+    mut enemy_q: Query<(Entity, &mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue, &mut Health),(With<Enemy>, Without<Player>)>,//TODO make ecs
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut client_id: ResMut<ClientId>,
@@ -635,7 +636,7 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
         ServerPacket::PlayerPacket(player_packet) => {
             /*  gahhhh sequence borrow checker is giving me hell */
             /* if we encounter porblems, it's herer fs */ 
-            receive_player_packet( &mut commands, &mut players_q, &asset_server, &player_packet, &mut texture_atlases, src);
+            receive_player_packet( &mut commands, &mut players, &asset_server, &player_packet, &mut texture_atlases, src);
             sequence.assign(&player_packet.head.sequence);
         }
         ServerPacket::MapPacket(map_packet) => {
@@ -652,7 +653,6 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
         ServerPacket::DespawnPacket(despawn_packet) => {
             //info!("Matching Despawn Packet");
             // despawn_enemy(&mut commands, &despawn_packet.enemy_id);
-            sequence.assign(&despawn_packet.head.sequence);
         }
         _ => info!("Got some weirdness")
     }

@@ -989,7 +989,7 @@ fn regen_draw_inner_wall(
 /// Returns the room width, room height, max x, max y, and z-index.
 fn generate_room_boundaries(
     room_manager: &mut RoomManager,
-    mut carnage_query: Query<&mut CarnageBar>, 
+    mut carnage_query: &mut Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
 
@@ -1429,10 +1429,9 @@ pub fn transition_map(
     mut room_query: &mut Query<Entity, With<Room>>, 
     player : &mut Query<(&mut Transform), With<Player>>,
     door_type: DoorType, 
-    mut carnage_query: Query<&mut CarnageBar>, 
+    mut carnage_query: &mut Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
-
 ) {
     let mut right_x_out = 0;
     let mut left_x_out = 0;

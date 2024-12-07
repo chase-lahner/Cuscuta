@@ -66,6 +66,7 @@ pub fn server_setup(
     commands.insert_resource(UDP{socket:socket});
 
     
+    commands.insert_resource(RoomConfig::new());
     /* who we connected to again?*/
     commands.insert_resource(AddressList::new());
     /* lilk ordering action. 0 is server's Sequence index/id */
@@ -87,7 +88,7 @@ pub fn server_setup(
     let mut last_attribute_array = LastAttributeArray::new();
 
 
-    spawn_start_room(&mut commands, &mut room_manager, &mut last_attribute_array);
+    spawn_start_room(&mut commands, &mut room_manager, &mut last_attribute_array, 0.);
     commands.insert_resource(room_manager);
     commands.insert_resource(last_attribute_array);
 
