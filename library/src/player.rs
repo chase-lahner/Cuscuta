@@ -906,6 +906,7 @@ pub fn move_player(
     room_query: Query<Entity, With<Room>>,
     client_id: Res<ClientId>,
     mut carnage: Query<&mut CarnageBar>,
+    mut last_attribute_array: ResMut<LastAttributeArray>,
     inner_wall_query: Query<
         (&Transform),
         (
