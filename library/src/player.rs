@@ -934,7 +934,7 @@ pub fn move_player(
     >,
     mut collision_state: ResMut<CollisionState>,
     room_config: Res<RoomConfig>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    mut texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) {
     
     let mut hit_door = false;

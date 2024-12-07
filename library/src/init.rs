@@ -1,9 +1,15 @@
 use std::net::UdpSocket;
 
 use bevy::prelude::*;
+use serde::Deserialize;
 
 
-use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, EnemiesToKill, PlayerCount, PlayerDeathTimer, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, markov_chains::*, network::*, room_gen::*, ui::client_spawn_ui
+use crate::client::*;
+use crate::cuscuta_resources::*;
+use crate::player::{Attack, Crouch, NetworkId, Player, Roll, Sprint};
+use crate::ui::CarnageBar;
+use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, EnemiesToKill, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, markov_chains::*, network::*, room_gen::{self, *}, ui::client_spawn_ui
+
 };
 
 pub fn ip_setup(
@@ -50,17 +56,15 @@ pub fn client_setup(
 
     client_spawn_ui(&mut commands, &asset_server);
     /* spawn pot to play with */
-    client_spawn_pot(&mut commands, &asset_server, &mut texture_atlases);
+    //client_spawn_pot(&mut commands, &asset_server, &mut texture_atlases);
 
-    commands.insert_resource(ClientPacketQueue::new());
-    // spawn player, id 0 because it will be set later on
-   //  client_spawn_other_player_new(&mut commands, &asset_server, &mut texture_atlases, 0);
-   // WHAT DO WE WANT TO DO WITH THIS?
+   // commands.insert_resource(ClientRoomManager::new());
+    
 }
 
 
 pub fn server_setup(
-    mut commands: Commands
+    mut commands: Commands,
 ){
     info!("entered setup");
     /* send from where ?*/
@@ -70,6 +74,7 @@ pub fn server_setup(
     commands.insert_resource(UDP{socket:socket});
 
     
+    commands.insert_resource(RoomConfig::new());
     /* who we connected to again?*/
     commands.insert_resource(AddressList::new());
     /* lilk ordering action. 0 is server's Sequence index/id */
@@ -84,5 +89,18 @@ pub fn server_setup(
     commands.insert_resource(EnemiesToKill::new());
 
     commands.insert_resource(EnemyId::new(0, EnemyKind::skeleton()));
+
+    commands.spawn((CarnageBar::new()));
+    
+    let mut room_manager = RoomManager::new();
+    let mut last_attribute_array = LastAttributeArray::new();
+
+
+    spawn_start_room(&mut commands, &mut room_manager, &mut last_attribute_array, 0.);
+    commands.insert_resource(room_manager);
+    commands.insert_resource(last_attribute_array);
+
+    
+
     info!("done setup");
 }
