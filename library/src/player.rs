@@ -934,6 +934,7 @@ pub fn move_player(
     >,
     mut collision_state: ResMut<CollisionState>,
     room_config: Res<RoomConfig>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     
     let mut hit_door = false;
@@ -1049,9 +1050,10 @@ pub fn move_player(
                 door_query,
                 &mut player_query.single_mut().0, // this is broke cant be single
                 door_type,
-                carnage,
+                &mut carnage,
                 &mut last_attribute_array,
                 &room_config,
+                &mut texture_atlases,
             );
         }
     }

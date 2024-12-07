@@ -27,11 +27,12 @@ pub fn client_setup(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>, // used in animation
     mut room_manager: ResMut<RoomManager>,
     mut last_attribute_array: ResMut<LastAttributeArray>,
+    room_config: Res<RoomConfig>,
 ) {
 
 
     // spawn the starting room & next room
-    spawn_start_room(&mut commands, &asset_server, &mut room_manager, 0.2, &mut last_attribute_array);
+    spawn_start_room(&mut commands, &asset_server, &mut room_manager, 0.2, &mut last_attribute_array, &room_config, &mut texture_atlases);
 
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */
