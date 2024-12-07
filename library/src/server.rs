@@ -652,17 +652,22 @@ pub fn check_door(
         let mut carnage_bar = carnage.single_mut();
         carnage_bar.stealth += 10.;
         if let Some(final_door) = final_door {
+           if let Ok(mut player_transform) = player.get_single_mut() {
             transition_map(
                 &mut commands,
                 &mut room_manager,
                 &mut room_query,
-                &mut player,
+                &door_query,
+                &mut player_transform,
                 final_door,
                 &mut carnage,
                 &mut last_attribute_array,
                 &room_config,
             );
             room_change.send(RoomChangeEvent(all_hit));
+        } else {
+            println!("Error: Could not get a single player transform.");
+        }
         }
     }
 }   
