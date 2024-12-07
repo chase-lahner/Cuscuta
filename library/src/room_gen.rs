@@ -48,11 +48,27 @@ pub struct InnerWallStartPos {
     pub x: usize,
     pub y: usize,
 }
+impl InnerWallStartPos{
+    pub fn new() -> Self{
+        Self{
+            x: 0,
+            y: 0,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Component)]
 pub struct InnerWall {
     pub start_pos: InnerWallStartPos,
     pub length_direction_vector: (i32, i32),
+}
+impl InnerWall{
+    pub fn new() -> Self{
+        Self{
+            start_pos: InnerWallStartPos::new(),
+            length_direction_vector: (0,0)
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -772,8 +788,8 @@ fn create_inner_walls(
 ){
     let z_abs = z_index.abs() as usize;
     let mut rng = rand::thread_rng();
-    let start_pos_x = rng.gen_range(1..=room_width - 1);
-    let start_pos_y = rng.gen_range(1..=room_height - 1);
+    let start_pos_x = rng.gen_range(2..=room_width - 2 );
+    let start_pos_y = rng.gen_range(2..=room_height - 2);
 
     // horizontal or vertical wall
     let horizon_or_vert = rng.gen_range(0..=1);
