@@ -389,7 +389,7 @@ pub fn player_attack_enemy(
                     Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
                 if player_aabb.intersects(&enemy_aabb) {
                     enemy_health.current -= 1.;
-                   // info!("enemy health: {}", enemy_health.current);
+                    info!("enemy health: {}", enemy_health.current);
                     let packet = ClientPacket::DecreaseEnemyHealthPacket(DecreaseEnemyHealthPacket  {
                         enemy_id: id.clone(),
                         decrease_by: 1.,

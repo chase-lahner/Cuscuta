@@ -588,7 +588,7 @@ pub fn server_spawn_enemies(
                 B_SPRITE_W,
                 B_MAX_SPEED,
                 B_SPOT_DIST,
-                Health{max: 2., current: 2.},
+                Health{max: 5000., current: 5000.},
                 B_SIZE
             ),
             motion: EnemyMovement::new(
@@ -599,7 +599,7 @@ pub fn server_spawn_enemies(
             timer: EnemyTimer {
                 time: Timer::from_seconds(3.0, TimerMode::Repeating),
             },
-            health: Health {max: 2., current: 2.},
+            health: Health {max: 5000., current: 5000.},
         },
     ));
 
