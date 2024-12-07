@@ -11,7 +11,7 @@ const SK_SPRITE_H: u32 = 1;
 const SK_SPRITE_W: u32 = 1;
 const SK_MAX_SPEED: f32 = 160.;
 const SK_SPOT_DIST: f32 = 192.;
-const SK_HEALTH: u32 = 2;
+const SK_HEALTH: Health = Health { max: 2., current: 2. };
 const SK_SIZE: u32 = 32;
 
 /* Set for berry rat */
@@ -21,7 +21,7 @@ const BR_SPRITE_H: u32 = 1;
 const BR_SPRITE_W: u32 = 2;
 const BR_MAX_SPEED: f32 = 160.;
 const BR_SPOT_DIST: f32 = 256.;
-const BR_HEALTH: u32 = 2;
+const BR_HEALTH: Health = Health { max: 1., current: 1. };
 const BR_SIZE: u32 = 32;
 
 /* Set for ninja */
@@ -31,7 +31,7 @@ const N_SPRITE_H: u32 = 1;
 const N_SPRITE_W: u32 = 1;
 const N_MAX_SPEED: f32 = 160.;
 const N_SPOT_DIST: f32 = 320.;
-const N_HEALTH: u32 = 1;
+const N_HEALTH: Health = Health { max: 1., current: 1. };
 const N_SIZE: u32 = 32;
 
 /* Set for splat monkey */
@@ -41,7 +41,7 @@ const SP_SPRITE_H: u32 = 1;
 const SP_SPRITE_W: u32 = 2;
 const SP_MAX_SPEED: f32 = 100.;
 const SP_SPOT_DIST: f32 = 120.;
-const SP_HEALTH: u32 = 3;
+const SP_HEALTH: Health = Health {max: 3., current: 3.};
 const SP_SIZE: u32 = 32;
 
 /* Set for boss */
@@ -51,7 +51,7 @@ const B_SPRITE_H: u32 = 1;
 const B_SPRITE_W: u32 = 1;
 const B_MAX_SPEED: f32 = 130.;
 const B_SPOT_DIST: f32 = 1000.;
-const B_HEALTH: u32 = 10;
+const B_HEALTH: Health = Health { max: 10., current: 10.};
 const B_SIZE: u32 = 64;
 
 /* Cute lil enum that allows us ezpz enemy match */
@@ -143,7 +143,7 @@ pub struct Enemy {
     /* how far they can see*/
     pub spot_distance: f32,
     /* health */
-    pub health: u32,
+    pub health: Health,
     /* size */
     pub size: u32,
 }
@@ -158,7 +158,7 @@ impl Enemy {
         column: u32,
         max_speed: f32,
         spot_distance: f32,
-        health: u32,
+        health: Health,
         size: u32,
     ) -> Self {
         Self {
@@ -204,6 +204,7 @@ pub struct ServerEnemyBundle {
     motion: EnemyMovement,
     pub timer: EnemyTimer,
     transform: Transform,
+    health: Health
 
 }
 #[derive(Component, Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -221,7 +222,8 @@ pub struct ClientEnemy {
     pub movement: EnemyMovement,
     pub enemy: Enemy,
     pub id: EnemyId,
-    pub past: EnemyPastStateQueue
+    pub past: EnemyPastStateQueue,
+    pub health: Health
 }
 
 /* used by server to keep track of how many we got AND keep
@@ -570,11 +572,36 @@ pub fn server_spawn_enemies(
                 timer: EnemyTimer {
                     time: Timer::from_seconds(3.0, TimerMode::Repeating),
                 },
+                health: Health::new(&SK_HEALTH),
             },
         ));
         println!("spawned enemy ");
     }
-   
+    commands.spawn((
+        ServerEnemyBundle {
+            transform: Transform::from_xyz(320., 320., 900.),
+            id: EnemyId::new(enemy_id.get_plus(), EnemyKind::boss()),
+            enemy: Enemy::new(
+                String::from(B_NAME),
+                String::from(B_PATH),
+                B_SPRITE_H,
+                B_SPRITE_W,
+                B_MAX_SPEED,
+                B_SPOT_DIST,
+                Health{max: 2., current: 2.},
+                B_SIZE
+            ),
+            motion: EnemyMovement::new(
+                Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                1,
+                Vec3::new(99999., 0., 0.),
+            ),
+            timer: EnemyTimer {
+                time: Timer::from_seconds(3.0, TimerMode::Repeating),
+            },
+            health: Health {max: 2., current: 2.},
+        },
+    ));
 
 
 }
