@@ -4,8 +4,8 @@ use bevy:: prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-
-use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Velocity, Wall}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{Door, DoorType, Potion, Room}};
+use crate::room_gen::RoomChangeEvent;
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{transition_map, Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
 
 
 /* Upon request, sends an id to client, spawns a player, and
@@ -13,16 +13,16 @@ use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, He
 pub fn send_id(
     source_addr : SocketAddr,
     n_p: &mut PlayerCount,
-    mut commands: &mut Commands,
-    mut addresses: &mut AddressList,
-    mut server_seq: &mut Sequence,
+    commands: &mut Commands,
+    addresses: &mut AddressList,
+    server_seq: &mut Sequence,
     udp: & UDP
 ) {
     /* assign id, update player count */
     n_p.count += 1;
     let player_id: u8 = n_p.count;
     addresses.list.push(source_addr);
-    info!("pushing addresss");
+    println!("pushing addresss");
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
     server_seq.nums.push(0);
@@ -81,8 +81,15 @@ pub fn listen(
     mut commands: Commands,
     // mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
     mut players_q: Query<(&mut Velocity, &mut Transform, &mut Health,
-         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), (With<Player>, Without<Enemy>)>,//eek a lot
+         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), 
+         (With<Player>, Without<Enemy>, Without<Potion>, Without<Door>, Without<Wall>, Without<Background>, Without<DoorType>, Without<Pot>)>,//eek a lot
     mut n_p: ResMut<PlayerCount>,
+    mut door_query: Query<(&mut Transform, &Door), (Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
+    mut wall_query: Query<&mut Transform, (With<Wall>, Without<Door>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>, 
+    mut background_query: Query<&mut Transform, (With<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
+    mut potion_query: Query<&mut Transform, (With<Potion>, Without<Pot>, Without<Enemy>)>,
+    mut pot_query: Query<&mut Transform, (With<Pot>, Without<Enemy>)>,
+    mut roomman: ResMut<RoomManager>,
     mut addresses: ResMut<AddressList>,
     mut server_seq: ResMut<Sequence>,
 
@@ -112,20 +119,27 @@ pub fn listen(
         match player_struct {
             ClientPacket::IdPacket(_id_packet) => {
                 info!("sending id to client");
-                send_id(src,  n_p.as_mut(), &mut commands, &mut addresses, &mut server_seq,&udp)},
+                send_id(src,  &mut n_p, &mut commands, &mut addresses, &mut server_seq, &udp);
+                println!("{:?}", addresses.list);
+                send_map_packet(&mut door_query, &mut wall_query,
+                    &mut background_query, &mut potion_query,
+                    &mut pot_query, &mut server_seq,
+                    &mut roomman, &udp, & addresses);
+            },
             ClientPacket::PlayerPacket(player_packet) => {
                 // TODO: Fix this
                 update_player_state(src, &mut players_q, player_packet, &mut commands);
-            }
+            }  
             ClientPacket::KillEnemyPacket(kill_enemy) => {
                 println!("recieved kill enemy packet");
                 update_despawn(kill_enemy, &mut enemies_to_kill, &mut commands, &mut enemies); 
             }
+
             ClientPacket::DecreaseEnemyHealthPacket(decrease_enemy_health_packet) => {
                 println!("recieved decrease enemy health packet");
                 // TODO: decrease serverside health :p
             }
-            
+
         }
     }
 }
@@ -281,7 +295,7 @@ fn update_player_state(
     src: SocketAddr,
     mut players_q: &mut Query<(&mut Velocity, &mut Transform, &mut Health,
         &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), 
-            (With<Player>, Without<Enemy>)>,
+        (With<Player>, Without<Enemy>, Without<Potion>, Without<Door>, Without<Wall>, Without<Background>, Without<DoorType>, Without<Pot>)>,//eek a lot
     player_struct: PlayerSendable,
     mut commands: &mut Commands
 ){
@@ -421,7 +435,6 @@ pub fn send_despawn_command(
  pub fn send_player(
     player : Query<(&Velocity, &Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
     server_seq: ResMut<Sequence>,
-    mut packet_q: ResMut<ServerPacketQueue>,
     addresses: Res<AddressList>,
     udp: Res<UDP>
 )
@@ -430,8 +443,10 @@ pub fn send_despawn_command(
     for (v, t, i, h, c, r, s, a,)  in player.iter(){
         /* packet-ify it */
         info!("Sending {}", i.id);
+        let mut better_z = *t;
+        better_z.translation.z = 100.;
         let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
-            transform: *t,
+            transform: better_z,
             head: Header::new(i.id,server_seq.clone()),
             attack: a.attacking,
             velocity: v.velocity,
@@ -442,6 +457,7 @@ pub fn send_despawn_command(
         });
         /* push onto the 'to-send' queue */
         
+        /* send to everyone but self, let client movement happen */
         let mut serializer = flexbuffers::FlexbufferSerializer::new();
         outgoing_state.serialize(&mut serializer).unwrap();
         let packet: &[u8] = serializer.view();
@@ -450,6 +466,42 @@ pub fn send_despawn_command(
                 udp.socket.send_to(&packet, addr).unwrap();
 
             }
+        }
+    }
+}   
+
+pub fn send_player_to_self(
+    player : &Query<(&Velocity, &mut Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), 
+        (With<Player>, Without<Door>, Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
+    server_seq: &mut Sequence,
+    addresses: &AddressList,
+    udp: &UDP
+)
+{
+    /* For each player in the game*/
+    for (v, t, i, h, c, r, s, a,)  in player.iter(){
+        /* packet-ify it */
+        info!("Sending {}", i.id);
+        let mut transform_to_send = *t;
+        transform_to_send.translation.z = 100.;
+        let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
+            transform: transform_to_send,
+            head: Header::new(i.id,server_seq.clone()),
+            attack: a.attacking,
+            velocity: v.velocity,
+            health: *h,
+            crouch: c.crouching,
+            roll: r.rolling,
+            sprint: s.sprinting,
+        });
+        /* push onto the 'to-send' queue */
+        
+        /* send to everyone but self, let client movement happen */
+        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+        outgoing_state.serialize(&mut serializer).unwrap();
+        let packet: &[u8] = serializer.view();
+        for addr in addresses.list.iter(){
+            udp.socket.send_to(&packet, addr).unwrap();
         }
     }
 }   
@@ -464,60 +516,177 @@ pub fn send_despawn_command(
 6 - top door
 7 - bottom door 
 8 - top wall
-9 - bottom wall */
+9 - bottom wall 
+10 - pot */
 fn send_map_packet (
-    mut _commands: Commands,
-    door_query: Query<(&Transform, &DoorType), With<Door>>, 
-    wall_query: Query<&Transform, With<Wall>>, 
-    background_query: Query<&Transform, With<Background>>,
-    potion_query: Query<&Transform, With<Potion>>,
-    mut packet_q: ResMut<ServerPacketQueue>,
-    server_seq: ResMut<Sequence>,
+    door_query: &mut Query<(&mut Transform, &Door), (Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
+    wall_query: &mut Query<&mut Transform, (With<Wall>, Without<Door>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>, 
+    background_query: &mut Query<&mut Transform, (With<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
+    potion_query: &mut Query<&mut Transform, (With<Potion>, Without<Pot>, Without<Enemy>)>,
+    pot_query: &mut Query<&mut Transform, (With<Pot>, Without<Enemy>)>,
+    server_seq: &Sequence,
+    roomman: &mut RoomManager,
+    udp: &UDP,
+    addresses: &AddressList,
 ) {
-    let mut map_array: Vec<Vec<u8>> = vec![];
-    let room_w = 10; //need to grab these values from roomgen fn()
-    let _room_h = 5;
 
+    let (room_w,room_h):(f32, f32) = RoomManager::current_room_size(&roomman);
+    println!("Width:{}  height:{}", room_w, room_h);
+    let room_tile_w = room_w / TILE_SIZE as f32;
+    let room_tile_h = room_h / TILE_SIZE as f32;
+    let mut map_array: Vec<Vec<u8>> =vec![vec![0; room_tile_h as usize + 1]; room_tile_w as usize + 1];
+    
+
+    let max_x = room_w / 2.0 ;
+    let max_y = room_h / 2.0 ;
     for tile in background_query.iter()
     {
-        let arr_x:usize = (tile.translation.x - 16.0) as usize / 32;
-        let arr_y:usize = (tile.translation.y - 16.0) as usize / 32;
+        let arr_x:usize = (tile.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.translation.y + max_y - 16.0) as usize / 32;
         map_array[arr_x][arr_y] = 0;
     }
 
+    for tile in wall_query.iter()
+    {
+        let arr_x:usize = (tile.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.translation.y + max_y - 16.0) as usize / 32;
+        if arr_x == 0 {map_array[arr_x][arr_y as usize] = 1;}
+        else if arr_y == 0 {map_array[arr_x][arr_y] = 9;}
+        else if arr_x == (room_w as usize/32)-1 {map_array[arr_x][arr_y] = 2;}
+        else {map_array[arr_x][arr_y] = 8;}
+    }
+
+    for tile in potion_query.iter()
+    {
+        let arr_x: usize = (tile.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y: usize = (tile.translation.y + max_y - 16.0) as usize / 32;
+        map_array[arr_x][arr_y] = 3;
+    }
+
+    for tile in pot_query.iter()
+    {
+        let arr_x: usize = (tile.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y: usize = (tile.translation.y + max_y - 16.0) as usize / 32;
+        map_array[arr_x][arr_y] = 10;
+    }
+
+    /* grab doors */
     for tile in door_query.iter()
     {
-        let arr_x:usize = (tile.0.translation.x - 16.0) as usize / 32;
-        let arr_y:usize = (tile.0.translation.y - 16.0) as usize / 32;
-        match tile.1{
-            DoorType::Right => map_array[arr_x][arr_y] = 5,
+        let arr_x:usize = (tile.0.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.0.translation.y + max_y - 16.0) as usize / 32;
+        println!("Matching door! @ ({},{})", arr_x, arr_y);
+        match tile.1.door_type
+        {
+            DoorType::Right => map_array[arr_x][arr_y] = 5, 
             DoorType::Left => map_array[arr_x][arr_y] = 4,
             DoorType::Top => map_array[arr_x][arr_y] = 6,
             DoorType::Bottom => map_array[arr_x][arr_y] = 7
         }
     }
-
-    for tile in wall_query.iter()
-    {
-        let arr_x:i32 = (tile.translation.x - 16.0) as i32 / 32;
-        let arr_y:i32 = (tile.translation.y - 16.0) as i32 / 32;
-        if arr_x == 0 {map_array[arr_x as usize][arr_y as usize] = 1;}
-        else if arr_y == 0 {map_array[arr_x as usize][arr_y as usize] = 9;}
-        else if arr_x == room_w/32 {map_array[arr_x as usize][arr_y as usize] = 2;}
-        else {map_array[arr_x as usize][arr_y as usize] = 8;}
-    }
-
-    for tile in potion_query.iter()
-    {
-        let arr_x: usize = (tile.translation.x - 16.0) as usize / 32;
-        let arr_y: usize = (tile.translation.y - 16.0) as usize / 32;
-        map_array[arr_x][arr_y] = 3;
-    }
-
+    println!("{:?},", map_array);
     let mappy = ServerPacket::MapPacket(MapS2C{
         head: Header::new(0,server_seq.clone()),// server id == 0
-        matrix: map_array
+        matrix: map_array,
+        size: RoomManager::current_room_size(&roomman),
+        max: RoomManager::current_room_max(&roomman),
+        z: roomman.current_z_index,
     });
 
-    packet_q.packets.push(mappy);
+    
+
+    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+    mappy.serialize(&mut serializer).unwrap();
+    let packet: &[u8] = serializer.view();
+    for addr in addresses.list.iter(){
+        let drawn = udp.socket.send_to(&packet, addr).unwrap();
+        println!("wrote {} bytes", drawn);
+        println!("sending map packet yippee for {}", addr);
+    }
+    
+}
+
+pub fn check_door(
+    mut player : Query<(&mut Transform), With<Player>>,
+    door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    mut carnage: Query<&mut CarnageBar>,
+    mut commands: Commands,
+    mut room_manager: ResMut<RoomManager>,
+    mut room_query: Query<Entity, With<Room>>,
+    mut room_change: EventWriter<RoomChangeEvent>,
+){
+    /* are allthe players standing on a door? */
+    let mut all_hit = true;
+    let mut have_player = false;
+    let mut final_door = None;
+    /* for all players */
+    for transform in player.iter(){
+        let (door_hit, door_type) = check_door_collision(&door_query, transform);
+        /* ah boolean. ensures if we get false, it'll
+         * stay false. do need to make sure we have a player lol.. */
+        all_hit = all_hit && door_hit;
+        have_player = true;
+        /* also set door. If the final door is None,
+         * we will set (lower). If final_door is something,
+         * we check if its the same as what we just got. if it's not,
+         * the players are on different doors, abort mission */
+        if let Some(final_door) = final_door{
+            /* final door is something! Is door_type? */
+            if let Some(door_type) = door_type{
+                /* yippe! if same, we dont care, if not
+                 * boooo killll tomato */
+                if door_type != final_door{
+                    all_hit = false;
+                }
+            }
+        } else{
+            final_door = door_type;
+        }
+    }
+
+    // If a door was hit, handle the transition
+    if all_hit && have_player{
+        let mut carnage_bar = carnage.single_mut();
+        carnage_bar.stealth += 10.;
+        if let Some(final_door) = final_door {
+            transition_map(
+                &mut commands,
+                &mut room_manager,
+                &mut room_query,
+                &mut player,
+                final_door,
+                &mut carnage,
+            );
+            room_change.send(RoomChangeEvent(all_hit));
+        }
+    }
+}   
+
+pub fn room_change_infodump(
+    mut event_listener: EventReader<RoomChangeEvent>,
+    udp: Res<UDP>,
+    mut addresses: Res<AddressList>,
+    player : Query<(&Velocity, &mut Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), 
+        (With<Player>, Without<Door>, Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
+    mut server_seq: ResMut<Sequence>,
+    mut door_query: Query<(&mut Transform, &Door), 
+        (Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
+    mut wall_query: Query<&mut Transform, 
+        (With<Wall>, Without<Door>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>, 
+    mut background_query: Query<&mut Transform, 
+        (With<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
+    mut potion_query: Query<&mut Transform, 
+        (With<Potion>, Without<Pot>, Without<Enemy>)>,
+    mut pot_query: Query<&mut Transform, 
+        (With<Pot>, Without<Enemy>)>,
+    mut room_manager: ResMut<RoomManager>,
+){
+    for event in event_listener.read(){
+        if !event.0{continue};
+        send_map_packet(&mut door_query, &mut wall_query,
+             &mut background_query, &mut potion_query,
+              &mut pot_query, &server_seq,
+               &mut room_manager, &udp, & addresses);
+        send_player_to_self(&player, &mut server_seq, &addresses, &udp);
+    }
 }

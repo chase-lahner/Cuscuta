@@ -6,7 +6,7 @@ use crate::{cuscuta_resources::*, room_gen::*, player::*};
 pub fn move_camera(
     player: Query<(&Transform,&NetworkId), With<Player>>,
     mut camera: Query<&mut Transform, (Without<Player>, With<Camera>)>,
-    room_manager: Res<RoomManager>, // Access the RoomManager to get the room-specific max_x and max_y
+    room_manager: Res<ClientRoomManager>, // Access the RoomManager to get the room-specific max_x and max_y
     client_id: Res<ClientId>
 ) {
     for (transform, id) in player.iter()
@@ -14,14 +14,16 @@ pub fn move_camera(
         if id.id == client_id.id{
             let mut ct = camera.single_mut();
             // Retrieve the dynamically calculated max_x and max_y from RoomManager
-            let (_max_x, _max_y) = room_manager.current_room_max();
+            let _max_x = room_manager.max_x;
+            let _max_y = room_manager.max_y;
 
 
             // Retrieve the dynamically calculated max_x and max_y from RoomManager
             // let (max_x, max_y) = room_manager.current_room_max();
             // println!("1. MAX X: {} MAX Y: {}",max_x,max_y);
 
-            let (width, height) = room_manager.current_room_size();
+            let width = room_manager.width;
+            let height = room_manager.height;
             //println!("2. WIDTH: {} HEIGHT: {}",width,height);
 
             let max_x = width/2.0;
