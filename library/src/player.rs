@@ -1093,6 +1093,25 @@ pub fn handle_player_collisions(
     (hit_door, door_type)
 }
 
+pub fn check_door_collision(
+    door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    player_transform: &Transform,
+)-> (bool, Option<DoorType>){
+    let player_aabb = collision::Aabb::new(player_transform.translation,
+         Vec2::splat(TILE_SIZE as f32));
+    let mut hit_door = false;
+    let mut door_type = None;
+    for (door_transform, door) in door_query.iter() {
+        let door_aabb = Aabb::new(door_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        if player_aabb.intersects(&door_aabb) {
+            hit_door = true;
+            door_type = Some(door.door_type);
+            break;
+        }
+    }
+    (hit_door, door_type)
+}
+
 pub fn animate_player(
     time: Res<Time>,
     mut player: Query<

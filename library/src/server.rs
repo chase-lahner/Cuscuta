@@ -5,8 +5,7 @@ use network::*;
 use serde::{Deserialize, Serialize};
 
 
-
-use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{Door, DoorType, Potion, Room, RoomManager}};
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
 
 
 /* Upon request, sends an id to client, spawns a player, and
@@ -85,7 +84,7 @@ pub fn listen(
          &mut Crouch, &mut Roll, &mut Sprint, &mut Attack, &mut NetworkId), 
          (With<Player>, Without<Enemy>, Without<Potion>, Without<Door>, Without<Wall>, Without<Background>, Without<DoorType>, Without<Pot>)>,//eek a lot
     mut n_p: ResMut<PlayerCount>,
-    mut door_query: Query<(&mut Transform, &DoorType), (With<Door>,Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
+    mut door_query: Query<(&mut Transform, &Door), (Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
     mut wall_query: Query<&mut Transform, (With<Wall>, Without<Door>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>, 
     mut background_query: Query<&mut Transform, (With<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
     mut potion_query: Query<&mut Transform, (With<Potion>, Without<Pot>, Without<Enemy>)>,
@@ -471,7 +470,7 @@ pub fn send_despawn_command(
 10 - pot */
 fn send_map_packet (
     mut _commands: &mut Commands,
-    door_query: &mut Query<(&mut Transform, &DoorType), (With<Door>,Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
+    door_query: &mut Query<(&mut Transform, &Door), (Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
     wall_query: &mut Query<&mut Transform, (With<Wall>, Without<Door>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>, 
     background_query: &mut Query<&mut Transform, (With<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
     potion_query: &mut Query<&mut Transform, (With<Potion>, Without<Pot>, Without<Enemy>)>,
@@ -498,25 +497,13 @@ fn send_map_packet (
         map_array[arr_x][arr_y] = 0;
     }
 
-    for tile in door_query.iter()
-    {
-        let arr_x:usize = (tile.0.translation.x + max_x - 16.0) as usize / 32;
-        let arr_y:usize = (tile.0.translation.y + max_y - 16.0) as usize / 32;
-        match tile.1{
-            DoorType::Right => map_array[arr_x][arr_y] = 5, 
-            DoorType::Left => map_array[arr_x][arr_y] = 4,
-            DoorType::Top => map_array[arr_x][arr_y] = 6,
-            DoorType::Bottom => map_array[arr_x][arr_y] = 7
-        }
-    }
-
     for tile in wall_query.iter()
     {
         let arr_x:usize = (tile.translation.x + max_x - 16.0) as usize / 32;
         let arr_y:usize = (tile.translation.y + max_y - 16.0) as usize / 32;
         if arr_x == 0 {map_array[arr_x][arr_y as usize] = 1;}
         else if arr_y == 0 {map_array[arr_x][arr_y] = 9;}
-        else if arr_x == room_w as usize/32 {map_array[arr_x][arr_y] = 2;}
+        else if arr_x == (room_w as usize/32)-1 {map_array[arr_x][arr_y] = 2;}
         else {map_array[arr_x][arr_y] = 8;}
     }
 
@@ -533,6 +520,21 @@ fn send_map_packet (
         let arr_y: usize = (tile.translation.y + max_y - 16.0) as usize / 32;
         map_array[arr_x][arr_y] = 10;
     }
+
+    /* grab doors */
+    for tile in door_query.iter()
+    {
+        let arr_x:usize = (tile.0.translation.x + max_x - 16.0) as usize / 32;
+        let arr_y:usize = (tile.0.translation.y + max_y - 16.0) as usize / 32;
+        println!("Matching door! @ ({},{})", arr_x, arr_y);
+        match tile.1.door_type
+        {
+            DoorType::Right => map_array[arr_x][arr_y] = 5, 
+            DoorType::Left => map_array[arr_x][arr_y] = 4,
+            DoorType::Top => map_array[arr_x][arr_y] = 6,
+            DoorType::Bottom => map_array[arr_x][arr_y] = 7
+        }
+    }
     println!("{:?},", map_array);
     let mappy = ServerPacket::MapPacket(MapS2C{
         head: Header::new(0,server_seq.clone()),// server id == 0
@@ -540,6 +542,8 @@ fn send_map_packet (
         size: RoomManager::current_room_size(&roomman),
         max: RoomManager::current_room_max(&roomman),
     });
+
+    
 
     let mut serializer = flexbuffers::FlexbufferSerializer::new();
     mappy.serialize(&mut serializer).unwrap();
@@ -551,3 +555,47 @@ fn send_map_packet (
     }
     
 }
+
+pub fn check_door(
+    player_q: Query<(&Transform), With<Player>>,
+    door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
+    carnage: Query<&mut CarnageBar>
+){
+    /* are allthe players standing on a door? */
+    let mut all_hit = true;
+    let mut have_player = false;
+    let final_door = None;
+    /* for all players */
+    for(transform) in player_q.iter(){
+        let (door_hit, door_type) = check_door_collision(&door_query, transform);
+        /* ah boolean. ensures if we get false, it'll
+         * stay false. do need to make sure we have a player lol.. */
+        all_hit = all_hit && door_hit;
+        have_player = true;
+    }
+    // If a door was hit, handle the transition
+    if all_hit {
+        let mut carnage_bar = carnage.single_mut();
+        carnage_bar.stealth += 10.;
+        if let Some(door_type) = door_type {
+
+
+
+        /* TOODOODOODOODODOODODODOD HOW DO WE WANT TO HANDLE COLLISIONS with door */
+
+
+
+            // Pass the door type to transition_map
+            // transition_map(
+            //     &mut commands,
+            //     &asset_server,
+            //     &mut room_manager,
+            //     room_query,
+            //     door_query,
+            //     &mut player_query.single_mut().0,// this is broke cant be single
+            //     door_type,
+            //     carnage,
+            // );
+        }
+    }
+}   

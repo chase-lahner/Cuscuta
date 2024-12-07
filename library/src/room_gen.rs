@@ -1060,7 +1060,7 @@ fn generate_doors(
                 },
                 Room,
             ));
-
+            println!("Spawningn left door");
             let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
             let ycoord_left = (door_left_y + max_y) as usize;
             set_collide(room_manager, xcoord_left, ycoord_left, 2);
@@ -1077,7 +1077,7 @@ fn generate_doors(
                 },
                 Room,
              ));
- 
+            println!("Spawningn left door");
              let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
              let ycoord_left = (door_left_y + max_y) as usize;
              set_collide(room_manager, xcoord_left, ycoord_left, 2);

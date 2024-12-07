@@ -469,19 +469,19 @@ fn receive_map_packet (
     mut room_query: &mut Query<Entity, With<Room>>,
     mut room_manager: &mut ClientRoomManager,
 ) {
+    /* setters for clientside room stats
+     * Is there a one liner? probabaly. idk im lazy */
+     let (new_width, new_height) = map_packet.size;
+     room_manager.width = new_width;
+     room_manager.height = new_height;
 
     let map_array = &map_packet.matrix;
-    let mut vertical = -((map_array.len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
-    let mut horizontal = -((map_array[0].len() as f32) / 2.0) + (TILE_SIZE as f32 / 2.0);
+    let mut vertical = -(new_width / 2.0) + (TILE_SIZE as f32 / 2.0);
+    let mut horizontal = -(new_height / 2.0) + (TILE_SIZE as f32 / 2.0);
     /* ye ol sliding room problem. Kinda funny, never
      * reset so we made a slinky */
     let og_horizontal = horizontal;
-
-    /* setters for clientside room stats
-     * Is there a one liner? probabaly. idk im lazy */
-    let (new_width, new_height) = map_packet.size;
-    room_manager.width = new_width;
-    room_manager.height = new_height;
+    let og_vertical = vertical;
 
 
     /* get rid of room */
@@ -508,10 +508,16 @@ fn receive_map_packet (
                     texture: asset_server.load("tiles/walls/right_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
                     ..default() },Wall,Room,)),
-                3 => commands.spawn(( SpriteBundle {
+/*poton */      3 => {commands.spawn(( SpriteBundle {
                     texture: asset_server.load("items/potion.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.1),
-                    ..default() },Potion,Room,)),
+                    ..default() },Potion,Room,));
+                    commands.spawn((SpriteBundle {
+                    texture: asset_server
+                        .load("tiles/cobblestone_floor/cobblestone_floor.png")
+                        .clone(),
+                    transform: Transform::from_xyz(horizontal, vertical, 0.0),
+                    ..default() },Background,Room,))}
                 4 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, 0.3),
@@ -545,10 +551,10 @@ fn receive_map_packet (
                     transform: Transform::from_xyz(-10000.0, -10000.0, 0.2),
                     ..default() },Wall,Room,)),
             };
-            horizontal += TILE_SIZE as f32;
+            vertical += TILE_SIZE as f32;
         }
-        vertical += TILE_SIZE as f32;
-        horizontal = og_horizontal;
+        horizontal += TILE_SIZE as f32;
+        vertical = og_vertical;
     }
 }
 
