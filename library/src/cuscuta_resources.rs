@@ -86,7 +86,14 @@ pub struct Health{
     pub current: f32
 }
 impl Health {
-    pub fn new() -> Self {
+    pub fn new(health:&Health) -> Self {
+        Self {
+            max: health.max,
+            current: health.current
+        }
+    }
+
+    pub fn new_init() -> Self {
         Self {
             max: 100.,
             current: 100.

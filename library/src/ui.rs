@@ -143,7 +143,7 @@ pub fn client_spawn_ui(
             ..default()
         },
         UiImage::solid_color(Color::from(MAROON)),
-        Health::new(),
+        Health::new_init(),
     ));
 
     // HEALTH BAR BLACk

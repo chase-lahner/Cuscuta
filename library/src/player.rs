@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::enemies::{EnemyId, EnemyToKill};
-use crate::network::{ClientPacket, Header, KillEnemyPacket, Sequence, UDP};
+use crate::network::{ClientPacket, DecreaseEnemyHealthPacket, Header, KillEnemyPacket, Sequence, UDP};
 
 use crate::{
     collision::{self, *},
@@ -368,31 +368,47 @@ pub fn player_attack(
 pub fn player_attack_enemy(
     mut commands: Commands,
     mut player: Query<(&Transform, &mut Attack, &NetworkId), With<Player>>,
-    enemies: Query<(Entity, &mut Transform, &mut EnemyId), (With<Enemy>, Without<Player>)>,
+    mut enemies: Query<(Entity, &mut Transform, &mut EnemyId, &mut Health), (With<Enemy>, Without<Player>)>,
     client_id: Res<ClientId>,
     udp: Res<UDP>,
 ) {
+   // info!("checking for player attack");
     for (ptransform, pattack, id) in player.iter_mut() {
         if id.id == client_id.id {
             if pattack.attacking == false {
                 return;
             }
+          //  info!("attta    cking");
             let player_aabb =
                 collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
 
-            for (ent, enemy_transform, id) in enemies.iter() {
+            for (ent, enemy_transform, id, mut enemy_health) in enemies.iter_mut() {
+               // info!("enemy has health or whateva");
                 let enemy_aabb =
                     Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
                 if player_aabb.intersects(&enemy_aabb) {
-                    let packet = ClientPacket::KillEnemyPacket(KillEnemyPacket {
+                    enemy_health.current -= 1.;
+                   // info!("enemy health: {}", enemy_health.current);
+                    let packet = ClientPacket::DecreaseEnemyHealthPacket(DecreaseEnemyHealthPacket  {
                         enemy_id: id.clone(),
+                        decrease_by: 1.,
                     });
                     let mut serializer = flexbuffers::FlexbufferSerializer::new();
                     packet.serialize(&mut serializer).unwrap();
                     let packet: &[u8] = serializer.view();
-                    info!("Sending packet to kill enemy");
                     udp.socket.send_to(&packet, SERVER_ADR).unwrap();
-                    commands.entity(ent).despawn();
+
+                    if enemy_health.current <= 0. {
+                        let packet = ClientPacket::KillEnemyPacket(KillEnemyPacket {
+                            enemy_id: id.clone(),
+                        });
+                        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                        packet.serialize(&mut serializer).unwrap();
+                        let packet: &[u8] = serializer.view();
+                        info!("Sending packet to kill enemy");
+                        udp.socket.send_to(&packet, SERVER_ADR).unwrap();
+                        commands.entity(ent).despawn();
+                    }    
                 }
             }
         }
@@ -433,12 +449,12 @@ pub fn tick_timer(
 ) {
 
     for (entity, mut health, id, mut visibility) in players.iter_mut() {
-        info!("cur health: {}", health.current);
+       // info!("cur health: {}", health.current);
         if us.id != id.id {
             continue;
         }
         if health.current <= 0. {
-            info!("ticking");
+            // info!("ticking");
             death_timer.timer.tick(time.delta());
         }
 
@@ -594,7 +610,7 @@ pub fn client_spawn_other_player(
             addr: source_ip,
         },
         player: Player,
-        health: Health::new(),
+        health: Health::new_init(),
         crouching: Crouch { crouching: false },
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
