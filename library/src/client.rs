@@ -9,7 +9,7 @@ use crate::network::{
     ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, MapS2C, PlayerSendable, Sequence, ServerPacket, UDP
 };
 use crate::player::*;
-use crate::room_gen::{ClientDoor, ClientRoomManager, Door, DoorType, Potion, Room};
+use crate::room_gen::{ClientDoor, ClientRoomManager, Door, DoorType, InnerWall, Potion, Room};
 
 /* sends out all clientPackets from the ClientPacketQueue */
 pub fn client_send_packets(udp: Res<UDP>, mut packets: ResMut<ClientPacketQueue>) {
@@ -203,7 +203,7 @@ fn receive_player_packet(
     /* ohno. he doesnt exist... what. */
     if !found_packet {
         info!("creating new player {}", saranpack.head.network_id);
-        let player_sheet_handle = asset_server.load("player/4x8_player.png");
+        let player_sheet_handle = asset_server.load("player/4x12_player.png");
         let player_layout = TextureAtlasLayout::from_grid(
             UVec2::splat(TILE_SIZE),
             PLAYER_SPRITE_COL,
@@ -486,6 +486,11 @@ fn receive_map_packet (
                     texture: asset_server.load("tiles/1x2_pot.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Pot::new(),Room,)),
+                /* inner walls */
+                11 => commands.spawn((SpriteBundle {
+                    texture: asset_server.load("tiles/walls/north_wall.png").clone(),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
+                    ..default() },Wall, InnerWall::new(),Room,)),
                 _ => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
                     transform: Transform::from_xyz(-10000.0, -10000.0, z_index),
