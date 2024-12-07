@@ -3,11 +3,13 @@ use std::net::UdpSocket;
 use bevy::prelude::*;
 use serde::Deserialize;
 
+
 use crate::client::*;
 use crate::cuscuta_resources::*;
 use crate::player::{Attack, Crouch, NetworkId, Player, Roll, Sprint};
 use crate::ui::CarnageBar;
 use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, EnemiesToKill, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, markov_chains::*, network::*, room_gen::{self, *}, ui::client_spawn_ui
+
 };
 
 pub fn ip_setup(
@@ -30,10 +32,6 @@ pub fn client_setup(
     asset_server: Res<AssetServer>, // to access images
 ) {
 
-
-    // spawn the starting room & next room
-    //spawn_start_room(&mut commands, &asset_server, &mut room_manager, last_attribute_array);
-
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */
     commands.insert_resource(ClientId::new());
@@ -42,6 +40,8 @@ pub fn client_setup(
      * for now, which is the server's id but we will reassign
      * when we recv a packet from the server */
     commands.insert_resource(Sequence::new(0));
+
+    commands.insert_resource(PlayerDeathTimer::new());
 
     // spawn camera
     spawn_camera(&mut commands);

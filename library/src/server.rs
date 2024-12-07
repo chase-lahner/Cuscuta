@@ -42,7 +42,7 @@ pub fn send_id(
         transform: Transform{
             translation: Vec3 { x: 0., y: 0., z: 900. },
             ..default()},
-        health: Health::new(),
+        health: Health::new_init(),
         crouching: Crouch::new(),
         rolling: Roll::new(),
         sprinting: Sprint::new(),
@@ -59,7 +59,7 @@ pub fn send_id(
             },
             ..default()},
         velocity: Vec2::new(0.,0.),
-        health: Health::new(),
+        health: Health::new_init(),
         crouch: false,
         attack: false,
         roll: false,
@@ -94,7 +94,7 @@ pub fn listen(
     mut server_seq: ResMut<Sequence>,
 
     mut enemies_to_kill: ResMut<EnemiesToKill>,
-    mut enemies: Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform), (With<Enemy>, Without<Player>)>,
+    mut enemies: Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform, &mut Health), (With<Enemy>, Without<Player>)>,
 ) {
     loop{
    /* to hold msg */
@@ -134,6 +134,12 @@ pub fn listen(
                 println!("recieved kill enemy packet");
                 update_despawn(kill_enemy, &mut enemies_to_kill, &mut commands, &mut enemies); 
             }
+
+            ClientPacket::DecreaseEnemyHealthPacket(decrease_enemy_health_packet) => {
+                println!("recieved decrease enemy health packet");
+                // TODO: decrease serverside health :p
+            }
+
         }
     }
 }
@@ -210,24 +216,25 @@ pub fn listen(
     // }
 
 pub fn send_enemies(
-    enemies: Query<(& EnemyId, & EnemyMovement, &Transform), 
+    enemies: Query<(& EnemyId, & EnemyMovement, &Transform, &Health), 
         (With<Enemy>, Without<Player>)>,
     server_seq: ResMut<Sequence>,
     mut packet_q: ResMut<ServerPacketQueue>,
     addresses: Res<AddressList>,
     udp: Res<UDP>
 ){
-    //info!("sending enemies");
     
     /* for each enemy in the game world */
-    for (id, movement, transform) in enemies.iter(){
+    for (id, movement, transform, health) in enemies.iter(){
         /* packet-ify it */
+       // println!("created enemy packet");
         let enemy  = ServerPacket::EnemyPacket(
         EnemyS2C{
             transform: *transform,
             head: Header::new(0,server_seq.clone()),
             movement: movement.clone(),
             enemytype: id.clone(),
+            health: health.clone()
         });
         //info!("actually entered for loop lmfao crazy if this was what was broken loll");
 
@@ -237,6 +244,7 @@ pub fn send_enemies(
         let packet: &[u8] = serializer.view();
         for addr in addresses.list.iter(){
             udp.socket.send_to(&packet, addr).unwrap();
+            
         }
     }
 }
@@ -338,10 +346,10 @@ fn update_despawn(
     kill_enemy: KillEnemyPacket,
     enemies_to_kill: &mut EnemiesToKill,
     commands: &mut Commands,
-    enemies: &mut Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform), (With<Enemy>, Without<Player>)>,
+    enemies: &mut Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform, &mut Health), (With<Enemy>, Without<Player>)>,
 ){
     enemies_to_kill.list.push(kill_enemy.clone());
-    for(entity, id, _movement, _transform) in enemies.iter(){
+    for(entity, id, _movement, _transform, _health) in enemies.iter(){
         if id.id == kill_enemy.enemy_id.id{
             commands.entity(entity).despawn();
             println!("despawning enemy");
@@ -356,7 +364,7 @@ pub fn send_despawn_command(
     addresses: Res<AddressList>,
     udp: Res<UDP>,
     mut enemies_to_kill: ResMut<EnemiesToKill>,
-    enemies: Query<(Entity, & EnemyId, & EnemyMovement, &Transform), 
+    enemies: Query<(Entity, & EnemyId, & EnemyMovement, &Transform, &mut Health), 
         (With<Enemy>, Without<Player>)>,
 ){
         for enemy in enemies_to_kill.list.iter(){
@@ -366,11 +374,12 @@ pub fn send_despawn_command(
                 let packet: &[u8] = serializer.view();
                 for address in addresses.list.iter(){
                     udp.socket.send_to(&packet, address).unwrap();
+                    println!("sending despawn packet");
                 }
         }
         enemies_to_kill.list = Vec::new();
         
-        for(entity, id, _movement, _transform) in enemies.iter(){
+        for(entity, id, _movement, _transform, mut _health) in enemies.iter(){
             for kill_enemy in enemies_to_kill.list.iter(){
                 if id.id == kill_enemy.enemy_id.id{
                     commands.entity(entity).despawn();

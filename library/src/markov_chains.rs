@@ -3,6 +3,7 @@ use crate::cuscuta_resources::*;
 use crate::ui::CarnageBar;
 use bevy::prelude::*;
 
+#[derive(Debug)]
 pub enum Room_Attributes{
     Room_Size,
     Inner_Walls,
@@ -47,8 +48,8 @@ impl Room_Attributes {
         ]
     }
 
-    pub fn get_matrix_for_attribute(attribute: Room_Attributes) -> Vec<Vec<f32>> {
-        let all_vectors = Room_Attributes::get_preset_matrix();
+    pub fn get_matrix_for_attribute(attribute: &Room_Attributes) -> Vec<Vec<f32>> {
+        let all_vectors: [Vec<Vec<f32>>; 5] = Room_Attributes::get_preset_matrix();
         match attribute {
             Room_Attributes::Room_Size => all_vectors[0].clone(),
             Room_Attributes::Inner_Walls => all_vectors[1].clone(),
@@ -72,7 +73,7 @@ impl Room_Attributes {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct LastAttributeArray {
     pub attributes: [u8; 5], 
 }
@@ -96,9 +97,18 @@ impl LastAttributeArray {
     pub fn get_attribute(&self, index: usize) -> Option<u8> {
         self.attributes.get(index).copied()
     }
+
+    // print array
+    pub fn print_array(&self) {
+        println!("LastAttributeArray: {:?}", self.attributes);
+    }
+
+    pub fn get_last_attribute_array(&self) -> [u8; 5]{
+        self.attributes
+    }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct NextAttributeArray {
     pub attributes: [u8; 5], 
 }
@@ -122,44 +132,10 @@ impl NextAttributeArray {
     pub fn get_attribute(&self, index: usize) -> Option<u8> {
         self.attributes.get(index).copied()
     }
-}
 
-//Function to skew our preset transition matrices towards carnage or stealth. 
-pub fn Skew(input_matrix: Vec<Vec<f32>>, carnage_percent:f32) -> Vec<Vec<f32>> {
-    //skew towards carnage rooms 
-    let high_carnage_vec = vec![0.05,0.10,0.85];
-    //skew towards stealth rooms 
-    let low_carnage_vec = vec![0.85,0.10,0.05];
-
-    //chooses which vec to skew or if to skew at all
-    let skew_vec = if carnage_percent == 0.5 {
-        return input_matrix; 
-    } else if carnage_percent < 0.5 {
-        low_carnage_vec
-    } else {
-        high_carnage_vec
-    };
-
-    //flag for which calculation to do
-    let up_flag = if carnage_percent < 0.5 { 0 } else { 1 };
-
-    //initialize output matrix to return later
-    let mut skewed_matrix = vec![vec![0.; 3]; 3];
-
-    if up_flag == 0{
-        for (i, row) in input_matrix.iter().enumerate() {
-            for (j, &value) in row.iter().enumerate() {
-                skewed_matrix[i][j] = (1.-2.*(carnage_percent))*skew_vec[j]+(2.*carnage_percent)*value;
-            }
-        }
-    }else{
-        for (i, row) in input_matrix.iter().enumerate() {
-            for (j, &value) in row.iter().enumerate() {
-                skewed_matrix[i][j] = (1.-2.*(carnage_percent-0.5))*value+(2.*(carnage_percent-0.5))*skew_vec[j];
-            }
-        }
+    pub fn print_array(&self) {
+        println!("LastAttributeArray: {:?}", self.attributes);
     }
-    skewed_matrix
 }
 
 

@@ -26,12 +26,15 @@ fn main() {
             FixedUpdate,
             (
                 server::listen,
+
                 server::check_door.after(server::listen),
                 server::room_change_infodump.after(server::check_door),
                 server::send_despawn_command,
                 enemies::enemy_movement,
                 server::send_enemies.after(server::listen),
                 server::send_player.after(server::listen),
+                server::send_despawn_command.after(server::listen),
+
             ),
         )
         .run();

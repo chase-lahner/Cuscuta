@@ -184,6 +184,7 @@ pub struct EnemyS2C{
     pub head: Header,
     pub enemytype: EnemyId,
     pub movement: EnemyMovement,
+    pub health: Health,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -212,10 +213,17 @@ impl Header{
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct DecreaseEnemyHealthPacket{
+    pub enemy_id: EnemyId,
+    pub decrease_by: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ClientPacket{
     PlayerPacket(PlayerSendable),
     IdPacket(IdPacket),
-    KillEnemyPacket(KillEnemyPacket)
+    KillEnemyPacket(KillEnemyPacket),
+    DecreaseEnemyHealthPacket(DecreaseEnemyHealthPacket),
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -1,11 +1,11 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::collections::VecDeque;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::enemies::{EnemyId, EnemyToKill};
-use crate::network::{ClientPacket, Header, KillEnemyPacket, Sequence, UDP};
+use crate::network::{ClientPacket, DecreaseEnemyHealthPacket, Header, KillEnemyPacket, Sequence, UDP};
 
 use crate::{
     collision::{self, *},
@@ -14,43 +14,42 @@ use crate::{
     network::PlayerSendable,
     room_gen::*,
     ui::CarnageBar,
+    markov_chains::LastAttributeArray,
 };
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Player; // wow! it is he!
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
-pub struct Trackable;//used for enemy pathfinding
+pub struct Trackable; //used for enemy pathfinding
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Monkey;
 
 /* used by monkey to kill after x time */
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
-pub struct Lifetime{
-    pub life: u32
+pub struct Lifetime {
+    pub life: u32,
 }
-impl Lifetime{
-    pub fn new() -> Self{
-        Self{
-            life: 0
-        }
+impl Lifetime {
+    pub fn new() -> Self {
+        Self { life: 0 }
     }
 }
 
 #[derive(Bundle)]
-pub struct ClientCymbalMonkey{
+pub struct ClientCymbalMonkey {
     pub track: Trackable,
     pub sprite: SpriteBundle,
     pub distracto: Monkey,
     pub atlas: TextureAtlas,
     pub animation_timer: AnimationTimer,
     pub animation_frames: AnimationFrameCount,
-    pub lifetime: Lifetime
+    pub lifetime: Lifetime,
 }
 
 #[derive(Bundle)]
-pub struct ServerCymbalMonkey{
+pub struct ServerCymbalMonkey {
     pub track: Trackable,
     pub monke: Monkey,
     pub lifetime: Lifetime,
@@ -84,12 +83,10 @@ impl Crouch {
     pub fn new() -> Self {
         Self { crouching: false }
     }
-    pub fn new_set(b:bool) ->Self{
-        Self{
-            crouching:b
-        }
+    pub fn new_set(b: bool) -> Self {
+        Self { crouching: b }
     }
-    pub fn set(&mut self, crouch: bool){
+    pub fn set(&mut self, crouch: bool) {
         self.crouching = crouch;
     }
 }
@@ -102,15 +99,13 @@ impl Roll {
     pub fn new() -> Self {
         Self { rolling: false }
     }
-    pub fn new_set(b:bool) -> Self{
-        Self{
-            rolling: b
-        }
+    pub fn new_set(b: bool) -> Self {
+        Self { rolling: b }
     }
-    pub fn set(&mut self, roll: bool){
+    pub fn set(&mut self, roll: bool) {
         self.rolling = roll;
     }
- }
+}
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Sprint {
@@ -120,12 +115,10 @@ impl Sprint {
     pub fn new() -> Self {
         Self { sprinting: false }
     }
-    pub fn new_set(b: bool) -> Self{
-        Self{
-            sprinting:b
-        }
+    pub fn new_set(b: bool) -> Self {
+        Self { sprinting: b }
     }
-    pub fn set(&mut self, sprint: bool){
+    pub fn set(&mut self, sprint: bool) {
         self.sprinting = sprint;
     }
 }
@@ -138,12 +131,10 @@ impl Attack {
     pub fn new() -> Self {
         Self { attacking: false }
     }
-    pub fn new_set(b:bool) -> Self{
-        Self{
-            attacking:b
-        }
+    pub fn new_set(b: bool) -> Self {
+        Self { attacking: b }
     }
-    pub fn set(&mut self, att: bool){
+    pub fn set(&mut self, att: bool) {
         self.attacking = att;
     }
 }
@@ -220,47 +211,42 @@ pub struct ServerPlayerBundle {
     pub sprinting: Sprint,
     pub attacking: Attack,
     pub player: Player,
-    pub track: Trackable
-    //pub inputs: InputQueue,
-    //pub time: Timestamp,
+    pub track: Trackable, //pub inputs: InputQueue,
+                          //pub time: Timestamp,
 }
 
 #[derive(Component)]
-pub struct EnemyPastStateQueue{
-    pub q: VecDeque<EnemyPastState>
-
+pub struct EnemyPastStateQueue {
+    pub q: VecDeque<EnemyPastState>,
 }
 
-impl EnemyPastStateQueue{
-    pub fn new() -> Self{
-        Self{
-            q: VecDeque::with_capacity(2)
+impl EnemyPastStateQueue {
+    pub fn new() -> Self {
+        Self {
+            q: VecDeque::with_capacity(2),
         }
     }
 }
 
-
-pub struct EnemyPastState{
+pub struct EnemyPastState {
     pub transform: Transform,
 }
 
-
 #[derive(Component, Serialize, Deserialize)]
-pub struct PastStateQueue{
-    pub q: VecDeque<PastState> // double ended queue, will wrap around when full
+pub struct PastStateQueue {
+    pub q: VecDeque<PastState>, // double ended queue, will wrap around when full
 }
 
-impl PastStateQueue{
-    pub fn new() -> Self{
-        Self{
-            q: VecDeque::with_capacity(2) // store current and previous states
+impl PastStateQueue {
+    pub fn new() -> Self {
+        Self {
+            q: VecDeque::with_capacity(2), // store current and previous states
         }
     }
 }
 
-
 #[derive(Serialize, Deserialize)]
-pub struct PastState{
+pub struct PastState {
     pub velo: Velocity,
     pub transform: Transform,
     pub crouch: Crouch,
@@ -269,15 +255,15 @@ pub struct PastState{
     pub seq: Sequence,
 }
 
-impl PastState{
-    pub fn new() -> Self{
-        Self{
+impl PastState {
+    pub fn new() -> Self {
+        Self {
             velo: Velocity::new(),
-            transform: Transform::from_xyz(0.,0.,0.),
+            transform: Transform::from_xyz(0., 0., 0.),
             crouch: Crouch::new(),
             roll: Roll::new(),
             attack: Attack::new(),
-            seq: Sequence::new(0)
+            seq: Sequence::new(0),
         }
     }
 }
@@ -382,43 +368,105 @@ pub fn player_attack(
 pub fn player_attack_enemy(
     mut commands: Commands,
     mut player: Query<(&Transform, &mut Attack, &NetworkId), With<Player>>,
-    enemies: Query<(Entity, &mut Transform, &mut EnemyId), (With<Enemy>, Without<Player>)>,
+    mut enemies: Query<(Entity, &mut Transform, &mut EnemyId, &mut Health), (With<Enemy>, Without<Player>)>,
     client_id: Res<ClientId>,
     udp: Res<UDP>,
     sequence: ResMut<Sequence>
 ) {
+   // info!("checking for player attack");
     for (ptransform, pattack, id) in player.iter_mut() {
         if id.id == client_id.id {
             if pattack.attacking == false {
                 return;
             }
+          //  info!("attta    cking");
             let player_aabb =
                 collision::Aabb::new(ptransform.translation, Vec2::splat((TILE_SIZE as f32) * 3.));
 
-            for (ent, enemy_transform, id) in enemies.iter() {
+            for (ent, enemy_transform, id, mut enemy_health) in enemies.iter_mut() {
+               // info!("enemy has health or whateva");
                 let enemy_aabb =
                     Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
                 if player_aabb.intersects(&enemy_aabb) {
-                    let packet = ClientPacket::KillEnemyPacket(KillEnemyPacket {
-                        enemy_id : id.clone(),
-                        head: Header{
-                            network_id: client_id.id,
-                            sequence: sequence.clone(),
-                        }
+                    enemy_health.current -= 1.;
+                   // info!("enemy health: {}", enemy_health.current);
+                    let packet = ClientPacket::DecreaseEnemyHealthPacket(DecreaseEnemyHealthPacket  {
+                        enemy_id: id.clone(),
+                        decrease_by: 1.,
                     });
                     let mut serializer = flexbuffers::FlexbufferSerializer::new();
                     packet.serialize(&mut serializer).unwrap();
                     let packet: &[u8] = serializer.view();
-                    info!("Sending packet to kill enemy");
                     udp.socket.send_to(&packet, SERVER_ADR).unwrap();
-                    commands.entity(ent).despawn();
+
+                    if enemy_health.current <= 0. {
+                        let packet = ClientPacket::KillEnemyPacket(KillEnemyPacket {
+                            enemy_id: id.clone(),
+                        });
+                        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                        packet.serialize(&mut serializer).unwrap();
+                        let packet: &[u8] = serializer.view();
+                        info!("Sending packet to kill enemy");
+                        udp.socket.send_to(&packet, SERVER_ADR).unwrap();
+                        commands.entity(ent).despawn();
+                    }    
                 }
             }
         }
     }
 }
 
+pub fn check_handle_player_death(
+    mut commands: Commands,
+    us: Res<ClientId>,
+    mut players: Query<(Entity, &Health, &NetworkId, &mut Visibility), With<Player>>,
+    udp: Res<UDP>,
+    mut death_timer: ResMut<PlayerDeathTimer>,
+    time: Res<Time>,
+) {
+    for (entity, health, id, mut visibility) in players.iter_mut() {
+        if us.id != id.id {
+            continue;
+        }
+        // we have found us!
+        if health.current <= 0. {
+            // info!("we r dead");
+            // we are dead
+            *visibility = Visibility::Hidden;
+            // *visibility = Visibility::Visible; // respawn player
 
+            // despawn player, wait 5 secs, respawn player
+        }
+    }
+}
+
+pub fn tick_timer(
+    mut commands: Commands,
+    us: Res<ClientId>,
+    mut players: Query<(Entity, &mut Health, &NetworkId, &mut Visibility), With<Player>>,
+    udp: Res<UDP>,
+    mut death_timer: ResMut<PlayerDeathTimer>,
+    time: Res<Time>,
+) {
+
+    for (entity, mut health, id, mut visibility) in players.iter_mut() {
+        //info!("cur health: {}", health.current);
+        if us.id != id.id {
+            continue;
+        }
+        if health.current <= 0. {
+            // info!("ticking");
+            death_timer.timer.tick(time.delta());
+        }
+
+        if death_timer.timer.finished() {
+            info!("respawning");
+            *visibility = Visibility::Visible;
+            health.current = health.max;
+            death_timer.timer.reset();
+        }
+    }
+}
 
 // /* Spawns in user player, uses PlayerBundle for some consistency*/
 // pub fn client_spawn_user_player(
@@ -516,7 +564,7 @@ pub fn client_spawn_other_player_new(
         },
         inputs: InputQueue::new(),
         states: PastStateQueue::new(),
-        potion_status: ItemStatus::new()
+        potion_status: ItemStatus::new(),
     });
 }
 
@@ -563,13 +611,13 @@ pub fn client_spawn_other_player(
             addr: source_ip,
         },
         player: Player,
-        health: Health::new(),
+        health: Health::new_init(),
         crouching: Crouch { crouching: false },
         sprinting: Sprint { sprinting: false },
         attacking: Attack { attacking: false },
         inputs: InputQueue::new(),
         states: PastStateQueue::new(),
-        potion_status: ItemStatus::new()
+        potion_status: ItemStatus::new(),
     });
 }
 
@@ -581,7 +629,7 @@ pub fn client_spawn_other_player(
 pub fn player_interact(
     mut commands: Commands,
     mut player: Query<
-        (&mut Transform, &mut Velocity, &NetworkId,  &mut ItemStatus),
+        (&mut Transform, &mut Velocity, &NetworkId, &mut ItemStatus),
         (With<Player>, Without<Background>),
     >,
     input: Res<ButtonInput<KeyCode>>,
@@ -593,20 +641,16 @@ pub fn player_interact(
         if id.id == client_id.id {
             // player collider
             let player_collider =
-                collision::Aabb::new(
-                    player_transform.translation, 
-                    Vec2::splat(TILE_SIZE as f32)
-            );
+                collision::Aabb::new(player_transform.translation, Vec2::splat(TILE_SIZE as f32));
+            // Coin pot collider
+            let pot_collider = Aabb::new(pot_transform.translation, Vec2::splat(TILE_SIZE as f32));
 
-            
             // loop through potions in room
             for (potion_entity, potion_transform) in potion_query.iter() {
-                let potion_collider = Aabb::new(
-                    potion_transform.translation, 
-                    Vec2::splat(TILE_SIZE as f32)
-                );
+                let potion_collider =
+                    Aabb::new(potion_transform.translation, Vec2::splat(TILE_SIZE as f32));
 
-                // if player intersects 
+                // if player intersects
                 if player_collider.intersects(&potion_collider) && !potion_status.has_potion {
                     // check here if player is already carrying potion
                     potion_status.has_potion = true; // Player now has a potion
@@ -614,11 +658,10 @@ pub fn player_interact(
                         "Player at {:?} picked up a potion at {:?}!",
                         player_transform.translation, potion_transform.translation
                     );
-                    
+
                     // despawn potion
                     commands.entity(potion_entity).despawn();
-                } 
-
+                }
             }
 
             for (pot_transform, mut pot, mut pot_atlas) in pot_q.iter_mut(){
@@ -644,26 +687,23 @@ pub fn player_interact(
                     }
                 
                 }
-
-                
             }
         }
     }
-}      
+}
 
 pub fn spawn_monkey(
-    player_q: Query<(&Transform, &NetworkId ),(With<Player>)>,
-    mut command: Commands,   
+    player_q: Query<(&Transform, &NetworkId), (With<Player>)>,
+    mut command: Commands,
     us: Res<ClientId>,
     keys: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     udp: Res<UDP>,
-){
-
+) {
     /* for all players, we match to find us */
-    for (t,id) in player_q.iter(){
-        if us.id != id.id{
+    for (t, id) in player_q.iter() {
+        if us.id != id.id {
             continue;
         }
         /* can assume that we are us yk yk yk (client player nont p2) */
@@ -689,8 +729,7 @@ pub fn spawn_monkey(
         //      ///\     /\\\
         //      '''       '''               Michel Boisset -- grabbed from some ascii art site
         /* MAKE DA MONKE */
-        if keys.just_pressed(KeyCode::Tab){
-
+        if keys.just_pressed(KeyCode::Tab) {
             /* lots of spawning in stuffs. textures are a lot */
             let monkey_handle: Handle<Image> = asset_server.load(MONKEY_HANDLE);
             let monkey_layout = TextureAtlasLayout::from_grid(
@@ -698,42 +737,38 @@ pub fn spawn_monkey(
                 MONKEY_SPRITE_COL,
                 MONKEY_SPRITE_ROW,
                 None,
-                None
+                None,
             );
             let monkey_len = monkey_layout.textures.len();
             let monkey_layout_handle = texture_atlases.add(monkey_layout);
             info!("Monkey spawn");
-            command.spawn(ClientCymbalMonkey{
+            command.spawn(ClientCymbalMonkey {
                 track: Trackable,
-                sprite: SpriteBundle{
+                sprite: SpriteBundle {
                     texture: monkey_handle,
                     transform: t.clone(),
                     ..default()
-                },  
+                },
                 distracto: Monkey,
-                atlas: TextureAtlas{
+                atlas: TextureAtlas {
                     layout: monkey_layout_handle,
                     index: 0,
                 },
-                animation_timer:AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
+                animation_timer: AnimationTimer(Timer::from_seconds(
+                    ANIM_TIME,
+                    TimerMode::Repeating,
+                )),
                 animation_frames: AnimationFrameCount(monkey_len),
-                lifetime: Lifetime::new()
+                lifetime: Lifetime::new(),
             });
 
             /* once we have spawned in, then we swtich off to send it to the server, so
              * the enemies can pathfind to it, and os that the other clients can also have a lil peek */
-            
-
         }
     }
 }
 
-pub fn update_monkey(
-
-){
-
-}
-
+pub fn update_monkey() {}
 
 pub fn restore_health(
     input: Res<ButtonInput<KeyCode>>,
@@ -741,13 +776,15 @@ pub fn restore_health(
 ) {
     for (mut health, mut potion_status) in player.iter_mut() {
         // check if the player has a potion and presses H
-        if input.just_pressed(KeyCode::KeyH) && potion_status.has_potion && health.current < health.max{
+        if input.just_pressed(KeyCode::KeyH)
+            && potion_status.has_potion
+            && health.current < health.max
+        {
             // restore 50 health and clamp
             health.current = (health.current + 25.).min(health.max);
 
             // set has potion to false
             potion_status.has_potion = false;
-
         }
 
         // take damage keybind for testing
@@ -869,13 +906,6 @@ pub fn update_player_position(
         transform.translation.y += velocity.velocity.y * time.delta_seconds();
 
         let mut _hit_door = false;
-        // take care of horizontal and vertical movement + enemy collision check
-        // TODODODODODODODODODODODO
-
-        // if we hit a door
-        // if hit_door {
-        //     transition_map(&mut _commands, &_asset_server, &mut room_manager, room_query, &mut pt); // Pass room_query as argument
-        // }
     }
 }
 
@@ -885,7 +915,7 @@ pub fn move_player(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<
-        (&mut Transform, &mut Velocity, &NetworkId),
+        (&mut Transform, &mut Velocity, &NetworkId, &mut Health),
         (With<Player>, Without<Background>, Without<Door>),
     >,
     mut enemies: Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
@@ -896,17 +926,30 @@ pub fn move_player(
     room_query: Query<Entity, With<Room>>,
     client_id: Res<ClientId>,
     mut carnage: Query<&mut CarnageBar>,
-    inner_wall_query: Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
-    mut collision_state: ResMut<CollisionState>, 
+    mut last_attribute_array: ResMut<LastAttributeArray>,
+    inner_wall_query: Query<
+        (&Transform),
+        (
+            With<InnerWall>,
+            Without<Player>,
+            Without<Enemy>,
+            Without<Door>,
+        ),
+    >,
+    mut collision_state: ResMut<CollisionState>,
+    room_config: Res<RoomConfig>,
 ) {
+    
     let mut hit_door = false;
     let mut _player_transform = Vec3::ZERO;
     let mut door_type: Option<DoorType> = Option::None;
 
-
     // Player movement
-    for (mut pt, mut pv, id) in player_query.iter_mut() {
+    for (mut pt, mut pv, id, health) in player_query.iter_mut() {
         if id.id != client_id.id {
+            continue;
+        }
+        if health.current <= 0. {
             continue;
         }
         let mut deltav = Vec2::splat(0.);
@@ -981,7 +1024,7 @@ pub fn move_player(
         if !collision_state.colliding_with_wall {
             collision_state.last_position = pt.translation;
         } else {
-            pt.translation = collision_state.last_position; 
+            pt.translation = collision_state.last_position;
         }
 
         let baban = handle_player_collisions(
@@ -996,34 +1039,9 @@ pub fn move_player(
         hit_door = baban.0;
         door_type = baban.1;
     }
-
-
-    // If a door was hit, handle the transition
-    if hit_door {
-        let mut carnage_bar = carnage.single_mut();
-        carnage_bar.stealth += 10.;
-        if let Some(door_type) = door_type {
-
-
-
-        /* TOODOODOODOODODOODODODOD HOW DO WE WANT TO HANDLE COLLISIONS with door */
-
-
-
-            // Pass the door type to transition_map
-            // transition_map(
-            //     &mut commands,
-            //     &asset_server,
-            //     &mut room_manager,
-            //     room_query,
-            //     door_query,
-            //     &mut player_query.single_mut().0,// this is broke cant be single
-            //     door_type,
-            //     carnage,
-            // );
         }
     }
-} 
+}
 
 pub fn handle_player_collisions(
     pt: &mut Transform,
@@ -1031,7 +1049,15 @@ pub fn handle_player_collisions(
     enemies: &mut Query<&mut Transform, (With<Enemy>, Without<Player>, Without<Door>)>,
     room_manager: &mut ClientRoomManager,
     door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
-    inner_wall_query: &Query<(&Transform), (With<InnerWall>, Without<Player>, Without<Enemy>, Without<Door>)>,
+    inner_wall_query: &Query<
+        (&Transform),
+        (
+            With<InnerWall>,
+            Without<Player>,
+            Without<Enemy>,
+            Without<Door>,
+        ),
+    >,
     mut collision_state: &mut ResMut<CollisionState>,
 ) -> (bool, Option<DoorType>) {
     let mut hit_door = false;
@@ -1071,7 +1097,10 @@ pub fn handle_player_collisions(
 
     // Check for collisions with inner walls
     for inner_wall_transform in inner_wall_query.iter() {
-        let inner_wall_aabb = Aabb::new(inner_wall_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        let inner_wall_aabb = Aabb::new(
+            inner_wall_transform.translation,
+            Vec2::splat(TILE_SIZE as f32),
+        );
         if player_aabb.intersects(&inner_wall_aabb) {
             pt.translation = pt.translation - Vec3::new(change.x, change.y, 0.0);
             collision_state.colliding_with_wall = true;

@@ -16,6 +16,8 @@ pub const TICKS_PER_SECOND: f64 = 60.;
 
 pub const SERVER_ADR: &str = "127.0.0.1:5001"; //136.142.159.86:5001
 
+pub const SERVER_ADR: &str = "127.0.0.1:5001"; //136.142.159.86:5001
+
 
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;
@@ -93,7 +95,14 @@ pub struct Health{
     pub current: f32
 }
 impl Health {
-    pub fn new() -> Self {
+    pub fn new(health:&Health) -> Self {
+        Self {
+            max: health.max,
+            current: health.current
+        }
+    }
+
+    pub fn new_init() -> Self {
         Self {
             max: 100.,
             current: 100.
@@ -109,6 +118,19 @@ impl Health {
 #[derive(Resource)]
 pub struct PlayerCount{
     pub count: u8
+}
+
+#[derive(Resource)]
+pub struct PlayerDeathTimer {
+    pub timer: Timer
+}
+
+impl PlayerDeathTimer{
+    pub fn new() -> Self {
+        Self {
+            timer: Timer::from_seconds(5., TimerMode::Repeating)
+        }
+    }
 }
 
 #[derive(Resource)]
