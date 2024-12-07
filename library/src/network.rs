@@ -176,6 +176,7 @@ pub struct MapS2C{
     pub matrix: Vec<Vec<u8>>,
     pub size: (f32, f32),
     pub max: (f32, f32),
+    pub z: f32,
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EnemyS2C{

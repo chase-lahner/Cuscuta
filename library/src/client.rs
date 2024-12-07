@@ -191,29 +191,7 @@ fn receive_player_packet(
         }
     }
 
-    /* we don't have this player!!!!!! Oh no!! whatever
-     * shall we do?!?!
-     *
-     * Actually a qustion. there are three scenarios here. So, when we
-     * ask the server for an id, it will send us an establishing id packet,
-     * and then also punt over a newly spawned player.
-     * Scenario 1: We already have the userplayer, this is someone else.
-     *          In this case, we need to create a new clientplayerbundle
-     * Scenario 2: We recvieve userplayer, and have recieved the id packet first
-     *              Id is all good, we can check against the 'us' variable of id
-     * Scenario 3: We recv player **before** the id packet. lil iffy.
-     *              I think the only way to know of this is to  check if clientID
-     *              'us' is still @ default value (0).
-     *
-     *
-     * We have a lil check above to see if we have found 'us' in our
-     * query of the game world. if we did not find, we can lowk merge
-     * scenarios 2&3, with just doin a lil 'make sure we set our id'
-     * in scenario 3
-     *
-     *
-     * GAHHHH all the scenarios are the same we must just do some setting (to be sure that
-     * shit works even if we failed to get a id packet) */
+    /* ohno. he doesnt exist... what. */
     if !found_packet {
         info!("creating new player {}", saranpack.head.network_id);
         let player_sheet_handle = asset_server.load("player/4x8_player.png");
@@ -226,7 +204,7 @@ fn receive_player_packet(
         );
         let player_layout_len = player_layout.textures.len();
         let player_layout_handle = texture_atlases.add(player_layout);
-        info!("SPAWN SPAWN SPAWNNNN");
+        info!("SPAWN SPAWN SPAWNNNN");// SPAWN SPAWN SPAWN
         commands.spawn(ClientPlayerBundle {
             sprite: SpriteBundle {
                 texture: player_sheet_handle,
@@ -482,6 +460,8 @@ fn receive_map_packet (
      * reset so we made a slinky */
     let og_horizontal = horizontal;
     let og_vertical = vertical;
+    let z_index = map_packet.z;
+
 
 
     /* get rid of room */
@@ -490,6 +470,7 @@ fn receive_map_packet (
         commands.entity(tile).despawn();
     }
 
+    info!("starting ({}, {})",horizontal, vertical);
     for a in 0..map_array.len() {
         for b in 0..map_array[0].len() {
             let val = map_array[a][b];
@@ -502,53 +483,53 @@ fn receive_map_packet (
                     ..default() },Background,Room,)),
                 1 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/left_wall.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.1),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Wall,Room,)),
                 2 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/right_wall.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.1),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Wall,Room,)),
 /*poton */      3 => {commands.spawn(( SpriteBundle {
                     texture: asset_server.load("items/potion.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.1),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Potion,Room,));
                     commands.spawn((SpriteBundle {
                     texture: asset_server
                         .load("tiles/cobblestone_floor/cobblestone_floor.png")
                         .clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.0),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Background,Room,))}
                 4 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.3),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },ClientDoor{door_type: DoorType::Left,},Room,)),
                 5 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.4),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },ClientDoor{door_type: DoorType::Right,},Room,)),
                 6 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.5),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },ClientDoor{door_type: DoorType::Top,},Room,)),
                 7 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.6),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },ClientDoor{door_type: DoorType::Bottom,},Room,)),
                 8 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/north_wall.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.2),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Wall,Room,)),
                 9 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.2),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Wall,Room,)),
                 10 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/1x2_pot.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.1),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Pot::new(),Room,)),
                 _ => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
-                    transform: Transform::from_xyz(-10000.0, -10000.0, 0.2),
+                    transform: Transform::from_xyz(-10000.0, -10000.0, z_index),
                     ..default() },Wall,Room,)),
             };
             vertical += TILE_SIZE as f32;
@@ -693,7 +674,6 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
             sequence.assign(&id_packet.head.sequence);
         }
         ServerPacket::PlayerPacket(player_packet) => {
-            info!("Matching Player  {}", player_packet.head.network_id);
             /*  gahhhh sequence borrow checker is giving me hell */
             /* if we encounter porblems, it's herer fs */ 
             receive_player_packet( &mut commands, &mut players_q, &asset_server, &player_packet, &mut texture_atlases, src);
@@ -711,7 +691,7 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
             sequence.assign(&enemy_packet.head.sequence);
         }
         ServerPacket::DespawnPacket(despawn_packet) => {
-            info!("Matching Despawn Packet");
+            //info!("Matching Despawn Packet");
             // despawn_enemy(&mut commands, &despawn_packet.enemy_id);
             sequence.assign(&despawn_packet.head.sequence);
         }

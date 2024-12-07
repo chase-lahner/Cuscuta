@@ -121,7 +121,10 @@ pub fn listen(
                 info!("sending id to client");
                 send_id(src,  &mut n_p, &mut commands, &mut addresses, &mut server_seq, &udp);
                 println!("{:?}", addresses.list);
-                send_map_packet(&mut commands, &mut door_query, &mut wall_query, &mut background_query, &mut potion_query, &mut pot_query, &mut server_seq, &mut roomman, &udp, &mut addresses);
+                send_map_packet(&mut door_query, &mut wall_query,
+                    &mut background_query, &mut potion_query,
+                    &mut pot_query, &mut server_seq,
+                    &mut roomman, &udp, & addresses);
             },
             ClientPacket::PlayerPacket(player_packet) => {
                 // TODO: Fix this
@@ -457,7 +460,8 @@ pub fn send_despawn_command(
 }   
 
 pub fn send_player_to_self(
-    player : &Query<(&Velocity, &mut Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
+    player : &Query<(&Velocity, &mut Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), 
+        (With<Player>, Without<Door>, Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
     server_seq: &mut Sequence,
     addresses: &AddressList,
     udp: &UDP
@@ -467,8 +471,10 @@ pub fn send_player_to_self(
     for (v, t, i, h, c, r, s, a,)  in player.iter(){
         /* packet-ify it */
         info!("Sending {}", i.id);
+        let mut transform_to_send = *t;
+        transform_to_send.translation.z = 100.;
         let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
-            transform: *t,
+            transform: transform_to_send,
             head: Header::new(i.id,server_seq.clone()),
             attack: a.attacking,
             velocity: v.velocity,
@@ -505,7 +511,6 @@ pub fn send_player_to_self(
 9 - bottom wall 
 10 - pot */
 fn send_map_packet (
-    mut _commands: &mut Commands,
     door_query: &mut Query<(&mut Transform, &Door), (Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
     wall_query: &mut Query<&mut Transform, (With<Wall>, Without<Door>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>, 
     background_query: &mut Query<&mut Transform, (With<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
@@ -514,7 +519,7 @@ fn send_map_packet (
     server_seq: &Sequence,
     roomman: &mut RoomManager,
     udp: &UDP,
-    addresses: &mut AddressList,
+    addresses: &AddressList,
 ) {
 
     let (room_w,room_h):(f32, f32) = RoomManager::current_room_size(&roomman);
@@ -577,6 +582,7 @@ fn send_map_packet (
         matrix: map_array,
         size: RoomManager::current_room_size(&roomman),
         max: RoomManager::current_room_max(&roomman),
+        z: roomman.current_z_index,
     });
 
     
@@ -594,13 +600,9 @@ fn send_map_packet (
 
 pub fn check_door(
     mut player : Query<(&mut Transform), With<Player>>,
-    mut server_seq: ResMut<Sequence>,
-    addresses: Res<AddressList>,
-    udp: Res<UDP>,  
     door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
     mut carnage: Query<&mut CarnageBar>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut room_manager: ResMut<RoomManager>,
     mut room_query: Query<Entity, With<Room>>,
     mut room_change: EventWriter<RoomChangeEvent>,
@@ -641,7 +643,6 @@ pub fn check_door(
         if let Some(final_door) = final_door {
             transition_map(
                 &mut commands,
-                &asset_server,
                 &mut room_manager,
                 &mut room_query,
                 &mut player,
@@ -651,6 +652,33 @@ pub fn check_door(
             room_change.send(RoomChangeEvent(all_hit));
         }
     }
-
-
 }   
+
+pub fn room_change_infodump(
+    mut event_listener: EventReader<RoomChangeEvent>,
+    udp: Res<UDP>,
+    mut addresses: Res<AddressList>,
+    player : Query<(&Velocity, &mut Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), 
+        (With<Player>, Without<Door>, Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
+    mut server_seq: ResMut<Sequence>,
+    mut door_query: Query<(&mut Transform, &Door), 
+        (Without<Wall>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,  
+    mut wall_query: Query<&mut Transform, 
+        (With<Wall>, Without<Door>, Without<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>, 
+    mut background_query: Query<&mut Transform, 
+        (With<Background>, Without<Potion>, Without<Enemy>, Without<Pot>)>,
+    mut potion_query: Query<&mut Transform, 
+        (With<Potion>, Without<Pot>, Without<Enemy>)>,
+    mut pot_query: Query<&mut Transform, 
+        (With<Pot>, Without<Enemy>)>,
+    mut room_manager: ResMut<RoomManager>,
+){
+    for event in event_listener.read(){
+        if !event.0{continue};
+        send_map_packet(&mut door_query, &mut wall_query,
+             &mut background_query, &mut potion_query,
+              &mut pot_query, &server_seq,
+               &mut room_manager, &udp, & addresses);
+        send_player_to_self(&player, &mut server_seq, &addresses, &udp);
+    }
+}
