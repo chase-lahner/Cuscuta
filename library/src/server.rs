@@ -4,8 +4,8 @@ use bevy:: prelude::*;
 use network::*;
 use serde::{Deserialize, Serialize};
 
-
-use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
+use crate::room_gen::RoomChangeEvent;
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{transition_map, Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
 
 
 /* Upon request, sends an id to client, spawns a player, and
@@ -423,7 +423,6 @@ pub fn send_despawn_command(
  pub fn send_player(
     player : Query<(&Velocity, &Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
     server_seq: ResMut<Sequence>,
-    packet_q: ResMut<ServerPacketQueue>,
     addresses: Res<AddressList>,
     udp: Res<UDP>
 )
@@ -444,11 +443,48 @@ pub fn send_despawn_command(
         });
         /* push onto the 'to-send' queue */
         
+        /* send to everyone but self, let client movement happen */
         let mut serializer = flexbuffers::FlexbufferSerializer::new();
         outgoing_state.serialize(&mut serializer).unwrap();
         let packet: &[u8] = serializer.view();
         for addr in addresses.list.iter(){
             if *addr != i.addr {
+                udp.socket.send_to(&packet, addr).unwrap();
+
+            }
+        }
+    }
+}   
+
+pub fn send_player_to_self(
+    player : &Query<(&Velocity, &mut Transform, &NetworkId, &Health, &Crouch, &Roll, &Sprint, &Attack), With<Player>>,
+    server_seq: &mut Sequence,
+    addresses: &AddressList,
+    udp: &UDP
+)
+{
+    /* For each player in the game*/
+    for (v, t, i, h, c, r, s, a,)  in player.iter(){
+        /* packet-ify it */
+        info!("Sending {}", i.id);
+        let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
+            transform: *t,
+            head: Header::new(i.id,server_seq.clone()),
+            attack: a.attacking,
+            velocity: v.velocity,
+            health: *h,
+            crouch: c.crouching,
+            roll: r.rolling,
+            sprint: s.sprinting,
+        });
+        /* push onto the 'to-send' queue */
+        
+        /* send to everyone but self, let client movement happen */
+        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+        outgoing_state.serialize(&mut serializer).unwrap();
+        let packet: &[u8] = serializer.view();
+        for addr in addresses.list.iter(){
+            if *addr == i.addr {
                 udp.socket.send_to(&packet, addr).unwrap();
 
             }
@@ -557,45 +593,64 @@ fn send_map_packet (
 }
 
 pub fn check_door(
-    player_q: Query<(&Transform), With<Player>>,
+    mut player : Query<(&mut Transform), With<Player>>,
+    mut server_seq: ResMut<Sequence>,
+    addresses: Res<AddressList>,
+    udp: Res<UDP>,  
     door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,
-    carnage: Query<&mut CarnageBar>
+    mut carnage: Query<&mut CarnageBar>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut room_manager: ResMut<RoomManager>,
+    mut room_query: Query<Entity, With<Room>>,
+    mut room_change: EventWriter<RoomChangeEvent>,
 ){
     /* are allthe players standing on a door? */
     let mut all_hit = true;
     let mut have_player = false;
-    let final_door = None;
+    let mut final_door = None;
     /* for all players */
-    for(transform) in player_q.iter(){
+    for transform in player.iter(){
         let (door_hit, door_type) = check_door_collision(&door_query, transform);
         /* ah boolean. ensures if we get false, it'll
          * stay false. do need to make sure we have a player lol.. */
         all_hit = all_hit && door_hit;
         have_player = true;
-    }
-    // If a door was hit, handle the transition
-    if all_hit {
-        let mut carnage_bar = carnage.single_mut();
-        carnage_bar.stealth += 10.;
-        if let Some(door_type) = door_type {
-
-
-
-        /* TOODOODOODOODODOODODODOD HOW DO WE WANT TO HANDLE COLLISIONS with door */
-
-
-
-            // Pass the door type to transition_map
-            // transition_map(
-            //     &mut commands,
-            //     &asset_server,
-            //     &mut room_manager,
-            //     room_query,
-            //     door_query,
-            //     &mut player_query.single_mut().0,// this is broke cant be single
-            //     door_type,
-            //     carnage,
-            // );
+        /* also set door. If the final door is None,
+         * we will set (lower). If final_door is something,
+         * we check if its the same as what we just got. if it's not,
+         * the players are on different doors, abort mission */
+        if let Some(final_door) = final_door{
+            /* final door is something! Is door_type? */
+            if let Some(door_type) = door_type{
+                /* yippe! if same, we dont care, if not
+                 * boooo killll tomato */
+                if door_type != final_door{
+                    all_hit = false;
+                }
+            }
+        } else{
+            final_door = door_type;
         }
     }
+
+    // If a door was hit, handle the transition
+    if all_hit && have_player{
+        let mut carnage_bar = carnage.single_mut();
+        carnage_bar.stealth += 10.;
+        if let Some(final_door) = final_door {
+            transition_map(
+                &mut commands,
+                &asset_server,
+                &mut room_manager,
+                &mut room_query,
+                &mut player,
+                final_door,
+                &mut carnage,
+            );
+            room_change.send(RoomChangeEvent(all_hit));
+        }
+    }
+
+
 }   

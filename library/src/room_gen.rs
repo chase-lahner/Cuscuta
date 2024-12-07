@@ -2,10 +2,16 @@ use bevy::prelude::*;
 use rand::Rng;
 use crate::collision::*;
 use crate::cuscuta_resources::*;
+use crate::network::Sequence;
 use crate::player::*;
 use crate::enemies::*;
 use crate::markov_chains::*;
+use crate::server::send_player_to_self;
 use crate::ui::*;
+use crate::network::UDP;
+
+#[derive(Event)]
+pub struct RoomChangeEvent(bool);
 
 #[derive(Resource)]
 pub struct ClientRoomManager{
@@ -875,7 +881,7 @@ fn regen_draw_inner_wall(
 /// Returns the room width, room height, max x, max y, and z-index.
 fn generate_room_boundaries(
     room_manager: &mut RoomManager,
-    mut carnage_query: Query<&mut CarnageBar>, 
+    mut carnage_query: &mut Query<&mut CarnageBar>, 
 ) -> (f32, f32, f32, f32, f32) {
     let mut rng = rand::thread_rng();
 
@@ -951,7 +957,7 @@ fn generate_room_boundaries(
 /// Generates walls and floors for the room.
 fn generate_walls_and_floors(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
+    asset_server: & AssetServer,
     _room_width: f32,
     _room_height: f32,
     max_x: f32,
@@ -1198,7 +1204,7 @@ fn generate_doors(
 
 pub fn generate_random_room_with_bounds(
     commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
+    asset_server: &AssetServer,
     room_manager: &mut RoomManager,
     width: usize,
     height: usize,
@@ -1259,7 +1265,7 @@ pub fn generate_random_room_with_bounds(
 
 pub fn regenerate_existing_room(
     commands: &mut Commands, 
-    asset_server: &Res<AssetServer>,
+    asset_server: &AssetServer,
     room_manager: &mut RoomManager,
     width: usize,
     height: usize,
@@ -1313,15 +1319,17 @@ pub fn regenerate_existing_room(
     }
 }
 
+/* transitions room to room. I have made this an amalgamous mess. Lots going
+ * on here, we despawn old room, check which door we're on to generate a new room,
+ * and send out player packets to let the youngins know where they should be */
 pub fn transition_map(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
+    asset_server: &AssetServer,
     room_manager: &mut RoomManager,
-    mut room_query: Query<Entity, With<Room>>, 
-    _door_query: Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,  
-    pt: &mut Transform,
+    mut room_query: &mut Query<Entity, With<Room>>, 
+    player : &mut Query<(&mut Transform), With<Player>>,
     door_type: DoorType, 
-    mut carnage_query: Query<&mut CarnageBar>, 
+    mut carnage_query: &mut Query<&mut CarnageBar>,
 ) {
     let mut right_x_out = 0;
     let mut left_x_out = 0;
@@ -1375,7 +1383,7 @@ pub fn transition_map(
                 // generate the room with random bounds
                 generate_random_room_with_bounds(
                     commands,
-                    &asset_server,
+                    asset_server,
                     room_manager,
                     room_width as usize / TILE_SIZE as usize,
                     room_height as usize / TILE_SIZE as usize,
@@ -1383,8 +1391,10 @@ pub fn transition_map(
                 // pass in right door
                 //generate_random_room(commands, &asset_server, room_manager);
 
-                // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                // Spawn the players a little away from the right door
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1396,13 +1406,16 @@ pub fn transition_map(
 
                         regenerate_existing_room(
                             commands,
-                            &asset_server,
+                            asset_server,
                             room_manager,
                             width as usize,
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
+                        // Spawn the players a little away from the right door
+                    for mut transform in player.iter_mut(){
+                        transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
+                    }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1441,9 +1454,10 @@ pub fn transition_map(
                 );
                 // pass in right door
                 //generate_random_room(commands, &asset_server, room_manager);
-
-                // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                // Spawn the players a little away from the right door
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1461,7 +1475,10 @@ pub fn transition_map(
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                        // Spawn the players a little away from the right door
+                        for mut transform in player.iter_mut(){
+                            transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1500,11 +1517,12 @@ pub fn transition_map(
                     room_width as usize / TILE_SIZE as usize,
                     room_height as usize / TILE_SIZE as usize,
                 );
-                // pass in right door
-                //generate_random_room(commands, &asset_server, room_manager);
+          
 
-                // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                // Spawn the players a little away from the bottom door
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1522,7 +1540,10 @@ pub fn transition_map(
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        // Spawn the players a little away from the bottom door
+                        for mut transform in player.iter_mut(){
+                            transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1566,8 +1587,10 @@ pub fn transition_map(
                 // pass in right door
                 //generate_random_room(commands, &asset_server, room_manager);
 
-                // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                // Spawn the player a little away from the top door
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1585,7 +1608,10 @@ pub fn transition_map(
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        // Spawn the players a little away from the right door
+                        for mut transform in player.iter_mut(){
+                            transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }

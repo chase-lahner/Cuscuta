@@ -20,6 +20,8 @@ fn main() {
             FixedUpdate,
             (
                 server::listen,//.run_if(on_timer(Duration::from_millis(5))),
+                server::check_door.after(server::listen),
+                server::send_room.after(server::check_door),
                 server::send_despawn_command,
                 enemies::enemy_movement,
                 server::send_enemies.after(server::listen),
