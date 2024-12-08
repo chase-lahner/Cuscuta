@@ -32,9 +32,9 @@ fn main() {
                 server::carnage_update.after(server::check_door),
                 server::send_despawn_command,
                 enemies::enemy_movement,
-                server::send_enemies.after(server::listen),
+                server::send_enemies.after(server::check_door),
                 server::send_player.after(server::listen),
-                server::send_despawn_command.after(server::listen),
+                server::send_despawn_command.after(server::send_enemies),
                 player::update_server_monkey,
 
             ),
