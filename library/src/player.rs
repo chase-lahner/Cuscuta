@@ -44,6 +44,7 @@ pub struct ClientCymbalMonkey {
     pub distracto: Monkey,
     pub atlas: TextureAtlas,
     pub animation_timer: AnimationTimer,
+    pub doom_timer: DoomTimer,
     pub animation_frames: AnimationFrameCount,
     pub lifetime: Lifetime,
 }
@@ -282,7 +283,6 @@ pub fn player_attack(
         ),
         With<Player>,
     >,
-    mut carnage_q: Query<&mut CarnageBar, With<CarnageBar>>,
     client_id: Res<ClientId>,
 ) {
     /* In texture atlas for ratatta:
@@ -293,7 +293,6 @@ pub fn player_attack(
      * ratlas. heh. get it.*/
     for (v, mut ratlas, mut timer, _frame_count, mut attack, id) in player.iter_mut() {
         if id.id == client_id.id {
-            let mut carnage = carnage_q.single_mut();
             let abx = v.velocity.x.abs();
             let aby = v.velocity.y.abs();
 
@@ -313,10 +312,6 @@ pub fn player_attack(
                     } else if v.velocity.y < 0. {
                         ratlas.index = 4;
                     }
-                }
-                /* increment carnage. stupid fer now */
-                if carnage.carnage < 50. {
-                    carnage.carnage += 1.;
                 }
                 timer.reset();
             }
@@ -755,6 +750,10 @@ pub fn spawn_monkey(
                     ANIM_TIME,
                     TimerMode::Repeating,
                 )),
+                doom_timer: DoomTimer(Timer::from_seconds(
+                    5.0,
+                    TimerMode::Repeating,
+                )),
                 animation_frames: AnimationFrameCount(monkey_len),
                 lifetime: Lifetime::new(),
             });
@@ -765,7 +764,27 @@ pub fn spawn_monkey(
     }
 }
 
-pub fn update_monkey() {}
+pub fn update_monkey(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut monke: Query<
+        (
+            Entity,
+            &mut TextureAtlas,
+            &mut AnimationTimer,
+            &mut DoomTimer,
+            &AnimationFrameCount,
+        ),
+        With<Monkey>,
+    >,
+) {
+    for (entity, mut ratlas, mut timer,mut doom, _frame_count) in monke.iter_mut() {
+        timer.tick(time.delta());
+        doom.tick(time.delta());
+        if timer.finished() {ratlas.index = (ratlas.index + 1) % 2;} 
+        if doom.finished() {commands.entity(entity).despawn();}
+    }
+}
 
 pub fn restore_health(
     input: Res<ButtonInput<KeyCode>>,

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::{SEA_GREEN, RED, MAROON, BLACK};
+use serde::{Serialize, Deserialize};
 
 use crate::cuscuta_resources::{ClientId, Health, TILE_SIZE};
 use crate::player::{NetworkId, Player, ItemStatus};
@@ -10,8 +11,10 @@ const CARNAGE_BAR_LEFT: f32 = 3.0;
 const CARNAGE_BAR_MIDDLE: f32 = CARNAGE_BAR_LEFT + 12.; 
 const _CARNAGE_BAR_RIGHT: f32 = CARNAGE_BAR_MIDDLE + 12.;
 
+#[derive(Event)]
+pub struct CarnageChangeEvent(pub bool);
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
 pub struct CarnageBar{
     pub stealth: f32,
     pub carnage: f32

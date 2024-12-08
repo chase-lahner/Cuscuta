@@ -36,12 +36,15 @@ pub fn client_setup(
      * will be assigned when given one from server */
     commands.insert_resource(ClientId::new());
     
+    
     /* sequence number! gives us a lil ordering... we put 0
      * for now, which is the server's id but we will reassign
      * when we recv a packet from the server */
     commands.insert_resource(Sequence::new(0));
 
     commands.insert_resource(PlayerDeathTimer::new());
+
+    commands.insert_resource(EnemyIdChecker::new());
 
     // spawn camera
     spawn_camera(&mut commands);
@@ -65,8 +68,9 @@ pub fn server_setup(
     socket.set_nonblocking(true).unwrap();
     commands.insert_resource(UDP{socket:socket});
 
+    let room_config = RoomConfig::new();
     
-    commands.insert_resource(RoomConfig::new());
+    commands.insert_resource(room_config.clone());
     /* who we connected to again?*/
     commands.insert_resource(AddressList::new());
     /* lilk ordering action. 0 is server's Sequence index/id */
@@ -88,7 +92,7 @@ pub fn server_setup(
     let mut last_attribute_array = LastAttributeArray::new();
 
 
-    spawn_start_room(&mut commands, &mut room_manager, &mut last_attribute_array, 0.);
+    spawn_start_room(&mut commands, &mut room_manager, 0., &mut last_attribute_array, &room_config);
     commands.insert_resource(room_manager);
     commands.insert_resource(last_attribute_array);
 

@@ -5,6 +5,7 @@ use std::net::UdpSocket;
 use std::io;
 use crate::enemies::{EnemyId, EnemyMovement};
 use crate::cuscuta_resources::Health;
+use crate::ui::CarnageBar;
 
 
 /* Packets queues are used to hold packets when creted, before
@@ -153,11 +154,6 @@ pub struct BufSerializer {
     pub serializer: FlexbufferSerializer,
 }
 
-// #[derive(Serialize, Deserialize, PartialEq, Debug)]
-// pub struct PlayerC2S{
-//     pub head: Header,
-//     pub key: Vec<KeyCode>,
-// }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PlayerSendable{
     pub head: Header,
@@ -217,6 +213,12 @@ pub struct DecreaseEnemyHealthPacket{
     pub decrease_by: f32,
 }
 
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CarnagePacket{
+    pub carnage: CarnageBar,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ClientPacket{
     PlayerPacket(PlayerSendable),
@@ -231,7 +233,8 @@ pub enum ServerPacket{
     MapPacket(MapS2C),
     IdPacket(IdPacket),
     EnemyPacket(EnemyS2C),
-    DespawnPacket(KillEnemyPacket)
+    DespawnPacket(KillEnemyPacket),
+    CarnagePacket(CarnagePacket),
 }
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array 
