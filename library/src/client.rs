@@ -148,8 +148,14 @@ pub fn listen(
             info!("Matching Despawn Packet");
             despawn_enemy(&mut commands, &mut enemy_q, &despawn_packet.enemy_id);
         }
+        ServerPacket::DespawnAllPacket(despawn_packet) => {
+            info!("matched despawn all packet");
+            kill_everyone(&mut commands, &mut enemy_q);
+        }
+
         ServerPacket::CarnagePacket(carnage_pack) => {
             update_carnage(&mut carnage,&carnage_pack);
+
         }
     }
 }// stupid loop
@@ -445,7 +451,6 @@ fn receive_map_packet (
     for a in 0..map_array.len() {
         for b in 0..map_array[0].len() {
             let val = map_array[a][b];
-           // info!("[{}][{}] = ({}, {})",a,b,horizontal,vertical);
             match val {
                 0 => commands.spawn((SpriteBundle {
                     texture: asset_server
@@ -679,6 +684,16 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
 }// stupid loop
 }
 
+fn kill_everyone(
+    mut commands: &mut Commands,
+    mut enemy_q: &mut Query<(Entity, &mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue, &mut Health),(With<Enemy>, Without<Player>)>,
+)
+{
+    for (entity, _, _, _, _, _) in enemy_q.iter_mut(){
+        commands.entity(entity).despawn();
+    }
+}
+
 pub fn update_carnage(
     mut carnage: &mut Query<&mut CarnageBar>,
     pack: &CarnagePacket,
@@ -687,3 +702,4 @@ pub fn update_carnage(
         *carn = pack.carnage.clone();
     }
 }
+
