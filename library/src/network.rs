@@ -194,6 +194,13 @@ pub struct KillEnemyPacket{
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+
+pub struct MonkeyPacket{
+    pub head: Header,
+    pub transform: Transform,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct DespawnAllPacket {
     pub kill: bool
 }
@@ -238,6 +245,7 @@ pub enum ClientPacket{
     IdPacket(IdPacket),
     KillEnemyPacket(KillEnemyPacket),
     DecreaseEnemyHealthPacket(DecreaseEnemyHealthPacket),
+    MonkeyPacket(MonkeyPacket),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -247,9 +255,9 @@ pub enum ServerPacket{
     IdPacket(IdPacket),
     EnemyPacket(EnemyS2C),
     DespawnPacket(KillEnemyPacket),
+    MonkeyPacket(MonkeyPacket),
     DespawnAllPacket(DespawnAllPacket),
     CarnagePacket(CarnagePacket),
-
 }
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array 
