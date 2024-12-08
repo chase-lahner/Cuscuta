@@ -1100,6 +1100,7 @@ fn generate_doors(
 
         // LEFT DOOR
         if room_manager.get_room_value(left_x - 1, top_y + half_height) != Some(1) {
+            println!("generate doors - found room to left of generated room");
             // Left door
             let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
             let door_left_y = TILE_SIZE as f32 / 2.0;
@@ -1135,6 +1136,7 @@ fn generate_doors(
 
         // RIGHT DOOR
         if room_manager.get_room_value(right_x + 1, top_y + half_height) != Some(1) {
+            println!("generate doors - found room to right of generated room");
             // Right door
             let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
             let door_y = TILE_SIZE as f32 / 2.0;  
@@ -1172,6 +1174,7 @@ fn generate_doors(
 
         // TOP DOOR
         if room_manager.get_room_value(left_x + half_width, top_y - 1) != Some(1) {
+            println!("generate doors - found room to top of generated room");
              // Top door
              let door_top_x = TILE_SIZE as f32 / 2.0;
              let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
@@ -1210,6 +1213,7 @@ fn generate_doors(
 
         // BOTTOM DOOR
         if room_manager.get_room_value(left_x + half_width, bottom_y + 1) != Some(1) {
+            println!("generate doors - found room bottom of generated room");
             // Bottom door
             let door_bottom_x = TILE_SIZE as f32 / 2.0;
             let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
