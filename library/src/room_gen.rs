@@ -532,8 +532,8 @@ pub fn spawn_items_in_room(
 ) {
     // Get room boundaries for spawning
     let (room_width, room_height) = room_manager.current_room_size();
-    let max_x = room_width / 2.0;
-    let max_y = room_height / 2.0;
+    let max_x = (room_width / 2.0) - (TILE_SIZE as f32 * 2.0);
+    let max_y = (room_height / 2.0) - (TILE_SIZE as f32 * 2.0);
     let z_index = room_manager.current_room_z_index();
 
     let mut rng = rand::thread_rng();
@@ -1790,36 +1790,4 @@ pub fn translate_coords_to_grid(aabb: &Aabb, room_manager: &mut RoomManager) -> 
     let bottomright = current_grid[arr_x_max as usize][arr_y_min as usize];
 
     (topleft, topright, bottomleft, bottomright)
-}
-
-
-pub fn client_spawn_pot(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-){
-    let pot_handle = asset_server.load("tiles/1x2_pot.png");
-    let pot_layout = TextureAtlasLayout::from_grid(
-        UVec2::splat(TILE_SIZE),
-         1,
-         2,
-        None,
-        None
-    );
-    let _pot_layout_len = pot_layout.textures.len();
-    let pot_layout_handle = texture_atlases.add(pot_layout);
-    commands.spawn((
-        SpriteBundle{
-            texture: pot_handle,
-            transform: Transform::from_xyz(200.,200.,1.),
-            ..default()
-        },
-        TextureAtlas {
-            layout: pot_layout_handle,
-            index:0,
-        },
-        Pot{
-            touch: 0
-        }
-    ));
 }

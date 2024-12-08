@@ -424,16 +424,16 @@ fn receive_map_packet (
     /* setters for clientside room stats
      * Is there a one liner? probabaly. idk im lazy */
     let (new_width, new_height) = map_packet.size;
-    room_manager.width = new_width;
-    room_manager.height = new_height;
+    if(new_width != 0 && new_height != 0){
+        room_manager.width = new_width;
+        room_manager.height = new_height;
+    }   
 
     let map_array = &map_packet.matrix;
     let mut horizontal = -(new_width / 2.0) + (TILE_SIZE as f32 / 2.0);
     let mut vertical = -(new_height / 2.0) + (TILE_SIZE as f32 / 2.0);
     /* ye ol sliding room problem. Kinda funny, never
      * reset so we made a slinky */
-    let og_horizontal = horizontal;
-    let og_vertical = vertical;
     let og_vertical = vertical;
     let z_index = map_packet.z;
 
@@ -451,7 +451,6 @@ fn receive_map_packet (
         None,
         None,
     );
-    let pot_layout_len: usize = pot_layout.textures.len();
     let pot_layout_handle = texture_atlases.add(pot_layout);
    // info!("starting ({}, {})",horizontal, vertical);
     for a in 0..map_array.len() {
