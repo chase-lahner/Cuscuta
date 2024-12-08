@@ -258,7 +258,7 @@ impl RoomManager {
         new_height: usize
     ) {
         // Find the bounds of the current room
-        
+        println!("add_room_to_map_from_top_door - finding room bounds of z index: {}", z_index);
         if let Some((left_x, right_x, top_y, _bottom_y)) = self.find_room_bounds(z_index) {
             let old_x = (left_x + right_x) / 2;
             let old_y = top_y;
@@ -273,6 +273,7 @@ impl RoomManager {
                     self.room_map[x][y] = new_z_index;
                 }
             }
+            println!("add_room_to_map_from_left_door - ADDED ROOM z index: {}", new_z_index);
 
         } else {
             println!("Error: TOP Could not find bounds for the current room with z_index {}", z_index);
@@ -287,6 +288,7 @@ impl RoomManager {
         new_height: usize
     ) {
         // Find the bounds of the current room
+        println!("add_room_to_map_from_bottom_door - finding room bounds of z index: {}", z_index);
         if let Some((left_x, right_x, _top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_x = (left_x + right_x) / 2;
             let old_y = bottom_y + 1;
@@ -300,6 +302,7 @@ impl RoomManager {
                     self.room_map[x][y] = new_z_index;
                 }
             }
+            println!("add_room_to_map_from_left_door - ADDED ROOM z index: {}", new_z_index);
     
         } else {
             println!("Error: BOTTOM Could not find bounds for the current room with z_index {}", z_index);
@@ -313,6 +316,7 @@ impl RoomManager {
         new_width: usize, 
         new_height: usize
     ) {
+        println!("add_room_to_map_from_left_door - finding room bounds of z index: {}", z_index);
         // Find the bounds of the current room
         if let Some((left_x, _right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_y = (top_y + bottom_y) / 2;
@@ -326,6 +330,7 @@ impl RoomManager {
                     self.room_map[x][y] = new_z_index;
                 }
             }
+            println!("add_room_to_map_from_left_door - ADDED ROOM z index: {}", new_z_index);
     
         } else {
             println!("Error: LEFT Could not find bounds for the current room with z_index {}", z_index);
@@ -340,6 +345,7 @@ impl RoomManager {
         new_height: usize
     ) {
         // Find the bounds of the current room
+        println!("add_room_to_map_from_right_door - finding room bounds of z index: {}", z_index);
         if let Some((_left_x, right_x, top_y, bottom_y)) = self.find_room_bounds(z_index) {
             let old_y = (top_y + bottom_y) / 2;
             let old_x = right_x + 1;
@@ -352,6 +358,8 @@ impl RoomManager {
                     self.room_map[x][y] = new_z_index;
                 }
             }
+            println!("add_room_to_map_from_left_door - ADDED ROOM z index: {}", new_z_index);
+
     
         } else {
             println!("Error: RIGHT Could not find bounds for the current room with z_index {}", z_index);
@@ -487,8 +495,8 @@ impl RoomConfig {
                     item_count: (2, 3),
                 },
                 StateConfig {
-                    width_range: (70, 80),
-                    height_range: (70, 80),
+                    width_range: (70, 79),
+                    height_range: (70, 79),
                     inner_wall_count: (3, 5),
                     enemy_count: (3, 5),
                     enemy_type: (3, 3),
@@ -529,19 +537,6 @@ pub fn spawn_items_in_room(
     last_attribute_array: &LastAttributeArray,
     room_config: &RoomConfig,
 ) {
-    // coin pot texture
-    // let pot_handle: Handle<Image> = asset_server.load("tiles/1x2_pot.png");
-    
-    // let pot_layout = TextureAtlasLayout::from_grid(
-    //     UVec2::splat(TILE_SIZE),
-    //      1,
-    //      2,
-    //     None,
-    //     None
-    // );
-    // let _pot_layout_len = pot_layout.textures.len();
-    // let pot_layout_handle = texture_atlases.add(pot_layout);
-
     // Get room boundaries for spawning
     let (room_width, room_height) = room_manager.current_room_size();
     let max_x = room_width / 2.0;
@@ -558,8 +553,6 @@ pub fn spawn_items_in_room(
     // get random count from roon config
     let potion_count = rng.gen_range(num_items_to_spawn_range.0..=num_items_to_spawn_range.1);
     let coin_pot_count = rng.gen_range(num_items_to_spawn_range.0..=num_items_to_spawn_range.1);
-
-    //info!("potion count: {}, coin pot count: {}", potion_count, coin_pot_count);
 
     // spawn potions
     for _ in 0..potion_count {
@@ -609,6 +602,7 @@ pub fn spawn_start_room(
     last_attribute_array: &mut LastAttributeArray,
     room_config: &RoomConfig,
 ) {
+    println!("SPAWNING THE FUCKING START ROOM");
     // repeat for rest
     let mut rng = rand::thread_rng();
 
@@ -636,12 +630,6 @@ pub fn spawn_start_room(
 
         // apply skew to the matrix
         let skewed_matrix = Skew_Row(base_matrix, carnage_percent, last_attribute_value as usize);
-
-        // Log the skewed matrix for debugging
-        info!(
-            "Skewed matrix for START ROOM: {:?} with carnage_percent {}: {:?}",
-            room_attribute, carnage_percent, skewed_matrix
-        );
 
         let rand_percent: f32 = rng.gen_range(0.0..1.0);
 
@@ -1042,107 +1030,6 @@ fn regen_draw_inner_wall(
     }
 }
 
-
-/// Generates random room boundaries and adds the room to the room manager.
-/// Returns the room width, room height, max x, max y, and z-index.
-fn generate_room_boundaries(
-    room_manager: &mut RoomManager,
-    mut carnage_query: &mut Query<&mut CarnageBar>, 
-    last_attribute_array: &mut LastAttributeArray, 
-    room_config: &RoomConfig,
-
-) -> (f32, f32, f32, f32, f32) {
-    let mut rng = rand::thread_rng();
-
-    let mut next_attribute_array = NextAttributeArray::new();
-
-    // GET CARNAGE PERCENT FROM UI VALUE
-    let carnage_percent: f32 = carnage_query.single_mut().get_overall_percentage();
-
-     // Determine the next state for each attribute
-     let mut next_state: u8 = 0;
-
-
-    // iterate through each attribute
-    for i in 0..5 {
-        // map index to Room_Attributes enum
-        let room_attribute = match i {
-            0 => Room_Attributes::Room_Size,
-            1 => Room_Attributes::Inner_Walls,
-            2 => Room_Attributes::Enemy_Count,
-            3 => Room_Attributes::Enemy_Type,
-            4 => Room_Attributes::Item_Count,
-            _ => panic!("Invalid attribute index!"),
-        };
-
-        // get the last attribute value (1)
-        let last_attribute_value = last_attribute_array.get_attribute(i).unwrap_or(1);
-
-        // retrieve the corresponding matrix for the attribute
-        let base_matrix = Room_Attributes::get_matrix_for_attribute(&room_attribute);
-
-        // apply skew to the matrix
-        let skewed_matrix = Skew_Row(base_matrix, carnage_percent, last_attribute_value as usize);
-
-        // Log the skewed matrix for debugging
-        info!(
-            "Skewed matrix for NEW ROOM: {:?} with carnage_percent {}: {:?}",
-            room_attribute, carnage_percent, skewed_matrix
-        );
-
-        let rand_percent: f32 = rng.gen_range(0.0..1.0);
-
-        // determine next state
-        if rand_percent < skewed_matrix[0] {
-            //stealth state
-            next_state = 0;
-        } else if rand_percent < skewed_matrix[1] {
-            //normal
-            next_state = 1;
-        } else {
-            //carnage
-            next_state = 2;
-        };
-
-        info!("next state :D: {}", next_state);
-
-        next_attribute_array.set_next_attribute(i, next_state);
-    }
-
-    // copy values from next attribute array into last attribute array
-    last_attribute_array.attributes = next_attribute_array.attributes;
-
-
-    // ONLY FUTURE STATES FROM HERE ON OUT
-    let width_range = room_config.get_width_range(next_state);
-    let height_range = room_config.get_height_range(next_state);
-
-    // generate random size within the bounds
-    let random_width = rng.gen_range(width_range.0..=width_range.1);
-    let random_height = rng.gen_range(height_range.0..=height_range.1);
-
-    info!("width, height: {} {}", random_width, random_height);
-
-    // convert to pixel sizes
-    let room_width = random_width as f32 * TILE_SIZE as f32;
-    let room_height = random_height as f32 * TILE_SIZE as f32;
-
-    // add the room to the room manager
-    room_manager.add_room(random_width, random_height, room_width, room_height);
-
-    // get z-index for this room
-    let z_index = room_manager.get_global_z_index() - 2.0;
-
-    // add room to rooms array
-    room_manager.room_array.add_room_to_storage(z_index, random_width, random_height);
-
-    // calculate maximum x and y coordinates (room boundaries)
-    let max_x = room_width / 2.0;
-    let max_y = room_height / 2.0;
-
-    (room_width, room_height, max_x, max_y, z_index)
-}
-
 /// Generates walls and floors for the room.
 fn generate_walls_and_floors(
     commands: &mut Commands,
@@ -1229,7 +1116,6 @@ fn generate_doors(
                 },
                 Room,
             ));
-            println!("Spawningn left door");
             let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
             let ycoord_left = (door_left_y + max_y) as usize;
             set_collide(room_manager, xcoord_left, ycoord_left, 2);
@@ -1246,10 +1132,9 @@ fn generate_doors(
                 },
                 Room,
              ));
-            println!("Spawningn left door");
-             let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
-             let ycoord_left = (door_left_y + max_y) as usize;
-             set_collide(room_manager, xcoord_left, ycoord_left, 2);
+            let xcoord_left = ((-max_x * 2.0 + (3.0 * TILE_SIZE as f32 / 2.0)) - TILE_SIZE as f32) as usize;
+            let ycoord_left = (door_left_y + max_y) as usize;
+            set_collide(room_manager, xcoord_left, ycoord_left, 2);
         }
       
 
@@ -1400,20 +1285,10 @@ pub fn generate_random_room_with_bounds(
 
         // retrieve the corresponding matrix for the attribute
         let base_matrix = Room_Attributes::get_matrix_for_attribute(&room_attribute);
-        // Log the skewed matrix for debugging
-        // info!(
-        //     "BASE ROW for NEW ROOM: {:?} with carnage_percent {}: {:?}. with last attribute value: {}",
-        //     room_attribute, carnage_percent, base_matrix, last_attribute_value
-        // );
+
 
         // apply skew to the matrix
         let skewed_matrix = Skew_Row(base_matrix, carnage_percent, last_attribute_value as usize);
-
-        // Log the skewed matrix for debugging
-        // info!(
-        //     "SKEWED matrix for NEW ROOM: {:?} with carnage_percent {}: {:?}. with last attribute value: {}",
-        //     room_attribute, carnage_percent, skewed_matrix, last_attribute_value
-        // );
 
         let rand_percent: f32 = rng.gen_range(0.0..1.0);
 
@@ -1443,17 +1318,14 @@ pub fn generate_random_room_with_bounds(
     // generate random size within the bounds
     let random_width = rng.gen_range(width_range.0..=width_range.1);
     let random_height = rng.gen_range(height_range.0..=height_range.1);
+
+
     let room_width = random_width as f32 * TILE_SIZE as f32;  
     let room_height = random_height as f32 * TILE_SIZE as f32;
-   // info!("GEN RANDOM ROOM 1 random width: {}, random height: {}", random_width, random_height);
-    //info!("GEN RANDOM ROOM 2 room width: {}, room height: {}", room_width, room_height);
-
 
     // MULTIPLY TO PIXELS
     let max_x = room_width / 2.;
     let max_y = room_height / 2.;
-    //info!("GEN RANDOM ROOM 3 max_x: {}, max_y: {}", max_x, max_y);
-
 
     // add the room to the room manager
     room_manager.add_room(random_width, random_height, room_width, room_height);
@@ -1463,9 +1335,8 @@ pub fn generate_random_room_with_bounds(
 
     // add room to rooms array
     room_manager.room_array.add_room_to_storage(z_index, random_width, random_height);
-
-    // Get NEXT z-index for this room
-    let next_z_index = room_manager.next_room_z_index();
+    println!("random width: {} random height: {} room width: {} room height: {} max x: {} max y: {}", random_width, random_height, room_width, room_height, max_x, max_y);
+    println!("z-index getting added to storage: {}", z_index);
 
     // GET CURRENT Z
     let current_z_index = room_manager.current_z_index;
@@ -1483,7 +1354,6 @@ pub fn generate_random_room_with_bounds(
         current_z_index,
     );
 
-
     let wall_count = rng.gen_range(1..=3);
     
     // add inner walls
@@ -1491,7 +1361,8 @@ pub fn generate_random_room_with_bounds(
         create_inner_walls(commands, room_manager, random_width, random_height, global_z_index as isize);
     }
 
-   return (room_width , room_height, max_x as f32, max_y as f32, current_z_index);
+   return (random_width, random_height, max_x as f32, max_y as f32, current_z_index);
+
 }
 
 
@@ -1581,11 +1452,12 @@ pub fn transition_map(
             // get new z index
             let x_to_check = right_x_out + 1;
             let y_to_check =(top_y_out + bottom_y_out) / 2;
-            let room_val = room_manager.get_room_value(x_to_check,y_to_check);
+            let room_val = room_manager.get_room_value(x_to_check, y_to_check);
             if room_val == Some(1) {
                 let new_z_index = room_manager.get_global_z_index() - 2.0;
                 let current_z = room_manager.get_current_z_index();
                 let _global_z = room_manager.get_global_z_index();
+
 
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
@@ -1596,6 +1468,7 @@ pub fn transition_map(
                     &room_config,
                 );
 
+                println!("Room width going into add map: {} room height: {}", room_width, room_height);
                 // add new room to map relative to current room top door
                 room_manager.add_room_to_map_from_right_door(
                     current_z as i32,
@@ -1603,6 +1476,10 @@ pub fn transition_map(
                     room_width as usize / TILE_SIZE as usize,
                     room_height as usize/ TILE_SIZE as usize,
                 );
+
+                println!("z index looking for current room: {} z index for room to add: {}", current_z, new_z_index);
+
+                println!("before generate doors");
 
                 // generate doors
                 generate_doors(
@@ -1613,7 +1490,17 @@ pub fn transition_map(
                     current_z,
                 );
 
+
+                println!("before spawn items");
+                //spawn_items_in_room(commands, &room_manager, &last_attribute_array, &room_config);
+
+
+                println!("room_manager.current_z_index: {}", room_manager.get_current_z_index());
+               println!("room_manager.global: {}", room_manager.get_global_z_index());
                 // Spawn at left door
+
+                info!("player successfully moved to new room... but maybe not.");
+
                 for mut transform in player.iter_mut(){
                     transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
                 }
@@ -1669,6 +1556,7 @@ pub fn transition_map(
                     &room_config,
                 );
 
+                println!("Room width going into add map: {} room height: {}", room_width, room_height);
                 // add new room to map relative to current room top door
                 room_manager.add_room_to_map_from_left_door(
                     current_z as i32,
@@ -1676,6 +1564,8 @@ pub fn transition_map(
                     room_width as usize / TILE_SIZE as usize,
                     room_height as usize / TILE_SIZE as usize,
                 );
+
+                println!("before generate doors");
 
                 // generate doors
                 generate_doors(
@@ -1686,6 +1576,12 @@ pub fn transition_map(
                     current_z,
                 );
 
+                println!("before spawn items");
+               // spawn_items_in_room(commands, &room_manager, &last_attribute_array, &room_config);
+
+
+               println!("room_manager.current_z_index: {}", room_manager.get_current_z_index());
+               println!("room_manager.global: {}", room_manager.get_global_z_index());
                 // Spawn the player a little away from the right door
                 for mut transform in player.iter_mut(){
                     transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
@@ -1733,7 +1629,7 @@ pub fn transition_map(
 
                 let current_z = room_manager.get_current_z_index();
                 let _global_z = room_manager.get_global_z_index();
-                info!("hit top door. new_z: {}, current_z: {}, global_z: {}", new_z_index, current_z, _global_z);
+                println!("hit top door. new_z: {}, current_z: {}, global_z: {}", new_z_index, current_z, _global_z);
 
 
                 // generate the room with random bounds
@@ -1745,6 +1641,7 @@ pub fn transition_map(
                     &room_config,
                 );
 
+                println!("Room width going into add map: {} room height: {}", room_width, room_height);
                 // add new room to map relative to current room top door
                 room_manager.add_room_to_map_from_top_door(
                     current_z as i32,
@@ -1752,6 +1649,8 @@ pub fn transition_map(
                     room_width as usize / TILE_SIZE as usize,
                     room_height as usize / TILE_SIZE as usize,
                 );
+
+                println!("before generate doors");
 
                 // generate doors
                 generate_doors(
@@ -1762,6 +1661,11 @@ pub fn transition_map(
                     current_z,
                 );
 
+                println!("before spawn items");
+                //spawn_items_in_room(commands, &room_manager, &last_attribute_array, &room_config);
+
+
+                println!("room_manager.current_z_index: {}", room_manager.current_z_index);
                 // Spawn the player a little away from the bottom door
                 for mut transform in player.iter_mut(){
                     transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
@@ -1810,7 +1714,7 @@ pub fn transition_map(
 
                 let current_z = room_manager.get_current_z_index();
                 let _global_z = room_manager.get_global_z_index();
-                info!("hit bottom door. new_z: {}, current_z: {}, global_z: {}", new_z_index, current_z, _global_z);
+                println!("hit bottom door. new_z: {}, current_z: {}, global_z: {}", new_z_index, current_z, _global_z);
 
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
@@ -1821,6 +1725,7 @@ pub fn transition_map(
                     &room_config,
                 );
 
+                println!("Room width going into add map: {} room height: {}", room_width, room_height);
                 // add new room to map relative to current room top door
                 room_manager.add_room_to_map_from_bottom_door(
                     current_z as i32,
@@ -1829,6 +1734,8 @@ pub fn transition_map(
                     room_height as usize / TILE_SIZE as usize,
                 );
 
+                
+                println!("before generate doors");
                 // generate doors
                 generate_doors(
                     commands,
@@ -1838,6 +1745,11 @@ pub fn transition_map(
                     current_z,
                 );
 
+                println!("before spawn items");
+               // spawn_items_in_room(commands, &room_manager, &last_attribute_array, &room_config);
+
+               println!("room_manager.current_z_index: {}", room_manager.get_current_z_index());
+               println!("room_manager.global: {}", room_manager.get_global_z_index());
                 // Spawn the player a little away from the right door
                 for mut transform in player.iter_mut(){
                     transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
@@ -1915,7 +1827,6 @@ pub fn client_spawn_pot(
     );
     let _pot_layout_len = pot_layout.textures.len();
     let pot_layout_handle = texture_atlases.add(pot_layout);
-    info!("spawning pot");
     commands.spawn((
         SpriteBundle{
             texture: pot_handle,
@@ -1931,4 +1842,3 @@ pub fn client_spawn_pot(
         }
     ));
 }
-

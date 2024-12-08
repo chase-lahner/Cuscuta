@@ -96,7 +96,9 @@ pub fn listen(
     mut sequence: ResMut<Sequence>,
     mut room_query: Query<Entity, With<Room>>,
     mut room_manager: ResMut<ClientRoomManager>,
+    mut idstore: ResMut<'_, EnemyIdChecker>
     mut carnage: Query<&mut CarnageBar>,
+
 ) {
     //info!("Listening!!!");
     loop{
@@ -139,7 +141,7 @@ pub fn listen(
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
            // info!{"Matching Enemy Struct"};
-            recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases);
+            recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases, &mut idstore);
             sequence.assign(&enemy_packet.head.sequence);
         }
         ServerPacket::DespawnPacket(despawn_packet) => {
@@ -296,34 +298,37 @@ fn recv_enemy(
     mut commands: &mut Commands,
     mut enemy_q: &mut Query<(Entity, &mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue, &mut Health),(With<Enemy>, Without<Player>)>,//TODO make ecs
     asset_server: &AssetServer,
-    tex_atlas: &mut ResMut<Assets<TextureAtlasLayout>>
+    tex_atlas: &mut ResMut<Assets<TextureAtlasLayout>>,
+    idstore: &mut ResMut<EnemyIdChecker>
 ){
   //  info!("rec'd enemy");
     let mut found = false;
-    for (mut _entity, mut t, _m, i, mut q, mut health) in enemy_q.iter_mut(){
-       // info!("in enemy for");
-        if pack.enemytype.get_id() == i.id{
-           // info!("here!"); 
-            //info!("enemy queue length: {}", q.q.len());
-            if(q.q.len() > 2)
-            {
-                while(q.q.len() > 2)
+    if idstore.idstore.contains(&pack.enemytype.id) {
+        for (mut _entity, mut t, _m, i, mut q, mut health) in enemy_q.iter_mut(){
+        // info!("in enemy for");
+            if pack.enemytype.id == i.id{
+            // info!("here!"); 
+                //info!("enemy queue length: {}", q.q.len());
+                if(q.q.len() > 2)
                 {
-                    q.q.pop_back();
+                    while(q.q.len() > 2)
+                    {
+                        q.q.pop_back();
+                    }
                 }
+                //info!("enemy transform: {:?} player transform {:?}", t.translation.x, pack.transform.translation.x);
+                q.q.push_back(EnemyPastState{
+                    transform: t.clone(),
+                });
+                t.translation.x = pack.transform.translation.x;
+                t.translation.y = pack.transform.translation.y;
+                health.current = pack.health.current;
+                // enemy.movement = pack.movement;
+            //  enemy.movement.push(pack.movement.clone());
+                break;
             }
-            //info!("enemy transform: {:?} player transform {:?}", t.translation.x, pack.transform.translation.x);
-            q.q.push_back(EnemyPastState{
-                transform: t.clone(),
-            });
-            t.translation.x = pack.transform.translation.x;
-            t.translation.y = pack.transform.translation.y;
-            health.current = pack.health.current;
-            // enemy.movement = pack.movement;
-          //  enemy.movement.push(pack.movement.clone());
-            found = true;
-            break;
         }
+        found = true;
     }
 
     if !found {
@@ -372,6 +377,10 @@ fn recv_enemy(
             past: EnemyPastStateQueue::new(),
             health: Health::new(&the_enemy.health),
         });
+        let ind = idstore.index as usize;
+        //print!("adding id {}", pack.enemytype.id);
+        idstore.idstore[ind] = pack.enemytype.id;
+        idstore.index = idstore.index + 1;
     };
 }
 
@@ -432,11 +441,11 @@ fn receive_map_packet (
         commands.entity(tile).despawn();
     }
 
-    info!("starting ({}, {})",horizontal, vertical);
+   // info!("starting ({}, {})",horizontal, vertical);
     for a in 0..map_array.len() {
         for b in 0..map_array[0].len() {
             let val = map_array[a][b];
-            info!("[{}][{}] = ({}, {})",a,b,horizontal,vertical);
+           // info!("[{}][{}] = ({}, {})",a,b,horizontal,vertical);
             match val {
                 0 => commands.spawn((SpriteBundle {
                     texture: asset_server
@@ -452,7 +461,8 @@ fn receive_map_packet (
                     texture: asset_server.load("tiles/walls/right_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Wall,Room,)),
-/*poton */      3 => {commands.spawn(( SpriteBundle {
+/*poton */      3 => {
+                    commands.spawn(( SpriteBundle {
                     texture: asset_server.load("items/potion.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Potion,Room,));
@@ -614,6 +624,7 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
     mut sequence: ResMut<Sequence>,
     mut room_query: Query<Entity, With<Room>>,
     mut room_manager: ResMut<ClientRoomManager>,
+    mut idstore: ResMut<'_, EnemyIdChecker>
 ) {
     //info!("Listening!!!");
     loop{
@@ -656,7 +667,7 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
            // info!{"Matching Enemy Struct"};
-            recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases);
+            recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases, &mut idstore);
             sequence.assign(&enemy_packet.head.sequence);
         }
         ServerPacket::DespawnPacket(despawn_packet) => {

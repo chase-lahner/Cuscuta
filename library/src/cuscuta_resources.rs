@@ -65,6 +65,9 @@ pub const ANIM_TIME: f32 = 0.2;
 pub struct AnimationTimer(pub Timer);// for switching through animation frames
 
 #[derive(Component, Deref, DerefMut)]
+pub struct DoomTimer(pub Timer);
+
+#[derive(Component, Deref, DerefMut)]
 pub struct AnimationFrameCount(pub usize);
 
 //struct Brick;
@@ -127,6 +130,21 @@ impl PlayerDeathTimer{
     pub fn new() -> Self {
         Self {
             timer: Timer::from_seconds(5., TimerMode::Repeating)
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct EnemyIdChecker {
+    pub idstore: [u32; 100],
+    pub index: u32
+}
+
+impl EnemyIdChecker{
+    pub fn new() -> Self {
+        Self {
+            idstore: [0; 100],
+            index: 0
         }
     }
 }
