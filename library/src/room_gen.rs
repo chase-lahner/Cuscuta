@@ -475,10 +475,9 @@ impl RoomConfig {
                 /* stealth */
                 /* stealth */
                 StateConfig {
-                    width_range: (20, 59),
-                    height_range: (20, 59),
+                    width_range: (40, 59),
+                    height_range: (40, 59),
                     inner_wall_count: (1, 3),
-                    enemy_count: (4, 8),
                     enemy_count: (4, 8),
                     enemy_type: (1, 2),
                     item_count: (1, 2),
@@ -501,14 +500,6 @@ impl RoomConfig {
                     enemy_count: (5, 12),
                     enemy_type: (3, 4),
                     item_count: (3, 4),
-                },
-                StateConfig {
-                    width_range: (79, 79),
-                    height_range: (79, 79),
-                    inner_wall_count: (3, 3),
-                    enemy_count: (1, 1),
-                    enemy_type: (5, 5),
-                    item_count: (4, 4),
                 },
             ],
         }
@@ -824,17 +815,10 @@ fn create_inner_walls(
 
         // Determine length direction vector avoiding the midpoint
         let length_direction_vector = if start_pos_x >= mid_point_x {
-        // Determine length direction vector avoiding the midpoint
-        let length_direction_vector = if start_pos_x >= mid_point_x {
             (-(wall_length as i32), 1)
         } else {
             (wall_length as i32, 1)
         };
-
-        // Ensure the wall does not overlap the midpoint
-        if (start_pos_x as i32 + length_direction_vector.0).abs() == mid_point_x as i32 {
-            return;
-        }
 
         // Create a new inner wall
 
@@ -851,13 +835,10 @@ fn create_inner_walls(
     } 
     // VERTICAL WALL
     else {
-        // Get wall height
-    else {
-        // Get wall height
+
         let wall_height = rng.gen_range(3..=(room_height / 2) - 1);
 
-        // Determine length direction vector avoiding the midpoint
-        let length_direction_vector = if start_pos_y >= mid_point_y {
+
         // Determine length direction vector avoiding the midpoint
         let length_direction_vector = if start_pos_y >= mid_point_y {
             (1, -(wall_height as i32))
@@ -898,6 +879,7 @@ fn create_inner_walls(
     } else {
         println!("No inner walls found for Z index {}", z_abs);
     }
+
 }
 
 fn create_boss_room_walls(
