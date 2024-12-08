@@ -360,7 +360,7 @@ pub fn enemy_movement(
             let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
             let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
             if enemy_aabb.intersects(&player_aabb) && ph.current == 69.69 {
-                health.current = health.current - 0.05;
+                health.current = health.current - 0.5;
                 if health.current <= 0.0 {
                     commands.entity(ent).despawn();
                     let mut serializer = flexbuffers::FlexbufferSerializer::new();
