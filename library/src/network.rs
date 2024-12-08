@@ -193,6 +193,19 @@ pub struct KillEnemyPacket{
     pub enemy_id: EnemyId,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct DespawnAllPacket {
+    pub kill: bool
+}
+
+impl DespawnAllPacket{
+    pub fn new() -> Self{
+        Self{
+            kill: true,
+        }
+    }
+}
+
 #[derive(Component, Serialize,Deserialize, PartialEq, Debug, Clone)]
 pub struct Header{
     pub network_id: u8,
@@ -234,7 +247,9 @@ pub enum ServerPacket{
     IdPacket(IdPacket),
     EnemyPacket(EnemyS2C),
     DespawnPacket(KillEnemyPacket),
+    DespawnAllPacket(DespawnAllPacket),
     CarnagePacket(CarnagePacket),
+
 }
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] { // will slice anything into u8 array 

@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use crate::markov_chains::LastAttributeArray;
 use crate::room_gen::{InnerWall, RoomChangeEvent, RoomConfig};
 use crate::ui::CarnageChangeEvent;
-use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{transition_map, Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement, server_spawn_enemies}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{transition_map, Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
+
 
 
 /* Upon request, sends an id to client, spawns a player, and
@@ -267,7 +268,7 @@ pub fn send_despawn_command(
     /* For each player in the game*/
     for (v, t, i, h, c, r, s, a,)  in player.iter(){
         /* packet-ify it */
-        info!("Sending {}", i.id);
+        //info!("Sending {}", i.id);
         let mut better_z = *t;
         better_z.translation.z = 100.;
         let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
@@ -409,7 +410,7 @@ fn send_map_packet (
     {
         let arr_x:usize = (tile.0.translation.x + max_x - 16.0) as usize / 32;
         let arr_y:usize = (tile.0.translation.y + max_y - 16.0) as usize / 32;
-        println!("Matching door! @ ({},{})", arr_x, arr_y);
+        //println!("Matching door! @ ({},{})", arr_x, arr_y);
         match tile.1.door_type
         {
             DoorType::Right => map_array[arr_x][arr_y] = 5, 
@@ -419,7 +420,6 @@ fn send_map_packet (
         }
     }
     //println!("{:?},", map_array);
-
     let mappy = ServerPacket::MapPacket(MapS2C{
         head: Header::new(0,server_seq.clone()),// server id == 0
         matrix: map_array,
@@ -448,7 +448,11 @@ pub fn check_door(
     mut room_query: Query<Entity, With<Room>>,
     mut room_change: EventWriter<RoomChangeEvent>,
     mut last_attribute_array: ResMut<LastAttributeArray>,
+    mut enemy_id: ResMut<EnemyId>,
     room_config: Res<RoomConfig>,
+    enemies: Query<Entity, With<Enemy>>,
+    addresses: Res<AddressList>,
+    udp: Res<UDP>,
     mut carnage_event: EventWriter<CarnageChangeEvent>,
 ){
     /* are allthe players standing on a door? */
@@ -470,6 +474,8 @@ pub fn check_door(
          * we will set (lower). If final_door is something,
          * we check if its the same as what we just got. if it's not,
          * the players are on different doors, abort mission */
+        
+
         if let Some(final_door) = final_door{
             /* final door is something! Is door_type? */
             if let Some(door_type) = door_type{
@@ -486,6 +492,16 @@ pub fn check_door(
 
     // If a door was hit, handle the transition
     if all_hit && have_player{
+        let packet = ServerPacket::DespawnAllPacket(DespawnAllPacket { kill: true });
+        let mut serializer = flexbuffers::FlexbufferSerializer::new();
+        packet.serialize(&mut serializer).unwrap();
+        let to_send = serializer.view();
+        for addr in addresses.list.iter(){
+            udp.socket.send_to(&to_send, addr).unwrap();
+        }
+        for(entity) in enemies.iter(){
+            commands.entity(entity).despawn();
+        }
         if let Some(final_door) = final_door {
             if let Some(mut transform) = player_transform {
                 transition_map(
@@ -498,6 +514,7 @@ pub fn check_door(
                     &room_config,
                     &mut player
                 );
+                  server_spawn_enemies(&mut commands, &mut enemy_id, &mut last_attribute_array, &room_config);
                   room_change.send(RoomChangeEvent(all_hit));
                   carnage.single_mut().up_stealth(5.);
                   carnage_event.send(CarnageChangeEvent(true));
