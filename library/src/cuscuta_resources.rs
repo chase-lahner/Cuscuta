@@ -29,7 +29,7 @@ pub const TITLE: &str = "Cuscuta Demo";// window title
 pub const WIN_W: f32 = 1280.;// window width
 pub const WIN_H: f32 = 720.;// window height
 
-pub const PLAYER_SPEED: f32 = 480.; 
+pub const PLAYER_SPEED: f32 = 360.; 
 pub const ACCELERATION_RATE: f32 = 4800.; 
 pub const SPRINT_MULTIPLIER: f32 = 2.0;
 pub const CROUCH_MULTIPLIER: f32 = 0.25;

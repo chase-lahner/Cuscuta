@@ -123,33 +123,27 @@ pub fn listen(
      * packet!! is essential for lamportaging */
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
-            info!("matching idpacket");
             recv_id(&id_packet, &mut sequence, &mut client_id);
             sequence.assign(&id_packet.head.sequence);
         }
         ServerPacket::PlayerPacket(player_packet) => {
-            info!("Matching Player  {}", player_packet.head.network_id);
             /*  gahhhh sequence borrow checker is giving me hell */
             /* if we encounter porblems, it's herer fs */ 
             receive_player_packet( &mut commands, &mut players_q, &asset_server, &player_packet, &mut texture_atlases, src,);
             sequence.assign(&player_packet.head.sequence);
         }
         ServerPacket::MapPacket(map_packet) => {
-            info!("Matching Map Struct");
             receive_map_packet(&mut commands, &asset_server, &map_packet, &mut room_query, &mut room_manager, &mut texture_atlases);
             sequence.assign(&map_packet.head.sequence);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
-           // info!{"Matching Enemy Struct"};
             recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases, &mut idstore);
             sequence.assign(&enemy_packet.head.sequence);
         }
         ServerPacket::DespawnPacket(despawn_packet) => {
-            info!("Matching Despawn Packet");
             despawn_enemy(&mut commands, &mut enemy_q, &despawn_packet.enemy_id);
         }
         ServerPacket::DespawnAllPacket(despawn_packet) => {
-            info!("matched despawn all packet");
             kill_everyone(&mut commands, &mut enemy_q);
         }
 
@@ -158,7 +152,6 @@ pub fn listen(
 
         }
         ServerPacket::MonkeyPacket(monkey_packet) => {
-            info!("Matching Monkey Packet");
             player::spawn_other_monkey(&mut commands, monkey_packet.transform, &asset_server, &mut texture_atlases,);
         }
     }
@@ -431,16 +424,16 @@ fn receive_map_packet (
     /* setters for clientside room stats
      * Is there a one liner? probabaly. idk im lazy */
     let (new_width, new_height) = map_packet.size;
-    room_manager.width = new_width;
-    room_manager.height = new_height;
+    if(new_width != 0. && new_height != 0.){
+        room_manager.width = new_width;
+        room_manager.height = new_height;
+    }   
 
     let map_array = &map_packet.matrix;
     let mut horizontal = -(new_width / 2.0) + (TILE_SIZE as f32 / 2.0);
     let mut vertical = -(new_height / 2.0) + (TILE_SIZE as f32 / 2.0);
     /* ye ol sliding room problem. Kinda funny, never
      * reset so we made a slinky */
-    let og_horizontal = horizontal;
-    let og_vertical = vertical;
     let og_vertical = vertical;
     let z_index = map_packet.z;
 
@@ -458,7 +451,6 @@ fn receive_map_packet (
         None,
         None,
     );
-    let pot_layout_len: usize = pot_layout.textures.len();
     let pot_layout_handle = texture_atlases.add(pot_layout);
    // info!("starting ({}, {})",horizontal, vertical);
     for a in 0..map_array.len() {
