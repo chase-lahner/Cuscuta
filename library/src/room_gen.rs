@@ -492,14 +492,6 @@ impl RoomConfig {
                     enemy_type: (3, 4),
                     item_count: (3, 4),
                 },
-                StateConfig {
-                    width_range: (79, 79),
-                    height_range: (79, 79),
-                    inner_wall_count: (3, 3),
-                    enemy_count: (1, 1),
-                    enemy_type: (5, 5),
-                    item_count: (4, 4),
-                },
             ],
         }
     }
@@ -740,7 +732,8 @@ pub fn spawn_start_room(
     for _ in 0..inner_wall_count {
         create_inner_walls(commands, room_manager, random_width, random_height, z_index as isize);
     }
-    
+
+    // end new fn
     generate_doors(
         commands,
         room_manager,
@@ -748,9 +741,6 @@ pub fn spawn_start_room(
         max_y,
         z_index,
     );
-    
-    // end new fn
-    
 
     spawn_items_in_room(commands, &room_manager, &last_attribute_array, &room_config);
 
@@ -765,7 +755,7 @@ fn create_inner_walls(
 ){
     let z_abs = z_index.abs() as usize;
     let mut rng = rand::thread_rng();
-  
+
     let mid_point_x = room_width / 2;
     let mid_point_y = room_height / 2;
 
@@ -848,90 +838,6 @@ fn create_inner_walls(
     }
 }
 
-fn create_boss_room_walls(
-    commands: &mut Commands, 
-    room_manager: &mut RoomManager,
-    room_width: usize,
-    room_height: usize,
-    z_index: isize,
-){
-    let z_abs = z_index.abs() as usize;
-    let mut start_pos_x = 10;
-    let mut start_pos_y = 20;
-    let wall_height = 45 as usize;
-    let mid_point_y = room_height / 2;
-    let mid_point_x = room_width / 2;
-    let mut length_direction_vector = if start_pos_y >= mid_point_y {
-        (1, -(wall_height as i32))
-    } else {
-        (1, wall_height as i32)
-    };
-    // create first inner boss wall vertical
-    let wall = InnerWall {
-        start_pos: InnerWallStartPos { x: start_pos_x, y: start_pos_y },
-        length_direction_vector,
-    };
-    room_manager.add_inner_wall(z_abs, wall);
-
-    start_pos_x = 69; //hehe
-    start_pos_y = 20;
-    length_direction_vector = if start_pos_y >= mid_point_y {
-        (1, -(wall_height as i32))
-    } else {
-        (1, wall_height as i32)
-    };
-    // create first inner boss wall vertical
-    let wall = InnerWall {
-        start_pos: InnerWallStartPos { x: start_pos_x, y: start_pos_y },
-        length_direction_vector,
-    };
-    room_manager.add_inner_wall(z_abs, wall);
-
-    start_pos_x = 11;
-    start_pos_y = 19; //execute order 
-    let wall_length = 24 as usize;
-
-    let length_direction_vector = if start_pos_x >= mid_point_x {
-        (-(wall_length as i32), 1)
-    } else {
-        (wall_length as i32, 1)
-    };
-    // create a new horizontal boss wall wall
-    let wall = InnerWall {
-        start_pos: InnerWallStartPos { x: start_pos_x, y: start_pos_y },
-        length_direction_vector,
-    };
-    room_manager.add_inner_wall(z_abs, wall);
-
-    start_pos_x = 68;
-    start_pos_y = 19; //execute order 
-    let wall_length = 24 as usize;
-
-    let length_direction_vector = if start_pos_x >= mid_point_x {
-        (-(wall_length as i32), 1)
-    } else {
-        (wall_length as i32, 1)
-    };
-    // create a new horizontal boss wall wall
-    let wall = InnerWall {
-        start_pos: InnerWallStartPos { x: start_pos_x, y: start_pos_y },
-        length_direction_vector,
-    };
-    room_manager.add_inner_wall(z_abs, wall);
-
-
-
-    // loop through inner wall list at current z index
-    if let Some(walls) = room_manager.get_inner_walls(z_abs) {
-        let walls_to_draw: Vec<_> = walls.clone(); // Clone to avoid mutable borrowing issues
-        for wall in walls_to_draw.iter() {
-            draw_inner_wall(commands, wall, z_abs, room_width, room_height, room_manager);
-        }
-    } else {
-        println!("No inner walls found for Z index {}", z_abs);
-    }
-
-}
 
 fn draw_inner_wall(
     commands: &mut Commands,
@@ -1185,16 +1091,18 @@ fn generate_doors(
     max_y: f32,
     z_index: f32,
 ) {
+    println!("generating doors - checking bounds of current room: {}", z_index);
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_index as i32) {
         let height = bottom_y - top_y;
         let width = right_x - left_x;
         let half_height = height / 2;
         let half_width = width / 2;
 
+        println!("found width: {} height: {} for current room", width, height);
+
 
         // LEFT DOOR
         if room_manager.get_room_value(left_x - 1, top_y + half_height) != Some(1) {
-            println!("generate doors - found room to left of generated room");
             // Left door
             let door_left_x = -max_x + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
             let door_left_y = TILE_SIZE as f32 / 2.0;
@@ -1230,7 +1138,6 @@ fn generate_doors(
 
         // RIGHT DOOR
         if room_manager.get_room_value(right_x + 1, top_y + half_height) != Some(1) {
-            println!("generate doors - found room to right of generated room");
             // Right door
             let door_x = max_x - (3.0 * (TILE_SIZE as f32) / 2.0) + TILE_SIZE as f32;
             let door_y = TILE_SIZE as f32 / 2.0;  
@@ -1268,7 +1175,6 @@ fn generate_doors(
 
         // TOP DOOR
         if room_manager.get_room_value(left_x + half_width, top_y - 1) != Some(1) {
-            println!("generate doors - found room to top of generated room");
              // Top door
              let door_top_x = TILE_SIZE as f32 / 2.0;
              let door_top_y = max_y - (3.0 * TILE_SIZE as f32 / 2.0) + TILE_SIZE as f32;
@@ -1307,7 +1213,6 @@ fn generate_doors(
 
         // BOTTOM DOOR
         if room_manager.get_room_value(left_x + half_width, bottom_y + 1) != Some(1) {
-            println!("generate doors - found room bottom of generated room");
             // Bottom door
             let door_bottom_x = TILE_SIZE as f32 / 2.0;
             let door_bottom_y = -max_y + (3.0 * TILE_SIZE as f32 / 2.0) - TILE_SIZE as f32;
@@ -1359,8 +1264,6 @@ pub fn generate_random_room_with_bounds(
 
     // Determine the next state for each attribute
     let mut next_state: u8 = 0;
-    let z_index = room_manager.next_room_z_index();
-    println!("Current Z: {}", z_index);
 
     // MARKOV CHAIN
     // iterate through each attribute
@@ -1399,11 +1302,6 @@ pub fn generate_random_room_with_bounds(
             next_state = 2;
         };
 
-        if z_index == -10.{
-            next_state = 3;
-            println!("OVERRIDING STATE");
-        }
-
 
         next_attribute_array.set_next_attribute(i, next_state);
     }
@@ -1430,7 +1328,7 @@ pub fn generate_random_room_with_bounds(
     // add the room to the room manager
     room_manager.add_room(random_width, random_height, room_width, room_height);
 
-    // get the z-index for this room
+    // get z-index for this room
     let z_index = room_manager.next_room_z_index();
 
     // add room to rooms array
@@ -1456,14 +1354,9 @@ pub fn generate_random_room_with_bounds(
     let wall_count = rng.gen_range(1..=3);
     
     // add inner walls
-    if last_attribute_array.get_attribute(0).unwrap()!=3{
-        for _ in 0..wall_count {
-            create_inner_walls(commands, room_manager, random_width, random_height, global_z_index as isize);
-        }
-    }else{
-        create_boss_room_walls(commands, room_manager, random_width, random_height, global_z_index as isize);
+    for _ in 0..wall_count {
+        create_inner_walls(commands, room_manager, random_width, random_height, global_z_index as isize);
     }
-    
 
    return (random_width, random_height, max_x as f32, max_y as f32, current_z_index);
 
@@ -1528,6 +1421,13 @@ pub fn transition_map(
     room_config: &RoomConfig,
     player : &mut Query<(&mut Transform), With<Player>>,
 ) {
+    println!("TRANSITIONING MAP");
+
+    //println!("global z: {}", room_manager.global_z_index);
+    if room_manager.global_z_index > 20.0 {
+        //println!("SPAWN BOSS BWAHAHAHAHA");
+       // return;
+    }
 
     let mut right_x_out = 0;
     let mut left_x_out = 0;
@@ -1583,19 +1483,14 @@ pub fn transition_map(
                     room_height as usize,
                 );
 
-                // generate doors
-                println!("global z: {}", room_manager.global_z_index);
-                if room_manager.global_z_index < -8.0{
-                    println!("SPAWN BOSS BWAHAHAHAHA");
-                    return;
-                }
 
+                // generate doors
                 generate_doors(
                     commands,
                     room_manager,
                     max_x as f32,
                     max_y as f32,
-                    current_z,
+                    new_z_index,
                 );
 
                 println!("hit right door into new room: {}", new_z_index);
@@ -1665,12 +1560,6 @@ pub fn transition_map(
                     room_height as usize,
                 );
 
-                println!("global z: {}", room_manager.global_z_index);
-                if room_manager.global_z_index < -8.0{
-                    println!("SPAWN BOSS BWAHAHAHAHA");
-                    return;
-                }
-
 
                 // generate doors
                 generate_doors(
@@ -1678,7 +1567,7 @@ pub fn transition_map(
                     room_manager,
                     max_x as f32,
                     max_y as f32,
-                    current_z,
+                    new_z_index,
                 );
 
 
@@ -1750,12 +1639,7 @@ pub fn transition_map(
                     room_height as usize,
                 );
 
-
-                println!("global z: {}", room_manager.global_z_index);
-                if room_manager.global_z_index < -8.0{
-                    println!("SPAWN BOSS BWAHAHAHAHA");
-                    return;
-                }
+            
 
                 // generate doors
                 generate_doors(
@@ -1763,7 +1647,7 @@ pub fn transition_map(
                     room_manager,
                     max_x as f32,
                     max_y as f32,
-                    current_z,
+                    new_z_index,
                 );
 
                 println!("hit top door into new room: {}", new_z_index);
@@ -1834,20 +1718,13 @@ pub fn transition_map(
                     room_height as usize,
                 );
 
-
-                
-                println!("global z: {}", room_manager.global_z_index);
-                if room_manager.global_z_index < -8.0{
-                    println!("SPAWN BOSS BWAHAHAHAHA");
-                    return;
-                }
-                
+                // generate doors
                 generate_doors(
                     commands,
                     room_manager,
                     max_x as f32,
                     max_y as f32,
-                    current_z,
+                    new_z_index,
                 );
 
                // spawn_items_in_room(commands, &room_manager, &last_attribute_array, &room_config);
