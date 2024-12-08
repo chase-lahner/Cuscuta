@@ -264,6 +264,7 @@ impl RoomManager {
             let old_y = top_y;
 
             let start_x = old_x - (new_width / 2);
+            println!("Old_x:{} Old_y:{} width:{} height:{}", old_x, old_y, new_width, new_height);
             let start_y = old_y - new_height;
     
             // Loop through the dimensions of the room and place the z_index in the grid
