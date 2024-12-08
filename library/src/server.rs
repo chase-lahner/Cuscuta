@@ -103,7 +103,6 @@ pub fn listen(
 
         match player_struct {
             ClientPacket::IdPacket(_id_packet) => {
-               // info!("sending id to client");
                 send_id(src,  &mut n_p, &mut commands, &mut addresses, &mut server_seq, &udp, &mut carnage_event);
                 println!("{:?}", addresses.list);
                 map_change.send(RoomChangeEvent(true));
@@ -112,18 +111,15 @@ pub fn listen(
                 update_player_state(src, &mut players_q, player_packet, &mut commands);
             }  
             ClientPacket::KillEnemyPacket(kill_enemy) => {
-               // println!("recieved kill enemy packet");
                 update_despawn(kill_enemy, &mut enemies_to_kill, &mut commands, &mut enemies); 
                 carnage.single_mut().up_carnage(2.5);
                 carnage_event.send(CarnageChangeEvent(true));
             }
 
             ClientPacket::DecreaseEnemyHealthPacket(decrease_enemy_health_packet) => {
-               // println!("recieved decrease enemy health packet");
                 decrease_enemy_health(decrease_enemy_health_packet, &mut enemies);
             }
             ClientPacket::MonkeyPacket(monkey_packet) => {
-              //  info!("received monkey packet");
                 update_monkey(&mut commands, monkey_packet, &addresses, &udp, &mut server_seq);
             }
 
