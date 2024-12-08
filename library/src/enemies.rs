@@ -356,7 +356,7 @@ pub fn enemy_movement(
             // handling if enemy has hit player
             let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
             let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
-            if enemy_aabb.intersects(&player_aabb) {
+            if enemy_aabb.intersects(&player_aabb) && ph.current != 69.69 {
                 ph.current -= 5.;
 
                 // knockback applied to player

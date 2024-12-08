@@ -819,7 +819,10 @@ pub fn spawn_server_monkey (
             5.0,
             TimerMode::Repeating,
         )),
-        health: Health::new_init(),
+        health: Health{
+            max: 150.0,
+            current: 69.69,
+        },
     });
 }
 
