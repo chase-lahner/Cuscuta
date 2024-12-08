@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{collision::*, cuscuta_resources::*, player::{self, *}, markov_chains::*, room_gen::*};
+use crate::{collision::*, cuscuta_resources::*, network::{KillEnemyPacket, ServerPacket, UDP}, player::{self, *}, markov_chains::*, room_gen::*};
 
 /* Set for skeleton enemy */
 const SK_NAME: &str = "Skelebob";
@@ -41,7 +41,7 @@ const SP_SPRITE_H: u32 = 1;
 const SP_SPRITE_W: u32 = 2;
 const SP_MAX_SPEED: f32 = 100.;
 const SP_SPOT_DIST: f32 = 120.;
-const SP_HEALTH: Health = Health {max: 3., current: 3.};
+const SP_HEALTH: Health = Health {max: 70., current: 70.};
 const SP_SIZE: u32 = 32;
 
 /* Set for boss */
@@ -296,16 +296,19 @@ impl EnemyId {
 // }
 
 pub fn enemy_movement(
-    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement), With<Enemy>>,
+    mut commands: Commands,
+    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement, &mut Health, Entity, &EnemyId), With<Enemy>>,
     mut player_query: Query<
         (&mut Transform, &mut Health),
         (With<Trackable>, Without<Enemy>)>,
     wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<EnemyTimer>, Without<Trackable>)>,
     time: Res<Time>,
+    addresses: Res<AddressList>,
+    udp: Res<UDP>,
 ) {
    // info!("running enemy mvmt");
     // for every enemy
-    for (mut transform, mut timer, mut movement, ) in enemy_query.iter_mut() {
+    for (mut transform, mut timer, mut movement, mut health, ent, eid) in enemy_query.iter_mut() {
       //  info!("Sanity CHECK");
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
@@ -356,7 +359,24 @@ pub fn enemy_movement(
             // handling if enemy has hit player
             let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
             let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
-            if enemy_aabb.intersects(&player_aabb) {
+            if enemy_aabb.intersects(&player_aabb) && ph.current == 69.69 {
+                health.current = health.current - 0.05;
+                if health.current <= 0.0 {
+                    commands.entity(ent).despawn();
+                    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                    let to_send: ServerPacket = ServerPacket::DespawnPacket(KillEnemyPacket{enemy_id: eid.clone()}.clone());
+                    to_send.serialize(&mut serializer).unwrap();
+                    let packet: &[u8] = serializer.view();
+                    for address in addresses.list.iter(){
+                        udp.socket.send_to(&packet, address).unwrap();
+                        println!("sending despawn packet");
+                    }
+                }
+            }
+            if enemy_aabb.intersects(&player_aabb) && ph.current != 69.69 {
+                
+                if health.max == SK_HEALTH.max || health.max == SP_HEALTH.max {ph.current -= 10.;}
+                else if health.max == B_HEALTH.max {ph.current -= 20.;}
                 ph.current -= 5.;
 
                 // knockback applied to player
@@ -422,6 +442,7 @@ pub fn enemy_movement(
                 //}
             }
             //if collide == true{continue;}
+            
 
             transform.translation.x +=
                 normalized_direction.x * ENEMY_SPEED / 2. * time.delta_seconds() * xmul;
@@ -478,10 +499,15 @@ pub fn enemy_movement(
         //if collide == true{continue;}
 
         //transform.translation += normalized_direction * ENEMY_SPEED * time.delta_seconds();
-        transform.translation.x +=
-            normalized_direction.x * ENEMY_SPEED * time.delta_seconds() * xmul;
+        // transform.translation.x +=
+        //     normalized_direction.x * ENEMY_SPEED * time.delta_seconds() * xmul;
+        // transform.translation.y +=
+        //     normalized_direction.y * ENEMY_SPEED * time.delta_seconds() * ymul;
+        
+            transform.translation.x +=
+            normalized_direction.x * ENEMY_SPEED * 0.5 * xmul; // arbitrary constant?
         transform.translation.y +=
-            normalized_direction.y * ENEMY_SPEED * time.delta_seconds() * ymul;
+            normalized_direction.y * ENEMY_SPEED * 0.5 * ymul; // arbitrary constant?
     }
 }
 
@@ -545,14 +571,19 @@ pub fn server_spawn_enemies(
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
     roomman: &RoomManager,
+    n_p: &PlayerCount,
 ) {
     let mut rng = rand::thread_rng();
     
     let enemy_count_range = room_config.get_enemy_count(last_attribute_array.get_attribute(2).unwrap_or(1));
     //println!("Enemy range min: {}, max: {}",enemy_count_range.0,enemy_count_range.1);
     println!("State: {}",last_attribute_array.get_attribute(3).unwrap_or(1));
-
-    let enemy_count = rng.gen_range(enemy_count_range.0..=enemy_count_range.1);
+    
+    let mut enemy_count = rng.gen_range(enemy_count_range.0..=enemy_count_range.1);
+    // println!("BEFORE MULTIPLYING: {}",enemy_count);
+    // println!("NUM PLAYERS: {}",n_p.count);
+    enemy_count = enemy_count * n_p.count as usize;
+    // println!("AFTER: {}",enemy_count);
     //println!("Min count {} - Max count {}",enemy_count_range.0,enemy_count_range.1);
 
     let enemy_types = room_config.get_enemy_type(last_attribute_array.get_attribute(3).unwrap_or(1));

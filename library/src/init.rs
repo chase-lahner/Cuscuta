@@ -77,7 +77,7 @@ pub fn server_setup(
     /* tha rate ehhh this could need to be called before init idk*/
     commands.insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND));
     /* bum ass no friend ass lonely ahh */
-    commands.insert_resource(PlayerCount{count:0});
+    
     /* to hold mid frame packeets, sent every tick */
     commands.insert_resource(ServerPacketQueue::new());
 
@@ -91,17 +91,20 @@ pub fn server_setup(
     let mut last_attribute_array = LastAttributeArray::new();
     let room_config = RoomConfig::new();
     let mut first_enemy = EnemyId::new(0, EnemyKind::skeleton());
+    let mut player_count = PlayerCount{count:0};
 
 
 
     spawn_start_room(&mut commands, &mut room_manager, 0.,&mut last_attribute_array,&room_config);
  
 
-    server_spawn_enemies(&mut commands, &mut first_enemy, &mut last_attribute_array, &room_config, &room_manager);
+    server_spawn_enemies(&mut commands, &mut first_enemy, &mut last_attribute_array, &room_config, &room_manager, &player_count);
     commands.insert_resource(room_config);
     commands.insert_resource(first_enemy);
     commands.insert_resource(room_manager);
     commands.insert_resource(last_attribute_array);
+
+    commands.insert_resource(player_count);
     
 
     info!("done setup");

@@ -5,9 +5,12 @@ use network::*;
 use serde::{Deserialize, Serialize};
 
 use crate::markov_chains::LastAttributeArray;
+
+use crate::player;
+use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{transition_map, Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
 use crate::room_gen::{InnerWall, RoomChangeEvent, RoomConfig};
 use crate::ui::CarnageChangeEvent;
-use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement, server_spawn_enemies}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{transition_map, Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
+use crate::enemies::server_spawn_enemies;
 
 
 
@@ -119,6 +122,10 @@ pub fn listen(
                 println!("recieved decrease enemy health packet");
                 decrease_enemy_health(decrease_enemy_health_packet, &mut enemies);
             }
+            ClientPacket::MonkeyPacket(monkey_packet) => {
+                info!("received monkey packet");
+                update_monkey(&mut commands, monkey_packet, &addresses, &udp, &mut server_seq);
+            }
 
         }
     }
@@ -152,12 +159,71 @@ pub fn send_enemies(
         enemy.serialize(&mut serializer).unwrap();
         let packet: &[u8] = serializer.view();
         for addr in addresses.list.iter(){
-            udp.socket.send_to(&packet, addr).unwrap();
-            
+            udp.socket.send_to(&packet, addr).unwrap();          
         }
     }
 }
 
+pub fn update_monkey (
+    mut commands: &mut Commands,
+    packet: MonkeyPacket,
+    addresses: &ResMut<AddressList>,
+    udp: &Res<UDP>,
+    server_seq: &mut Sequence,
+) {
+    player::spawn_server_monkey(commands, packet.transform);
+    let monkey  = ServerPacket::MonkeyPacket(
+        MonkeyPacket{
+            head: Header::new(0,server_seq.clone()),
+            transform: packet.transform,
+        });
+    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+    monkey.serialize(&mut serializer).unwrap();
+    let packet: &[u8] = serializer.view();
+    for addr in addresses.list.iter(){
+        udp.socket.send_to(&packet, addr).unwrap();     
+    }
+}
+
+// /* once we have our packeet, we must use it to update
+//  * the player specified, there's another in client.rs*/
+// fn update_player_state_OLD_AND_BROKEN(
+//     src: SocketAddr,
+//     /* fake query, passed from above system */
+//     mut players: Query<(&mut Velocity, &mut Transform, &mut NetworkId), With<Player>>,
+//     player_struct: PlayerPacket,
+//     mut commands: Commands,
+// ) { 
+//     // let deserializer = flexbuffers::Reader::get_root(buf).unwrap();
+//     // let player_struct = PlayerPacket::deserialize(deserializer).unwrap();
+//     let mut found = false;
+//     for (mut velo, mut transform, network_id) in players.iter_mut(){
+//         if network_id.id == player_struct.id{
+//             transform.translation.x = player_struct.transform_x;
+//             transform.translation.y = player_struct.transform_y;
+//             velo.velocity.x = player_struct.velocity_x;
+//             velo.velocity.y = player_struct.velocity_y;
+//             found = true;
+//         }
+//     }
+//     if !found{
+//         let velo_vec = Vec2::new(player_struct.velocity_x, player_struct.velocity_y);
+//         commands.spawn(ServerPlayerBundle{
+//             velo: Velocity::from(velo_vec),
+//             transform:
+//                 Transform::from_xyz(player_struct.transform_x, player_struct.transform_y, 0.),
+//             id: NetworkId{
+//                 id: player_struct.id,
+//                 addr: src},
+//             player: Player,   
+//             health: Health::new(),
+//             rolling: Roll::new(),
+//             crouching: Crouch::new(),
+//             sprinting: Sprint::new(),
+//             attacking: Attack::new(),
+//     });
+//     }
+// }
 
 fn update_player_state(
     src: SocketAddr,
@@ -457,6 +523,7 @@ pub fn check_door(
     addresses: Res<AddressList>,
     udp: Res<UDP>,
     mut carnage_event: EventWriter<CarnageChangeEvent>,
+    mut num_players: Res<PlayerCount>,
 ){
     /* are allthe players standing on a door? */
     let mut all_hit = true;
@@ -517,7 +584,8 @@ pub fn check_door(
                     &room_config,
                     &mut player
                 );
-                  server_spawn_enemies(&mut commands, &mut enemy_id, &mut last_attribute_array, &room_config, &room_manager);
+                  server_spawn_enemies(&mut commands, &mut enemy_id, &mut last_attribute_array, &room_config, &room_manager, &num_players);
+
                   room_change.send(RoomChangeEvent(all_hit));
                   carnage.single_mut().up_stealth(5.);
                   carnage_event.send(CarnageChangeEvent(true));

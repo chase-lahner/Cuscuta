@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::cuscuta_resources::*;
+use crate::{cuscuta_resources::*, player};
 use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::network::{
     CarnagePacket, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, MapS2C, PlayerSendable, Sequence, ServerPacket, UDP
@@ -156,6 +156,10 @@ pub fn listen(
         ServerPacket::CarnagePacket(carnage_pack) => {
             update_carnage(&mut carnage,&carnage_pack);
 
+        }
+        ServerPacket::MonkeyPacket(monkey_packet) => {
+            info!("Matching Monkey Packet");
+            player::spawn_other_monkey(&mut commands, monkey_packet.transform, &asset_server, &mut texture_atlases,);
         }
     }
 }// stupid loop

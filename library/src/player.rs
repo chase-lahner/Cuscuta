@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::enemies::{EnemyId, EnemyToKill};
-use crate::network::{ClientPacket, DecreaseEnemyHealthPacket, Header, KillEnemyPacket, Sequence, UDP};
+use crate::network::{ClientPacket, DecreaseEnemyHealthPacket, Header, KillEnemyPacket, MonkeyPacket, Sequence, ServerPacket, UDP};
 
 use crate::{
     collision::{self, *},
@@ -55,6 +55,8 @@ pub struct ServerCymbalMonkey {
     pub monke: Monkey,
     pub lifetime: Lifetime,
     pub transform: Transform,
+    pub doom_timer: DoomTimer,
+    pub health: Health,
 }
 
 #[derive(Component, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
@@ -691,6 +693,7 @@ pub fn spawn_monkey(
     keys: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    seq: Res<Sequence>,
     udp: Res<UDP>,
 ) {
     /* for all players, we match to find us */
@@ -760,6 +763,17 @@ pub fn spawn_monkey(
 
             /* once we have spawned in, then we swtich off to send it to the server, so
              * the enemies can pathfind to it, and os that the other clients can also have a lil peek */
+            let to_send = ClientPacket::MonkeyPacket(MonkeyPacket {
+                head: Header {
+                    network_id: id.id,
+                    sequence: seq.clone(),
+                },
+                transform: t.clone(),
+            });
+            let mut serializer = flexbuffers::FlexbufferSerializer::new();
+            to_send.serialize(&mut serializer).unwrap();
+            let packet: &[u8] = serializer.view();
+            udp.socket.send_to(&packet, SERVER_ADR).unwrap();
         }
     }
 }
@@ -784,6 +798,85 @@ pub fn update_monkey(
         if timer.finished() {ratlas.index = (ratlas.index + 1) % 2;} 
         if doom.finished() {commands.entity(entity).despawn();}
     }
+}
+
+pub fn spawn_server_monkey (
+    commands: &mut Commands,
+    transform: Transform,
+) {
+    commands.spawn(ServerCymbalMonkey {
+        track: Trackable,
+        monke: Monkey,
+        lifetime: Lifetime::new(),
+        transform: transform,
+        doom_timer: DoomTimer(Timer::from_seconds(
+            5.0,
+            TimerMode::Repeating,
+        )),
+        health: Health{
+            max: 150.0,
+            current: 69.69,
+        },
+    });
+}
+
+pub fn update_server_monkey(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut monke: Query<
+        (
+            Entity,
+            &mut DoomTimer,
+        ),
+        With<Monkey>,
+    >,
+) {
+    for (entity, mut doom) in monke.iter_mut() {
+        doom.tick(time.delta());
+        if doom.finished() {commands.entity(entity).despawn();}
+    }
+}
+
+pub fn spawn_other_monkey(
+    commands: &mut Commands,
+    transform: Transform,
+    asset_server: &Res<AssetServer>,
+    mut texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+) {
+    let monkey_handle: Handle<Image> = asset_server.load(MONKEY_HANDLE);
+            let monkey_layout = TextureAtlasLayout::from_grid(
+                UVec2::splat(TILE_SIZE),
+                MONKEY_SPRITE_COL,
+                MONKEY_SPRITE_ROW,
+                None,
+                None,
+            );
+            let monkey_len = monkey_layout.textures.len();
+            let monkey_layout_handle = texture_atlases.add(monkey_layout);
+            info!("Monkey spawn");
+            commands.spawn(ClientCymbalMonkey {
+                track: Trackable,
+                sprite: SpriteBundle {
+                    texture: monkey_handle,
+                    transform: transform.clone(),
+                    ..default()
+                },
+                distracto: Monkey,
+                atlas: TextureAtlas {
+                    layout: monkey_layout_handle,
+                    index: 0,
+                },
+                animation_timer: AnimationTimer(Timer::from_seconds(
+                    ANIM_TIME,
+                    TimerMode::Repeating,
+                )),
+                doom_timer: DoomTimer(Timer::from_seconds(
+                    5.0,
+                    TimerMode::Repeating,
+                )),
+                animation_frames: AnimationFrameCount(monkey_len),
+                lifetime: Lifetime::new(),
+            });
 }
 
 pub fn restore_health(
