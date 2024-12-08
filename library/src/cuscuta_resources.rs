@@ -16,6 +16,9 @@ pub const TICKS_PER_SECOND: f64 = 60.;
 
 pub const SERVER_ADR: &str = "127.0.0.1:5001"; //136.142.159.86:5001
 
+pub const POT_SPRITE_COL: u32 = 1;
+pub const POT_SPRITE_ROW:u32 = 2;
+
 
 
 pub const GET_PLAYER_ID_CODE: u8 = 255;
@@ -136,14 +139,14 @@ impl PlayerDeathTimer{
 
 #[derive(Resource)]
 pub struct EnemyIdChecker {
-    pub idstore: [u32; 500],
+    pub idstore: [u32; 1024],
     pub index: u32
 }
 
 impl EnemyIdChecker{
     pub fn new() -> Self {
         Self {
-            idstore: [0; 500],
+            idstore: [0; 1024],
             index: 0
         }
     }
