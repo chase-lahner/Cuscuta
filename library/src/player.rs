@@ -44,6 +44,7 @@ pub struct ClientCymbalMonkey {
     pub distracto: Monkey,
     pub atlas: TextureAtlas,
     pub animation_timer: AnimationTimer,
+    pub doom_timer: DoomTimer,
     pub animation_frames: AnimationFrameCount,
     pub lifetime: Lifetime,
 }
@@ -755,6 +756,10 @@ pub fn spawn_monkey(
                     ANIM_TIME,
                     TimerMode::Repeating,
                 )),
+                doom_timer: DoomTimer(Timer::from_seconds(
+                    5.0,
+                    TimerMode::Repeating,
+                )),
                 animation_frames: AnimationFrameCount(monkey_len),
                 lifetime: Lifetime::new(),
             });
@@ -765,7 +770,27 @@ pub fn spawn_monkey(
     }
 }
 
-pub fn update_monkey() {}
+pub fn update_monkey(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut monke: Query<
+        (
+            Entity,
+            &mut TextureAtlas,
+            &mut AnimationTimer,
+            &mut DoomTimer,
+            &AnimationFrameCount,
+        ),
+        With<Monkey>,
+    >,
+) {
+    for (entity, mut ratlas, mut timer,mut doom, _frame_count) in monke.iter_mut() {
+        timer.tick(time.delta());
+        doom.tick(time.delta());
+        if timer.finished() {ratlas.index = (ratlas.index + 1) % 2;} 
+        if doom.finished() {commands.entity(entity).despawn();}
+    }
+}
 
 pub fn restore_health(
     input: Res<ButtonInput<KeyCode>>,
