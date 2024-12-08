@@ -531,7 +531,7 @@ pub fn check_door(
 
 fn decrease_enemy_health(
     decrease_enemy_health_packet: DecreaseEnemyHealthPacket,
-    mut enemies: &mut Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform, &mut Health), (With<Enemy>, Without<Player>)>,
+    mut enemies: &mut Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform, &mut Health), (With<Enemy>, Without<Player>, Without<InnerWall>)>,
 ){
     for(entity, id, _movement, _transform, mut health) in enemies.iter_mut(){
         if id.id == decrease_enemy_health_packet.enemy_id.id{
