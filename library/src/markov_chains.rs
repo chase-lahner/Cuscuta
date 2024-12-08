@@ -86,7 +86,7 @@ impl LastAttributeArray {
 
     // Method to set a specific attribute
     pub fn set_attribute(&mut self, index: usize, value: u8) {
-        if index < self.attributes.len() && value <= 2 {
+        if index < self.attributes.len() && value <= 3 {
             self.attributes[index] = value;
         } else {
             println!("Invalid index or value!");
@@ -121,7 +121,7 @@ impl NextAttributeArray {
 
     // Method to set a specific attribute
     pub fn set_next_attribute(&mut self, index: usize, value: u8) {
-        if index < self.attributes.len() && value <= 2 {
+        if index < self.attributes.len() && value <= 3 {
             self.attributes[index] = value;
         } else {
             println!("Invalid index or value!");
