@@ -559,10 +559,10 @@ pub fn server_spawn_enemies(
     println!("State: {}",last_attribute_array.get_attribute(3).unwrap_or(1));
     
     let mut enemy_count = rng.gen_range(enemy_count_range.0..=enemy_count_range.1);
-    println!("BEFORE MULTIPLYING: {}",enemy_count);
-    println!("NUM PLAYERS: {}",n_p.count);
+    // println!("BEFORE MULTIPLYING: {}",enemy_count);
+    // println!("NUM PLAYERS: {}",n_p.count);
     enemy_count = enemy_count * n_p.count as usize;
-    println!("AFTER: {}",enemy_count);
+    // println!("AFTER: {}",enemy_count);
     //println!("Min count {} - Max count {}",enemy_count_range.0,enemy_count_range.1);
 
     let enemy_types = room_config.get_enemy_type(last_attribute_array.get_attribute(3).unwrap_or(1));
