@@ -424,7 +424,7 @@ fn receive_map_packet (
     /* setters for clientside room stats
      * Is there a one liner? probabaly. idk im lazy */
     let (new_width, new_height) = map_packet.size;
-    if(new_width != 0 && new_height != 0){
+    if(new_width != 0. && new_height != 0.){
         room_manager.width = new_width;
         room_manager.height = new_height;
     }   

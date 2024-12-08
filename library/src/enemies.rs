@@ -568,7 +568,6 @@ pub fn server_spawn_enemies(
     // println!("BEFORE MULTIPLYING: {}",enemy_count);
     // println!("NUM PLAYERS: {}",n_p.count);
     enemy_count = enemy_count * n_p.count as usize;
-    enemy_count = enemy_count * n_p.count as usize;
     // println!("AFTER: {}",enemy_count);
     //println!("Min count {} - Max count {}",enemy_count_range.0,enemy_count_range.1);
 
