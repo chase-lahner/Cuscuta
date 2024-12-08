@@ -501,6 +501,14 @@ impl RoomConfig {
                     enemy_type: (3, 4),
                     item_count: (3, 4),
                 },
+                StateConfig {
+                    width_range: (79, 79),
+                    height_range: (79, 79),
+                    inner_wall_count: (3, 3),
+                    enemy_count: (1, 1),
+                    enemy_type: (5, 5),
+                    item_count: (4, 4),
+                },
             ],
         }
     }
@@ -766,38 +774,20 @@ fn create_inner_walls(
 ){
     let z_abs = z_index.abs() as usize;
     let mut rng = rand::thread_rng();
-
+    
     let mid_point_x = room_width / 2;
     let mid_point_y = room_height / 2;
 
     // Generate start positions that avoid the midpoint
     let start_pos_x = loop {
-        let pos_x = rng.gen_range(2..=room_width - 5);
+        let pos_x = rng.gen_range(5..=room_width - 5);
         if pos_x != mid_point_x {
             break pos_x;
         }
     };
 
     let start_pos_y = loop {
-        let pos_y = rng.gen_range(2..=room_height - 5);
-        if pos_y != mid_point_y {
-            break pos_y;
-        }
-    };
-
-    let mid_point_x = room_width / 2;
-    let mid_point_y = room_height / 2;
-
-    // Generate start positions that avoid the midpoint
-    let start_pos_x = loop {
-        let pos_x = rng.gen_range(2..=room_width - 5);
-        if pos_x != mid_point_x {
-            break pos_x;
-        }
-    };
-
-    let start_pos_y = loop {
-        let pos_y = rng.gen_range(2..=room_height - 5);
+        let pos_y = rng.gen_range(5..=room_height - 5);
         if pos_y != mid_point_y {
             break pos_y;
         }
