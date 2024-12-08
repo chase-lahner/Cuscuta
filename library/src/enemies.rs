@@ -369,7 +369,7 @@ pub fn enemy_movement(
                     let packet: &[u8] = serializer.view();
                     for address in addresses.list.iter(){
                         udp.socket.send_to(&packet, address).unwrap();
-                        println!("sending despawn packet");
+                       // println!("sending despawn packet");
                     }
                 }
             }
@@ -563,7 +563,7 @@ pub fn server_spawn_enemies(
     
     let enemy_count_range = room_config.get_enemy_count(last_attribute_array.get_attribute(2).unwrap_or(1));
     //println!("Enemy range min: {}, max: {}",enemy_count_range.0,enemy_count_range.1);
-    println!("State: {}",last_attribute_array.get_attribute(3).unwrap_or(1));
+   // println!("State: {}",last_attribute_array.get_attribute(3).unwrap_or(1));
     
     let mut enemy_count = rng.gen_range(enemy_count_range.0..=enemy_count_range.1);
     // println!("BEFORE MULTIPLYING: {}",enemy_count);
@@ -581,7 +581,7 @@ pub fn server_spawn_enemies(
         let random_y = rng.gen_range((-y + 128.)..(y - 128.));
         //info!("random x: {}, random y: {}", random_x, random_y);
         let enemy_type_index = rng.gen_range(enemy_types.0..=enemy_types.1);
-        println!("Min type {} - Max type {}",enemy_types.0,enemy_types.1);
+       // println!("Min type {} - Max type {}",enemy_types.0,enemy_types.1);
         // 0 ninja
         // 1 berry rat
         // 2 splat monkey
@@ -614,7 +614,7 @@ pub fn server_spawn_enemies(
                         health: Health::new(&N_HEALTH),
                     },
                 ));
-                println!("spawned enemy - ninya @({},{})", random_x, random_y);
+               // println!("spawned enemy - ninya @({},{})", random_x, random_y);
             }
             2 => {
                 commands.spawn((
@@ -642,7 +642,7 @@ pub fn server_spawn_enemies(
                         health: Health::new(&BR_HEALTH),
                     },
                 ));
-                println!("spawned enemy - berry wat@({},{})", random_x, random_y);
+                //println!("spawned enemy - berry wat@({},{})", random_x, random_y);
             }
             3 => {
                 commands.spawn((
@@ -670,7 +670,7 @@ pub fn server_spawn_enemies(
                         health: Health::new(&SP_HEALTH),
                     },
                 ));
-                println!("spawned enemy - monke @({},{})", random_x, random_y);
+               // println!("spawned enemy - monke @({},{})", random_x, random_y);
             }
             4 => {
                 commands.spawn((
@@ -698,7 +698,7 @@ pub fn server_spawn_enemies(
                         health: Health::new(&SK_HEALTH),
                     },
                 ));
-                println!("spawned enemy - skelly@({},{})", random_x, random_y);
+               // println!("spawned enemy - skelly@({},{})", random_x, random_y);
             }
             _ => panic!("Invalid enemy index!"),
         }
