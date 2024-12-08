@@ -19,7 +19,8 @@ pub fn send_id(
     commands: &mut Commands,
     addresses: &mut AddressList,
     server_seq: &mut Sequence,
-    udp: & UDP
+    udp: & UDP,
+    mut carnage_event: &mut EventWriter<CarnageChangeEvent>
 ) {
     /* assign id, update player count */
     n_p.count += 1;
@@ -53,6 +54,7 @@ pub fn send_id(
         player: Player,
         track: Trackable
     });
+    carnage_event.send(CarnageChangeEvent(true));
 }
 
 /* Server side listener for packets,  */
@@ -99,7 +101,7 @@ pub fn listen(
         match player_struct {
             ClientPacket::IdPacket(_id_packet) => {
                 info!("sending id to client");
-                send_id(src,  &mut n_p, &mut commands, &mut addresses, &mut server_seq, &udp);
+                send_id(src,  &mut n_p, &mut commands, &mut addresses, &mut server_seq, &udp, &mut carnage_event);
                 println!("{:?}", addresses.list);
                 map_change.send(RoomChangeEvent(true));
             },
@@ -109,7 +111,7 @@ pub fn listen(
             ClientPacket::KillEnemyPacket(kill_enemy) => {
                 println!("recieved kill enemy packet");
                 update_despawn(kill_enemy, &mut enemies_to_kill, &mut commands, &mut enemies); 
-                carnage.single_mut().up_carnage(1.);
+                carnage.single_mut().up_carnage(2.5);
                 carnage_event.send(CarnageChangeEvent(true));
             }
 
@@ -515,7 +517,7 @@ pub fn check_door(
                     &room_config,
                     &mut player
                 );
-                  server_spawn_enemies(&mut commands, &mut enemy_id, &mut last_attribute_array, &room_config);
+                  server_spawn_enemies(&mut commands, &mut enemy_id, &mut last_attribute_array, &room_config, &room_manager);
                   room_change.send(RoomChangeEvent(all_hit));
                   carnage.single_mut().up_stealth(5.);
                   carnage_event.send(CarnageChangeEvent(true));
@@ -582,8 +584,10 @@ pub fn carnage_update(
 ){
     for event in carnage_event.read(){
         if !event.0{continue};
+        let carnage_bar = carnage.single();
+        println!("c.s:{} c.fight:{}", carnage_bar.stealth, carnage_bar.carnage);
         let pack= ServerPacket::CarnagePacket(CarnagePacket{
-            carnage: (*carnage.single()).clone(),
+            carnage: (*carnage_bar).clone(),
         });
         let mut serializer = flexbuffers::FlexbufferSerializer::new();
         pack.serialize(&mut serializer).unwrap();

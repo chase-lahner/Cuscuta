@@ -136,14 +136,14 @@ impl PlayerDeathTimer{
 
 #[derive(Resource)]
 pub struct EnemyIdChecker {
-    pub idstore: [u32; 100],
+    pub idstore: [u32; 1024],
     pub index: u32
 }
 
 impl EnemyIdChecker{
     pub fn new() -> Self {
         Self {
-            idstore: [0; 100],
+            idstore: [0; 1024],
             index: 0
         }
     }

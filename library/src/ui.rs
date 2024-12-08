@@ -88,7 +88,7 @@ pub fn client_spawn_ui(
             ..default()
         },
         UiImage::new(asset_server.load("ui/carnage_bar_border.png")),
-        CarnageBar{stealth: 0., carnage: 0.}
+        CarnageBar{stealth: 50., carnage: 50.}
     ));
 
     // CARNAGE RED
