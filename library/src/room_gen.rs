@@ -1256,7 +1256,7 @@ pub fn generate_random_room_with_bounds(
     carnage_query: &mut Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
-) -> (f32, f32, f32, f32, f32) {
+) -> (usize,usize, f32, f32, f32) {
     let mut rng = rand::thread_rng();
 
     let mut next_attribute_array = NextAttributeArray::new();
@@ -1331,12 +1331,13 @@ pub fn generate_random_room_with_bounds(
     room_manager.add_room(random_width, random_height, room_width, room_height);
 
     // get z-index for this room
-    let z_index = room_manager.get_global_z_index() - 2.0;
+    let z_index = room_manager.next_room_z_index();
+    println!("z_inex for new room i hop hi hokhpohkhpoikh {}", z_index);
 
     // add room to rooms array
+    println!("Adding room z:{} to storage", z_index);
     room_manager.room_array.add_room_to_storage(z_index, random_width, random_height);
-    println!("random width: {} random height: {} room width: {} room height: {} max x: {} max y: {}", random_width, random_height, room_width, room_height, max_x, max_y);
-    println!("z-index getting added to storage: {}", z_index);
+    
 
     // GET CURRENT Z
     let current_z_index = room_manager.current_z_index;
@@ -1436,14 +1437,14 @@ pub fn transition_map(
     
     // get carnage percent from carnage query
 
-    let z_in = room_manager.get_current_z_index();
+    let z_in: f32 = room_manager.get_current_z_index();
     if let Some((left_x, right_x, top_y, bottom_y)) = room_manager.find_room_bounds(z_in as i32) {
         right_x_out = right_x;
         left_x_out = left_x;
         top_y_out = top_y;
         bottom_y_out = bottom_y;
     } else {
-        println!("Error: Could not find bounds for the newly generated room. {}", z_in);
+        println!("Error: Could not find bounds for the current room. {}", z_in);
     }
 
     // Adjust the player's position based on the door they entered
@@ -1454,11 +1455,8 @@ pub fn transition_map(
             let y_to_check =(top_y_out + bottom_y_out) / 2;
             let room_val = room_manager.get_room_value(x_to_check, y_to_check);
             if room_val == Some(1) {
-                let new_z_index = room_manager.get_global_z_index() - 2.0;
-                let current_z = room_manager.get_current_z_index();
-                let _global_z = room_manager.get_global_z_index();
-
-
+                
+                
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
                     commands,
@@ -1467,6 +1465,9 @@ pub fn transition_map(
                     last_attribute_array, 
                     &room_config,
                 );
+                
+                let new_z_index: f32 = room_manager.get_global_z_index();
+                let current_z = room_manager.get_current_z_index()+2.;
 
                 println!("Room width going into add map: {} room height: {}", room_width, room_height);
                 // add new room to map relative to current room top door
@@ -1542,11 +1543,7 @@ pub fn transition_map(
             let y_to_check =(top_y_out + bottom_y_out) / 2;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
             if room_val == Some(1) {
-                let new_z_index = room_manager.get_global_z_index() - 2.0;
-
-                let current_z = room_manager.get_current_z_index();
-                let _global_z = room_manager.get_global_z_index();
-
+                
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
                     commands,
@@ -1555,6 +1552,9 @@ pub fn transition_map(
                     last_attribute_array, 
                     &room_config,
                 );
+                
+                let new_z_index: f32 = room_manager.get_global_z_index();
+                let current_z = room_manager.get_current_z_index()+2.;
 
                 println!("Room width going into add map: {} room height: {}", room_width, room_height);
                 // add new room to map relative to current room top door
@@ -1625,13 +1625,8 @@ pub fn transition_map(
             let y_to_check = top_y_out - 1;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
             if room_val == Some(1) {
-                let new_z_index = room_manager.get_global_z_index() - 2.0;
-
-                let current_z = room_manager.get_current_z_index();
-                let _global_z = room_manager.get_global_z_index();
-                println!("hit top door. new_z: {}, current_z: {}, global_z: {}", new_z_index, current_z, _global_z);
-
-
+                
+                
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
                     commands,
@@ -1640,6 +1635,9 @@ pub fn transition_map(
                     last_attribute_array, 
                     &room_config,
                 );
+                
+                let new_z_index: f32 = room_manager.get_global_z_index();
+                let current_z = room_manager.get_current_z_index()+2.;
 
                 println!("Room width going into add map: {} room height: {}", room_width, room_height);
                 // add new room to map relative to current room top door
@@ -1710,12 +1708,7 @@ pub fn transition_map(
             let y_to_check = bottom_y_out + 1;
             let room_val = room_manager.get_room_value(x_to_check,y_to_check);
             if room_val == Some(1) {
-                let new_z_index = room_manager.get_global_z_index() - 2.0;
-
-                let current_z = room_manager.get_current_z_index();
-                let _global_z = room_manager.get_global_z_index();
-                println!("hit bottom door. new_z: {}, current_z: {}, global_z: {}", new_z_index, current_z, _global_z);
-
+                
                 // generate the room with random bounds
                 let (room_width, room_height, max_x, max_y, _z_index) = generate_random_room_with_bounds(
                     commands,
@@ -1724,6 +1717,9 @@ pub fn transition_map(
                     last_attribute_array, 
                     &room_config,
                 );
+                
+                let new_z_index: f32 = room_manager.get_global_z_index();
+                let current_z = room_manager.get_current_z_index()+2.;
 
                 println!("Room width going into add map: {} room height: {}", room_width, room_height);
                 // add new room to map relative to current room top door

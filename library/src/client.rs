@@ -96,7 +96,7 @@ pub fn listen(
     mut sequence: ResMut<Sequence>,
     mut room_query: Query<Entity, With<Room>>,
     mut room_manager: ResMut<ClientRoomManager>,
-    mut idstore: ResMut<'_, EnemyIdChecker>
+    mut idstore: ResMut<'_, EnemyIdChecker>,
     mut carnage: Query<&mut CarnageBar>,
 
 ) {
