@@ -777,8 +777,8 @@ fn create_inner_walls(
 ){
     let z_abs = z_index.abs() as usize;
     let mut rng = rand::thread_rng();
-    let start_pos_x = rng.gen_range(2..=room_width - 2 );
-    let start_pos_y = rng.gen_range(2..=room_height - 2);
+    let start_pos_x = rng.gen_range(2..=room_width - 5 );
+    let start_pos_y = rng.gen_range(2..=room_height - 5);
 
     // horizontal or vertical wall
     let horizon_or_vert = rng.gen_range(0..=1);
