@@ -5,6 +5,7 @@ use network::*;
 use serde::{Deserialize, Serialize};
 
 use crate::markov_chains::LastAttributeArray;
+use crate::player;
 use crate::room_gen::{RoomChangeEvent, RoomConfig};
 use crate::{cuscuta_resources::{self, AddressList, Background, EnemiesToKill, Health, PlayerCount, Pot, Velocity, Wall, TILE_SIZE}, enemies::{Enemy, EnemyId, EnemyMovement}, network, player::{check_door_collision, Attack, Crouch, NetworkId, Player, Roll, ServerPlayerBundle, Sprint, Trackable}, room_gen::{transition_map, Door, DoorType, Potion, Room, RoomManager}, ui::CarnageBar};
 
@@ -140,6 +141,10 @@ pub fn listen(
                 println!("recieved decrease enemy health packet");
                 // TODO: decrease serverside health :p
             }
+            ClientPacket::MonkeyPacket(monkey_packet) => {
+                info!("received monkey packet");
+                update_monkey(&mut commands, monkey_packet, &addresses, &udp, &mut server_seq);
+            }
 
         }
     }
@@ -244,13 +249,31 @@ pub fn send_enemies(
         enemy.serialize(&mut serializer).unwrap();
         let packet: &[u8] = serializer.view();
         for addr in addresses.list.iter(){
-            udp.socket.send_to(&packet, addr).unwrap();
-            
+            udp.socket.send_to(&packet, addr).unwrap();          
         }
     }
 }
 
-
+pub fn update_monkey (
+    mut commands: &mut Commands,
+    packet: MonkeyPacket,
+    addresses: &ResMut<AddressList>,
+    udp: &Res<UDP>,
+    server_seq: &mut Sequence,
+) {
+    player::spawn_server_monkey(commands, packet.transform);
+    let monkey  = ServerPacket::MonkeyPacket(
+        MonkeyPacket{
+            head: Header::new(0,server_seq.clone()),
+            transform: packet.transform,
+        });
+    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+    monkey.serialize(&mut serializer).unwrap();
+    let packet: &[u8] = serializer.view();
+    for addr in addresses.list.iter(){
+        udp.socket.send_to(&packet, addr).unwrap();     
+    }
+}
 
 // /* once we have our packeet, we must use it to update
 //  * the player specified, there's another in client.rs*/

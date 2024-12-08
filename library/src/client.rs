@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::cuscuta_resources::*;
+use crate::{cuscuta_resources::*, player};
 use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::network::{
     ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, MapS2C, PlayerSendable, Sequence, ServerPacket, UDP
@@ -145,6 +145,10 @@ pub fn listen(
             info!("Matching Despawn Packet");
             despawn_enemy(&mut commands, &mut enemy_q, &despawn_packet.enemy_id);
 
+        }
+        ServerPacket::MonkeyPacket(monkey_packet) => {
+            info!("Matching Monkey Packet");
+            player::spawn_other_monkey(&mut commands, monkey_packet.transform, &asset_server, &mut texture_atlases,);
         }
     }
 }// stupid loop

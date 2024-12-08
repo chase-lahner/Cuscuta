@@ -34,6 +34,7 @@ fn main() {
                 server::send_enemies.after(server::listen),
                 server::send_player.after(server::listen),
                 server::send_despawn_command.after(server::listen),
+                player::update_server_monkey,
 
             ),
         )
