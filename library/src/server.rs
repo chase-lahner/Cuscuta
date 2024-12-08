@@ -429,7 +429,7 @@ fn send_map_packet (
     mappy.serialize(&mut serializer).unwrap();
     let packet: &[u8] = serializer.view();
     for addr in addresses.list.iter(){
-        let drawn = udp.socket.send_to(&packet, addr).unwrap();
+        udp.socket.send_to(&packet, addr).unwrap();
     }
     
 }
@@ -487,12 +487,11 @@ pub fn check_door(
                     &mut commands,
                     &mut room_manager,
                     &mut room_query,
-                    &door_query,
-                    &mut transform,
                     final_door,
                     &mut carnage,
                     &mut last_attribute_array,
                     &room_config,
+                    &mut player
                 );
                   room_change.send(RoomChangeEvent(all_hit));
                   carnage.single_mut().up_stealth(5.);
