@@ -94,7 +94,7 @@ pub fn server_setup(
 
 
 
-    spawn_start_room(&mut commands, &mut room_manager, &mut last_attribute_array, 0.);
+    spawn_start_room(&mut commands, &mut room_manager, 0.,&mut last_attribute_array,&room_config);
  
 
     server_spawn_enemies(&mut commands, &mut first_enemy, &mut last_attribute_array, &room_config);
