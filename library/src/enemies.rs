@@ -312,9 +312,23 @@ pub fn enemy_movement(
       //  info!("Sanity CHECK");
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
-                                                                               // checking which player is closest
+        // checking which player is closest
         let mut longest: f32 = 99999999999.0;
-        // for every player
+        //determining spot distance
+        let spot;
+        if health.max == SK_HEALTH.max {spot = SK_SPOT_DIST;}
+        else if health.max == B_HEALTH.max {spot = B_SPOT_DIST;}
+        else if health.max == BR_HEALTH.max {spot = BR_SPOT_DIST;}
+        else if health.max == SP_HEALTH.max {spot = SP_SPOT_DIST;}
+        else {spot = N_SPOT_DIST;}
+        //determining speed
+        let mut speed;
+        if health.max == SK_HEALTH.max {speed = SK_MAX_SPEED;}
+        else if health.max == B_HEALTH.max {speed = B_MAX_SPEED;}
+        else if health.max == BR_HEALTH.max {speed = BR_MAX_SPEED;}
+        else if health.max == SP_HEALTH.max {speed = SP_MAX_SPEED;}
+        else {speed = N_MAX_SPEED;}
+        // for every player - FINDING CLOSEST PLAYER
         for (mut pt, mut ph) in player_query.iter_mut() {
             if ph.current <= 0. {
                 continue;
@@ -324,7 +338,7 @@ pub fn enemy_movement(
                 * (pt.translation.x - transform.translation.x).abs();
             let ydis = (pt.translation.y - transform.translation.y).abs()
                 * (pt.translation.y - transform.translation.y).abs();
-            if ydis + xdis < ENEMY_SPOT_DISTANCE * ENEMY_SPOT_DISTANCE {
+            if ydis + xdis < spot * spot {
                 let mut blocked = false;
                 //line of sight
                 for a in 0..20 {
@@ -359,8 +373,9 @@ pub fn enemy_movement(
             // handling if enemy has hit player
             let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
             let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
+            //if hit cymbalmonkey
             if enemy_aabb.intersects(&player_aabb) && ph.current == 69.69 {
-                health.current = health.current - 0.05;
+                health.current = health.current - 0.5;
                 if health.current <= 0.0 {
                     commands.entity(ent).despawn();
                     let mut serializer = flexbuffers::FlexbufferSerializer::new();
@@ -373,6 +388,7 @@ pub fn enemy_movement(
                     }
                 }
             }
+            //if hit player
             if enemy_aabb.intersects(&player_aabb) && ph.current != 69.69 {
                 
                 if health.max == SK_HEALTH.max || health.max == SP_HEALTH.max {ph.current -= 10.;}
@@ -407,17 +423,17 @@ pub fn enemy_movement(
                 {
                     movement.lastseen.x = 99999.
                 }
+                speed = speed * 10.;
             } else {
                 normalized_direction =
                     Vec3::new(1. * movement.axis as f32, 0. * movement.axis as f32, 0.);
             }
-
             //collision detection
             //let mut collide = false;
             let xtemp = transform.translation.x
-                + normalized_direction.x * ENEMY_SPEED / 2. * time.delta_seconds();
+                + normalized_direction.x * speed/2. * (1./60.);
             let ytemp = transform.translation.y
-                + normalized_direction.y * ENEMY_SPEED / 2. * time.delta_seconds();
+                + normalized_direction.y * speed/2. * (1./60.);
             let mut xmul: f32 = 1.;
             let mut ymul: f32 = 1.;
             let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
@@ -445,11 +461,13 @@ pub fn enemy_movement(
             
 
             transform.translation.x +=
-                normalized_direction.x * ENEMY_SPEED / 2. * time.delta_seconds() * xmul;
+                normalized_direction.x * speed/2.  * (1./60.) * xmul;
             transform.translation.y +=
-                normalized_direction.y * ENEMY_SPEED / 2. * time.delta_seconds() * ymul;
+                normalized_direction.y * speed/2.  * (1./60.) * ymul;
             continue;
         }
+
+        //STANDARD CHASING
 
         // finding direction to move
         let direction_to_player = player_transform.translation - transform.translation;
@@ -471,9 +489,9 @@ pub fn enemy_movement(
         //wall collision detection
         //let mut collide = false;
         let xtemp =
-            transform.translation.x + normalized_direction.x * ENEMY_SPEED * time.delta_seconds();
+            transform.translation.x + normalized_direction.x * speed * (1./60.);
         let ytemp =
-            transform.translation.y + normalized_direction.y * ENEMY_SPEED * time.delta_seconds();
+            transform.translation.y + normalized_direction.y * speed * (1./60.);
         let mut xmul: f32 = 1.;
         let mut ymul: f32 = 1.;
         let tempaabb = Aabb::new(Vec3::new(xtemp, ytemp, 0.), Vec2::splat(TILE_SIZE as f32));
@@ -504,10 +522,10 @@ pub fn enemy_movement(
         // transform.translation.y +=
         //     normalized_direction.y * ENEMY_SPEED * time.delta_seconds() * ymul;
         
-            transform.translation.x +=
-            normalized_direction.x * ENEMY_SPEED * 0.25 * xmul; // arbitrary constant?
+        transform.translation.x +=
+            normalized_direction.x * speed * 0.25 * xmul; // arbitrary constant?
         transform.translation.y +=
-            normalized_direction.y * ENEMY_SPEED * 0.25 * ymul; // arbitrary constant?
+            normalized_direction.y * speed * 0.25 * ymul; // arbitrary constant?
     }
 }
 
