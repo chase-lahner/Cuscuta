@@ -398,7 +398,7 @@ fn despawn_enemy(
     for (entity, _, _, enemy_id, _, _) in enemy_q.iter_mut(){
         if enemy_id.id == id.id{
             commands.entity(entity).despawn();
-            info!("killed dat");
+           // info!("killed dat");
         }
     }
 }

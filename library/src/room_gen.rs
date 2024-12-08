@@ -1425,6 +1425,11 @@ pub fn transition_map(
     room_config: &RoomConfig,
     player : &mut Query<(&mut Transform), With<Player>>,
 ) {
+    println!("global z: {}", room_manager.global_z_index);
+    if room_manager.global_z_index > 20.0 {
+        println!("SPAWN BOSS BWAHAHAHAHA");
+        return;
+    }
     let mut right_x_out = 0;
     let mut left_x_out = 0;
     let mut top_y_out = 0;

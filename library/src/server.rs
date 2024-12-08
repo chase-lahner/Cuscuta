@@ -115,7 +115,7 @@ pub fn listen(
 
             ClientPacket::DecreaseEnemyHealthPacket(decrease_enemy_health_packet) => {
                 println!("recieved decrease enemy health packet");
-                // TODO: decrease serverside health :p
+                decrease_enemy_health(decrease_enemy_health_packet, &mut enemies);
             }
 
         }
@@ -528,7 +528,18 @@ pub fn check_door(
     } else {
         info!("ERROR: ALL_HIT OR HAVE_PLAYER FALSE");
     }
-}   
+}
+
+fn decrease_enemy_health(
+    decrease_enemy_health_packet: DecreaseEnemyHealthPacket,
+    mut enemies: &mut Query<(Entity, &mut EnemyId, &mut EnemyMovement, &mut Transform, &mut Health), (With<Enemy>, Without<Player>, Without<InnerWall>)>,
+){
+    for(entity, id, _movement, _transform, mut health) in enemies.iter_mut(){
+        if id.id == decrease_enemy_health_packet.enemy_id.id{
+            health.current -= decrease_enemy_health_packet.decrease_by;
+        }
+    }
+}
 
 pub fn room_change_infodump(
     mut event_listener: EventReader<RoomChangeEvent>,
