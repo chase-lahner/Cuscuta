@@ -623,7 +623,7 @@ pub fn server_spawn_enemies(
                         motion: EnemyMovement::new(
                             Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
                             1,
-                            Vec3::new(0., 0., 0.),
+                            Vec3::new(99999., 0., 0.),
                         ),
                         timer: EnemyTimer {
                             time: Timer::from_seconds(3.0, TimerMode::Repeating),
