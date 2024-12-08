@@ -29,7 +29,7 @@ pub fn send_id(
     n_p.count += 1;
     let player_id: u8 = n_p.count;
     addresses.list.push(source_addr);
-    println!("pushing addresss");
+   // println!("pushing addresss");
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
     server_seq.nums.push(0);
@@ -103,7 +103,7 @@ pub fn listen(
 
         match player_struct {
             ClientPacket::IdPacket(_id_packet) => {
-                info!("sending id to client");
+               // info!("sending id to client");
                 send_id(src,  &mut n_p, &mut commands, &mut addresses, &mut server_seq, &udp, &mut carnage_event);
                 println!("{:?}", addresses.list);
                 map_change.send(RoomChangeEvent(true));
@@ -112,18 +112,18 @@ pub fn listen(
                 update_player_state(src, &mut players_q, player_packet, &mut commands);
             }  
             ClientPacket::KillEnemyPacket(kill_enemy) => {
-                println!("recieved kill enemy packet");
+               // println!("recieved kill enemy packet");
                 update_despawn(kill_enemy, &mut enemies_to_kill, &mut commands, &mut enemies); 
                 carnage.single_mut().up_carnage(2.5);
                 carnage_event.send(CarnageChangeEvent(true));
             }
 
             ClientPacket::DecreaseEnemyHealthPacket(decrease_enemy_health_packet) => {
-                println!("recieved decrease enemy health packet");
+               // println!("recieved decrease enemy health packet");
                 decrease_enemy_health(decrease_enemy_health_packet, &mut enemies);
             }
             ClientPacket::MonkeyPacket(monkey_packet) => {
-                info!("received monkey packet");
+              //  info!("received monkey packet");
                 update_monkey(&mut commands, monkey_packet, &addresses, &udp, &mut server_seq);
             }
 
@@ -653,7 +653,7 @@ pub fn carnage_update(
     for event in carnage_event.read(){
         if !event.0{continue};
         let carnage_bar = carnage.single();
-        println!("c.s:{} c.fight:{}", carnage_bar.stealth, carnage_bar.carnage);
+        //println!("c.s:{} c.fight:{}", carnage_bar.stealth, carnage_bar.carnage);
         let pack= ServerPacket::CarnagePacket(CarnagePacket{
             carnage: (*carnage_bar).clone(),
         });
