@@ -285,7 +285,6 @@ pub fn player_attack(
         ),
         With<Player>,
     >,
-    mut carnage_q: Query<&mut CarnageBar, With<CarnageBar>>,
     client_id: Res<ClientId>,
 ) {
     /* In texture atlas for ratatta:
@@ -296,7 +295,6 @@ pub fn player_attack(
      * ratlas. heh. get it.*/
     for (v, mut ratlas, mut timer, _frame_count, mut attack, id) in player.iter_mut() {
         if id.id == client_id.id {
-            let mut carnage = carnage_q.single_mut();
             let abx = v.velocity.x.abs();
             let aby = v.velocity.y.abs();
 
@@ -316,10 +314,6 @@ pub fn player_attack(
                     } else if v.velocity.y < 0. {
                         ratlas.index = 4;
                     }
-                }
-                /* increment carnage. stupid fer now */
-                if carnage.carnage < 50. {
-                    carnage.carnage += 1.;
                 }
                 timer.reset();
             }
@@ -392,7 +386,7 @@ pub fn player_attack_enemy(
                     Aabb::new(enemy_transform.translation, Vec2::splat(TILE_SIZE as f32));
                 if player_aabb.intersects(&enemy_aabb) {
                     enemy_health.current -= 1.;
-                   // info!("enemy health: {}", enemy_health.current);
+                    info!("enemy health: {}", enemy_health.current);
                     let packet = ClientPacket::DecreaseEnemyHealthPacket(DecreaseEnemyHealthPacket  {
                         enemy_id: id.clone(),
                         decrease_by: 1.,
