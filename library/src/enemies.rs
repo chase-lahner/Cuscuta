@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{collision::*, cuscuta_resources::*, player::{self, *}};
+use crate::{collision::*, cuscuta_resources::*, network::{KillEnemyPacket, ServerPacket, UDP}, player::{self, *}};
 
 /* Set for skeleton enemy */
 const SK_NAME: &str = "Skelebob";
@@ -296,16 +296,19 @@ impl EnemyId {
 // }
 
 pub fn enemy_movement(
-    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement, &mut Health), With<Enemy>>,
+    mut commands: Commands,
+    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement, &mut Health, Entity, &EnemyId), With<Enemy>>,
     mut player_query: Query<
         (&mut Transform, &mut Health),
         (With<Trackable>, Without<Enemy>)>,
     wall_query: Query<(&Transform, &Wall), (Without<Player>, Without<EnemyTimer>, Without<Trackable>)>,
     time: Res<Time>,
+    addresses: Res<AddressList>,
+    udp: Res<UDP>,
 ) {
    // info!("running enemy mvmt");
     // for every enemy
-    for (mut transform, mut timer, mut movement, mut health) in enemy_query.iter_mut() {
+    for (mut transform, mut timer, mut movement, mut health, ent, eid) in enemy_query.iter_mut() {
       //  info!("Sanity CHECK");
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
@@ -358,6 +361,17 @@ pub fn enemy_movement(
             let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
             if enemy_aabb.intersects(&player_aabb) && ph.current == 69.69 {
                 health.current = health.current - 0.05;
+                if health.current <= 0.0 {
+                    commands.entity(ent).despawn();
+                    let mut serializer = flexbuffers::FlexbufferSerializer::new();
+                    let to_send: ServerPacket = ServerPacket::DespawnPacket(KillEnemyPacket{enemy_id: eid.clone()}.clone());
+                    to_send.serialize(&mut serializer).unwrap();
+                    let packet: &[u8] = serializer.view();
+                    for address in addresses.list.iter(){
+                        udp.socket.send_to(&packet, address).unwrap();
+                        println!("sending despawn packet");
+                    }
+                }
             }
             if enemy_aabb.intersects(&player_aabb) && ph.current != 69.69 {
                 ph.current -= 5.;
