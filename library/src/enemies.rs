@@ -505,9 +505,9 @@ pub fn enemy_movement(
         //     normalized_direction.y * ENEMY_SPEED * time.delta_seconds() * ymul;
         
             transform.translation.x +=
-            normalized_direction.x * ENEMY_SPEED * 0.5 * xmul; // arbitrary constant?
+            normalized_direction.x * ENEMY_SPEED * 0.25 * xmul; // arbitrary constant?
         transform.translation.y +=
-            normalized_direction.y * ENEMY_SPEED * 0.5 * ymul; // arbitrary constant?
+            normalized_direction.y * ENEMY_SPEED * 0.25 * ymul; // arbitrary constant?
     }
 }
 
@@ -543,25 +543,11 @@ pub fn handle_enemy_collision(
 
                 let direction_to_player = player_transform.translation - enemy_transform.translation;
                 let normalized_direction = direction_to_player.normalize();
-                player_transform.translation.x += normalized_direction.x * 64.;
-                player_transform.translation.y += normalized_direction.y * 64.;
+                player_transform.translation.x += normalized_direction.x * 256.;
+                player_transform.translation.y += normalized_direction.y * 256.;
             }
         }
     }
-    // handling if enemy has hit player
-    // let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
-    // let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
-    // if enemy_aabb.intersects(&player_aabb) {
-    //     ph.current -= 5.;
-
-    //     // knockback applied to player
-    //     let direction_to_player = player_transform.translation - transform.translation;
-    //     let normalized_direction = direction_to_player.normalize();
-    //     //let opp_direction = Vec3::new(normalized_direction.x * -1., normalized_direction.y * -1., normalized_direction.z);
-    //     pt.translation.x += normalized_direction.x * 64.;
-    //     pt.translation.y += normalized_direction.y * 64.;
-    //     player_transform.translation = pt.translation;
-    // }
     
 }
 
