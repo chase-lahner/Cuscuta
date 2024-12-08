@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 use crate::cuscuta_resources::*;
 use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::network::{
-    ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, MapS2C, PlayerSendable, Sequence, ServerPacket, UDP
+    CarnagePacket, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, MapS2C, PlayerSendable, Sequence, ServerPacket, UDP
 };
 use crate::player::*;
 use crate::room_gen::{ClientDoor, ClientRoomManager, Door, DoorType, InnerWall, Potion, Room};
+use crate::ui::CarnageBar;
 
 /* sends out all clientPackets from the ClientPacketQueue */
 pub fn client_send_packets(udp: Res<UDP>, mut packets: ResMut<ClientPacketQueue>) {
@@ -95,7 +96,9 @@ pub fn listen(
     mut sequence: ResMut<Sequence>,
     mut room_query: Query<Entity, With<Room>>,
     mut room_manager: ResMut<ClientRoomManager>,
-    mut idstore: ResMut<'_, EnemyIdChecker>
+    mut idstore: ResMut<'_, EnemyIdChecker>,
+    mut carnage: Query<&mut CarnageBar>,
+
 ) {
     //info!("Listening!!!");
     loop{
@@ -145,8 +148,8 @@ pub fn listen(
             info!("Matching Despawn Packet");
             despawn_enemy(&mut commands, &mut enemy_q, &despawn_packet.enemy_id);
         }
-        ServerPacket::CarnagePacket(carnage) => {
-            update_carnage();
+        ServerPacket::CarnagePacket(carnage_pack) => {
+            update_carnage(&mut carnage,&carnage_pack);
         }
     }
 }// stupid loop
@@ -438,17 +441,17 @@ fn receive_map_packet (
         commands.entity(tile).despawn();
     }
 
-    info!("starting ({}, {})",horizontal, vertical);
+   // info!("starting ({}, {})",horizontal, vertical);
     for a in 0..map_array.len() {
         for b in 0..map_array[0].len() {
             let val = map_array[a][b];
-            info!("[{}][{}] = ({}, {})",a,b,horizontal,vertical);
+           // info!("[{}][{}] = ({}, {})",a,b,horizontal,vertical);
             match val {
                 0 => commands.spawn((SpriteBundle {
                     texture: asset_server
                         .load("tiles/cobblestone_floor/cobblestone_floor.png")
                         .clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, 0.0),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index-0.5),
                     ..default() },Background,Room,)),
                 1 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/left_wall.png").clone(),
@@ -458,7 +461,8 @@ fn receive_map_packet (
                     texture: asset_server.load("tiles/walls/right_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Wall,Room,)),
-/*poton */      3 => {commands.spawn(( SpriteBundle {
+/*poton */      3 => {
+                    commands.spawn(( SpriteBundle {
                     texture: asset_server.load("items/potion.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Potion,Room,));
@@ -466,23 +470,23 @@ fn receive_map_packet (
                     texture: asset_server
                         .load("tiles/cobblestone_floor/cobblestone_floor.png")
                         .clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, z_index),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index-0.5),
                     ..default() },Background,Room,))}
                 4 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, z_index),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index+0.5),
                     ..default() },ClientDoor{door_type: DoorType::Left,},Room,)),
                 5 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, z_index),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index+0.5),
                     ..default() },ClientDoor{door_type: DoorType::Right,},Room,)),
                 6 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, z_index),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index+0.5),
                     ..default() },ClientDoor{door_type: DoorType::Top,},Room,)),
                 7 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/solid_floor/solid_floor.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, z_index),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index+0.5),
                     ..default() },ClientDoor{door_type: DoorType::Bottom,},Room,)),
                 8 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/walls/north_wall.png").clone(),
@@ -494,7 +498,7 @@ fn receive_map_packet (
                     ..default() },Wall,Room,)),
                 10 => commands.spawn(( SpriteBundle {
                     texture: asset_server.load("tiles/1x2_pot.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, z_index),
+                    transform: Transform::from_xyz(horizontal, vertical, z_index+0.5),
                     ..default() },Pot::new(),Room,)),
                 /* inner walls */
                 11 => commands.spawn((SpriteBundle {
@@ -675,4 +679,11 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
 }// stupid loop
 }
 
-pub fn update_carnage(){}
+pub fn update_carnage(
+    mut carnage: &mut Query<&mut CarnageBar>,
+    pack: &CarnagePacket,
+){
+    for mut carn in carnage.iter_mut(){
+        *carn = pack.carnage.clone();
+    }
+}

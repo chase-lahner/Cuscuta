@@ -28,7 +28,6 @@ fn main() {
             FixedUpdate,
             (
                 server::listen,
-
                 server::check_door.after(server::listen),
                 server::room_change_infodump.after(server::check_door),
                 server::carnage_update.after(server::check_door),
