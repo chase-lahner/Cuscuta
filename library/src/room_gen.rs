@@ -766,61 +766,79 @@ fn create_inner_walls(
 ){
     let z_abs = z_index.abs() as usize;
     let mut rng = rand::thread_rng();
-    let start_pos_x = rng.gen_range(5 ..=room_width - 5 );
-    let start_pos_y = rng.gen_range(5..=room_height - 5);
 
-    // horizontal or vertical wall
+    let mid_point_x = room_width / 2;
+    let mid_point_y = room_height / 2;
+
+    // Generate start positions that avoid the midpoint
+    let start_pos_x = loop {
+        let pos_x = rng.gen_range(2..=room_width - 5);
+        if pos_x != mid_point_x {
+            break pos_x;
+        }
+    };
+
+    let start_pos_y = loop {
+        let pos_y = rng.gen_range(2..=room_height - 5);
+        if pos_y != mid_point_y {
+            break pos_y;
+        }
+    };
+
+    // Determine if the wall will be horizontal or vertical
     let horizon_or_vert = rng.gen_range(0..=1);
 
     // HORIZONTAL WALL
     let wall = if horizon_or_vert == 0 {
-        // get wall length
+        // Get wall length
         let wall_length = rng.gen_range(3..=(room_width / 2) - 1);
 
-        // get room mid point
-        let mid_point = room_width / 2;
-
-        // if closer to right wall
-        let length_direction_vector = if start_pos_x >= mid_point {
+        // Determine length direction vector avoiding the midpoint
+        let length_direction_vector = if start_pos_x >= mid_point_x {
             (-(wall_length as i32), 1)
         } else {
             (wall_length as i32, 1)
         };
-        
-        // create a new inner wall
+
+        // Ensure the wall does not overlap the midpoint
+        if (start_pos_x as i32 + length_direction_vector.0).abs() == mid_point_x as i32 {
+            return;
+        }
+
+        // Create a new inner wall
         InnerWall {
             start_pos: InnerWallStartPos { x: start_pos_x, y: start_pos_y },
             length_direction_vector,
         }
     } 
-
     // VERTICAL WALL
-    else 
-    {
-        // get wall height
+    else {
+        // Get wall height
         let wall_height = rng.gen_range(3..=(room_height / 2) - 1);
 
-        // get room mid point
-        let mid_point = room_height / 2;
-
-        // if closer to right wall
-        let length_direction_vector = if start_pos_y >= mid_point {
+        // Determine length direction vector avoiding the midpoint
+        let length_direction_vector = if start_pos_y >= mid_point_y {
             (1, -(wall_height as i32))
         } else {
             (1, wall_height as i32)
         };
-        
-        // create a new inner wall
+
+        // Ensure the wall does not overlap the midpoint
+        if (start_pos_y as i32 + length_direction_vector.1).abs() == mid_point_y as i32 {
+            return;
+        }
+
+        // Create a new inner wall
         InnerWall {
             start_pos: InnerWallStartPos { x: start_pos_x, y: start_pos_y },
             length_direction_vector,
         }
     };
-    // add inner wall to inner wall list
+
+    // Add inner wall to inner wall list
     room_manager.add_inner_wall(z_abs, wall);
 
-
-    // loop through inner wall list at current z index
+    // Loop through inner wall list at current z index
     if let Some(walls) = room_manager.get_inner_walls(z_abs) {
         let walls_to_draw: Vec<_> = walls.clone(); // Clone to avoid mutable borrowing issues
         for wall in walls_to_draw.iter() {
@@ -829,7 +847,6 @@ fn create_inner_walls(
     } else {
         println!("No inner walls found for Z index {}", z_abs);
     }
-    
 }
 
 
