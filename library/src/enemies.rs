@@ -590,8 +590,8 @@ pub fn server_spawn_enemies(
     
 
     for _ in 0..enemy_count {
-        let random_x = rng.gen_range((-MAX_X + 128.)..(MAX_X - 128.));
-        let random_y = rng.gen_range((-MAX_Y + 128.)..(MAX_Y - 128.));
+        let random_x = rng.gen_range((-MAX_X/2. + 128.)..(MAX_X/2. - 128.));
+        let random_y = rng.gen_range((-MAX_Y/2. + 128.)..(MAX_Y/2. - 128.));
         //info!("random x: {}, random y: {}", random_x, random_y);
         let enemy_type_index = rng.gen_range(enemy_types.0..=enemy_types.1);
         println!("Min type {} - Max type {}",enemy_types.0,enemy_types.1);
@@ -712,6 +712,34 @@ pub fn server_spawn_enemies(
                     },
                 ));
                 println!("spawned enemy - skelly");
+            }
+            5 => {
+                commands.spawn((
+                    ServerEnemyBundle {
+                        transform: Transform::from_xyz(0., 0., 900.),
+                        id: EnemyId::new(enemy_id.get_plus(), EnemyKind::boss()),
+                        enemy: Enemy::new(
+                            String::from(B_NAME),
+                            String::from(B_PATH),
+                            B_SPRITE_H,
+                            B_SPRITE_W,
+                            B_MAX_SPEED,
+                            B_SPOT_DIST,
+                            B_HEALTH,
+                            B_SIZE,
+                        ),
+                        motion: EnemyMovement::new(
+                            Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                            1,
+                            Vec3::new(99999., 0., 0.),
+                        ),
+                        timer: EnemyTimer {
+                            time: Timer::from_seconds(3.0, TimerMode::Repeating),
+                        },
+                        health: Health::new(&B_HEALTH),
+                    },
+                ));
+                println!("spawned enemy - boss");
             }
             _ => panic!("Invalid enemy index!"),
         }
