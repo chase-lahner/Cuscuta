@@ -123,33 +123,27 @@ pub fn listen(
      * packet!! is essential for lamportaging */
     match rec_struct {
         ServerPacket::IdPacket(id_packet) => {
-            info!("matching idpacket");
             recv_id(&id_packet, &mut sequence, &mut client_id);
             sequence.assign(&id_packet.head.sequence);
         }
         ServerPacket::PlayerPacket(player_packet) => {
-            info!("Matching Player  {}", player_packet.head.network_id);
             /*  gahhhh sequence borrow checker is giving me hell */
             /* if we encounter porblems, it's herer fs */ 
             receive_player_packet( &mut commands, &mut players_q, &asset_server, &player_packet, &mut texture_atlases, src,);
             sequence.assign(&player_packet.head.sequence);
         }
         ServerPacket::MapPacket(map_packet) => {
-            info!("Matching Map Struct");
             receive_map_packet(&mut commands, &asset_server, &map_packet, &mut room_query, &mut room_manager, &mut texture_atlases);
             sequence.assign(&map_packet.head.sequence);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
-           // info!{"Matching Enemy Struct"};
             recv_enemy(&enemy_packet, &mut commands, &mut enemy_q, &asset_server, &mut texture_atlases, &mut idstore);
             sequence.assign(&enemy_packet.head.sequence);
         }
         ServerPacket::DespawnPacket(despawn_packet) => {
-            info!("Matching Despawn Packet");
             despawn_enemy(&mut commands, &mut enemy_q, &despawn_packet.enemy_id);
         }
         ServerPacket::DespawnAllPacket(despawn_packet) => {
-            info!("matched despawn all packet");
             kill_everyone(&mut commands, &mut enemy_q);
         }
 
@@ -158,7 +152,6 @@ pub fn listen(
 
         }
         ServerPacket::MonkeyPacket(monkey_packet) => {
-            info!("Matching Monkey Packet");
             player::spawn_other_monkey(&mut commands, monkey_packet.transform, &asset_server, &mut texture_atlases,);
         }
     }

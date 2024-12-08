@@ -478,27 +478,30 @@ impl RoomConfig {
     pub fn new() -> Self {
         RoomConfig {
             states: vec![
+                /* stealth */
                 StateConfig {
-                    width_range: (40, 59),
-                    height_range: (40, 59),
+                    width_range: (20, 59),
+                    height_range: (20, 59),
                     inner_wall_count: (1, 3),
-                    enemy_count: (1, 2),
+                    enemy_count: (4, 8),
                     enemy_type: (1, 2),
                     item_count: (1, 2),
                 },
+                /* neutral */
                 StateConfig {
-                    width_range: (60, 69),
-                    height_range: (60, 69),
-                    inner_wall_count: (2, 4),
-                    enemy_count: (2, 3),
-                    enemy_type: (2, 3),
+                    width_range: (30, 49),
+                    height_range: (30, 49),
+                    inner_wall_count: (4, 7),
+                    enemy_count: (6, 10),
+                    enemy_type: (1, 4),
                     item_count: (2, 3),
                 },
+                /* carnage */
                 StateConfig {
-                    width_range: (70, 79),
-                    height_range: (70, 79),
-                    inner_wall_count: (3, 5),
-                    enemy_count: (3, 5),
+                    width_range: (40, 59),
+                    height_range: (40, 59),
+                    inner_wall_count: (5, 8),
+                    enemy_count: (5, 12),
                     enemy_type: (3, 4),
                     item_count: (3, 4),
                 },
@@ -1497,7 +1500,8 @@ pub fn transition_map(
                 info!("player successfully moved to new room... but maybe not.");
 
                 for mut transform in player.iter_mut(){
-                    transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                    /* *4.0 for not standing on door immesdiately */
+                    transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 4.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
                 }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
@@ -1519,8 +1523,7 @@ pub fn transition_map(
 
                         // spawn at left door
                         for mut transform in player.iter_mut(){
-
-                            transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
+                            transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 4.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
                         }
                     } else {
                         println!("Error: Room not found in storage.");
@@ -1578,7 +1581,7 @@ pub fn transition_map(
                println!("room_manager.global: {}", room_manager.get_global_z_index());
                 // Spawn the player a little away from the right door
                 for mut transform in player.iter_mut(){
-                    transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                    transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 4.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
                 }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
@@ -1600,7 +1603,7 @@ pub fn transition_map(
                             room_val_unwrapped as f32,
                         );
                         for mut transform in player.iter_mut(){
-                            transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                            transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 4.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
                         }
                     } else {
                         println!("Error: Room not found in storage.");
