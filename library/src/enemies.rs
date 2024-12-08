@@ -11,7 +11,7 @@ const SK_SPRITE_H: u32 = 1;
 const SK_SPRITE_W: u32 = 1;
 const SK_MAX_SPEED: f32 = 160.;
 const SK_SPOT_DIST: f32 = 192.;
-const SK_HEALTH: Health = Health { max: 2., current: 2. };
+const SK_HEALTH: Health = Health { max: 25., current: 25. };
 const SK_SIZE: u32 = 32;
 
 /* Set for berry rat */
@@ -21,7 +21,7 @@ const BR_SPRITE_H: u32 = 1;
 const BR_SPRITE_W: u32 = 2;
 const BR_MAX_SPEED: f32 = 160.;
 const BR_SPOT_DIST: f32 = 256.;
-const BR_HEALTH: Health = Health { max: 1., current: 1. };
+const BR_HEALTH: Health = Health { max: 15., current: 15. };
 const BR_SIZE: u32 = 32;
 
 /* Set for ninja */
@@ -31,7 +31,7 @@ const N_SPRITE_H: u32 = 1;
 const N_SPRITE_W: u32 = 1;
 const N_MAX_SPEED: f32 = 160.;
 const N_SPOT_DIST: f32 = 320.;
-const N_HEALTH: Health = Health { max: 1., current: 1. };
+const N_HEALTH: Health = Health { max: 25., current: 25. };
 const N_SIZE: u32 = 32;
 
 /* Set for splat monkey */
@@ -51,7 +51,7 @@ const B_SPRITE_H: u32 = 1;
 const B_SPRITE_W: u32 = 1;
 const B_MAX_SPEED: f32 = 130.;
 const B_SPOT_DIST: f32 = 1000.;
-const B_HEALTH: Health = Health { max: 10., current: 10.};
+const B_HEALTH: Health = Health { max: 300., current: 300.};
 const B_SIZE: u32 = 64;
 
 /* Cute lil enum that allows us ezpz enemy match */
