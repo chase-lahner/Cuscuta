@@ -438,11 +438,11 @@ fn receive_map_packet (
         commands.entity(tile).despawn();
     }
 
-    info!("starting ({}, {})",horizontal, vertical);
+   // info!("starting ({}, {})",horizontal, vertical);
     for a in 0..map_array.len() {
         for b in 0..map_array[0].len() {
             let val = map_array[a][b];
-            info!("[{}][{}] = ({}, {})",a,b,horizontal,vertical);
+           // info!("[{}][{}] = ({}, {})",a,b,horizontal,vertical);
             match val {
                 0 => commands.spawn((SpriteBundle {
                     texture: asset_server
@@ -458,7 +458,8 @@ fn receive_map_packet (
                     texture: asset_server.load("tiles/walls/right_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Wall,Room,)),
-/*poton */      3 => {commands.spawn(( SpriteBundle {
+/*poton */      3 => {
+                    commands.spawn(( SpriteBundle {
                     texture: asset_server.load("items/potion.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Potion,Room,));

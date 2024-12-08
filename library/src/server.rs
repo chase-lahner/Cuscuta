@@ -384,9 +384,12 @@ fn send_map_packet (
 ) {
 
     let (room_w,room_h):(f32, f32) = RoomManager::current_room_size(&roomman);
+    info!("room width: {} room height: {}", room_w, room_w);
     let room_tile_w = room_w / TILE_SIZE as f32;
     let room_tile_h = room_h / TILE_SIZE as f32;
-    let mut map_array: Vec<Vec<u8>> =vec![vec![0; room_tile_h as usize + 1]; room_tile_w as usize + 1];
+
+    info!("room tile width: {} room tile height: {}", room_w, room_w);
+    let mut map_array: Vec<Vec<u8>> = vec![vec![0; room_tile_h as usize + 1]; room_tile_w as usize + 1];
     
 
     let max_x = room_w / 2.0 ;
@@ -442,7 +445,7 @@ fn send_map_packet (
             DoorType::Bottom => map_array[arr_x][arr_y] = 7
         }
     }
-    println!("{:?},", map_array);
+    //println!("{:?},", map_array);
     let mappy = ServerPacket::MapPacket(MapS2C{
         head: Header::new(0,server_seq.clone()),// server id == 0
         matrix: map_array,
@@ -530,7 +533,11 @@ pub fn check_door(
             } else {
                 eprintln!("Error: Player transform was not set!");
             }
+        } else {
+            info!("ERROR: FINAL DOOR TYPE NOT SET");
         }
+    } else {
+        info!("ERROR: ALL_HIT OR HAVE_PLAYER FALSE");
     }
 }   
 
