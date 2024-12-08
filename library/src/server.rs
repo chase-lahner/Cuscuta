@@ -29,7 +29,7 @@ pub fn send_id(
     n_p.count += 1;
     let player_id: u8 = n_p.count;
     addresses.list.push(source_addr);
-    println!("pushing addresss");
+   // println!("pushing addresss");
     commands.spawn(NetworkId::new_s(player_id, source_addr));
 
     server_seq.nums.push(0);
@@ -111,7 +111,6 @@ pub fn listen(
                 update_player_state(src, &mut players_q, player_packet, &mut commands);
             }  
             ClientPacket::KillEnemyPacket(kill_enemy) => {
-                //println!("recieved kill enemy packet");
                 update_despawn(kill_enemy, &mut enemies_to_kill, &mut commands, &mut enemies); 
                 carnage.single_mut().up_carnage(2.5);
                 carnage_event.send(CarnageChangeEvent(true));
@@ -650,7 +649,7 @@ pub fn carnage_update(
     for event in carnage_event.read(){
         if !event.0{continue};
         let carnage_bar = carnage.single();
-        println!("c.s:{} c.fight:{}", carnage_bar.stealth, carnage_bar.carnage);
+        //println!("c.s:{} c.fight:{}", carnage_bar.stealth, carnage_bar.carnage);
         let pack= ServerPacket::CarnagePacket(CarnagePacket{
             carnage: (*carnage_bar).clone(),
         });
