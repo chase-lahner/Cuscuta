@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{collision::*, cuscuta_resources::*, player::{self, *}};
+use crate::{collision::*, cuscuta_resources::*, player::{self, *}, markov_chains::*, room_gen::*};
 
 /* Set for skeleton enemy */
 const SK_NAME: &str = "Skelebob";
@@ -540,68 +540,176 @@ pub fn handle_enemy_collision(
 }
 
 pub fn server_spawn_enemies(
-    mut commands: Commands,
-    mut enemy_id: ResMut<EnemyId>,
+    mut commands: &mut Commands,
+    mut enemy_id: &mut EnemyId,
+    last_attribute_array: &mut LastAttributeArray, 
+    room_config: &RoomConfig,
 ) {
     let mut rng = rand::thread_rng();
+    
+    let enemy_count_range = room_config.get_enemy_count(last_attribute_array.get_attribute(2).unwrap_or(1));
+    //println!("Enemy range min: {}, max: {}",enemy_count_range.0,enemy_count_range.1);
+    println!("State: {}",last_attribute_array.get_attribute(3).unwrap_or(1));
 
-    for _ in 0..NUMBER_OF_ENEMIES {
-        let random_x = rng.gen_range((-MAX_X + 64.)..(MAX_X - 64.));
-        let random_y = rng.gen_range((-MAX_Y + 64.)..(MAX_Y - 64.));
-        info!("random x: {}, random y: {}", random_x, random_y);
+    let enemy_count = rng.gen_range(enemy_count_range.0..=enemy_count_range.1);
+    //println!("Min count {} - Max count {}",enemy_count_range.0,enemy_count_range.1);
 
-        commands.spawn((
-            ServerEnemyBundle {
-                transform: Transform::from_xyz(random_x, random_y, 900.),
-                id: EnemyId::new(enemy_id.get_plus(), EnemyKind::skeleton()),
-                enemy: Enemy::new(
-                    String::from(SK_NAME),
-                    String::from(SK_PATH),
-                    SK_SPRITE_H,
-                    SK_SPRITE_W,
-                    SK_MAX_SPEED,
-                    SK_SPOT_DIST,
-                    SK_HEALTH,
-                    SK_SIZE,
-                ),
-                motion: EnemyMovement::new(
-                    Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
-                    1,
-                    Vec3::new(99999., 0., 0.),
-                ),
-                timer: EnemyTimer {
-                    time: Timer::from_seconds(3.0, TimerMode::Repeating),
-                },
-                health: Health::new(&SK_HEALTH),
-            },
-        ));
-        println!("spawned enemy ");
+    let enemy_types = room_config.get_enemy_type(last_attribute_array.get_attribute(3).unwrap_or(1));
+
+    
+
+    for _ in 0..enemy_count {
+        let random_x = rng.gen_range((-MAX_X + 128.)..(MAX_X - 128.));
+        let random_y = rng.gen_range((-MAX_Y + 128.)..(MAX_Y - 128.));
+        //info!("random x: {}, random y: {}", random_x, random_y);
+        let enemy_type_index = rng.gen_range(enemy_types.0..=enemy_types.1);
+        println!("Min type {} - Max type {}",enemy_types.0,enemy_types.1);
+        // 0 ninja
+        // 1 berry rat
+        // 2 splat monkey
+        // 3 skelly
+        //println!("enemy type index!! {}",enemy_type_index);
+        match enemy_type_index as usize{
+            1 => {
+                commands.spawn((
+                    ServerEnemyBundle {
+                        transform: Transform::from_xyz(random_x, random_y, 900.),
+                        id: EnemyId::new(enemy_id.get_plus(), EnemyKind::ninja()),
+                        enemy: Enemy::new(
+                            String::from(N_NAME),
+                            String::from(N_PATH),
+                            N_SPRITE_H,
+                            N_SPRITE_W,
+                            N_MAX_SPEED,
+                            N_SPOT_DIST,
+                            N_HEALTH,
+                            N_SIZE,
+                        ),
+                        motion: EnemyMovement::new(
+                            Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                            1,
+                            Vec3::new(99999., 0., 0.),
+                        ),
+                        timer: EnemyTimer {
+                            time: Timer::from_seconds(3.0, TimerMode::Repeating),
+                        },
+                        health: Health::new(&N_HEALTH),
+                    },
+                ));
+                println!("spawned enemy - ninya");
+            }
+            2 => {
+                commands.spawn((
+                    ServerEnemyBundle {
+                        transform: Transform::from_xyz(random_x, random_y, 900.),
+                        id: EnemyId::new(enemy_id.get_plus(), EnemyKind::berry()),
+                        enemy: Enemy::new(
+                            String::from(BR_NAME),
+                            String::from(BR_PATH),
+                            BR_SPRITE_H,
+                            BR_SPRITE_W,
+                            BR_MAX_SPEED,
+                            BR_SPOT_DIST,
+                            BR_HEALTH,
+                            BR_SIZE,
+                        ),
+                        motion: EnemyMovement::new(
+                            Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                            1,
+                            Vec3::new(99999., 0., 0.),
+                        ),
+                        timer: EnemyTimer {
+                            time: Timer::from_seconds(3.0, TimerMode::Repeating),
+                        },
+                        health: Health::new(&BR_HEALTH),
+                    },
+                ));
+                println!("spawned enemy - berry wat");
+            }
+            3 => {
+                commands.spawn((
+                    ServerEnemyBundle {
+                        transform: Transform::from_xyz(random_x, random_y, 900.),
+                        id: EnemyId::new(enemy_id.get_plus(), EnemyKind::splatmonkey()),
+                        enemy: Enemy::new(
+                            String::from(SP_NAME),
+                            String::from(SP_PATH),
+                            SP_SPRITE_H,
+                            SP_SPRITE_W,
+                            SP_MAX_SPEED,
+                            SP_SPOT_DIST,
+                            SP_HEALTH,
+                            SP_SIZE,
+                        ),
+                        motion: EnemyMovement::new(
+                            Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                            1,
+                            Vec3::new(99999., 0., 0.),
+                        ),
+                        timer: EnemyTimer {
+                            time: Timer::from_seconds(3.0, TimerMode::Repeating),
+                        },
+                        health: Health::new(&SP_HEALTH),
+                    },
+                ));
+                println!("spawned enemy - monke");
+            }
+            4 => {
+                commands.spawn((
+                    ServerEnemyBundle {
+                        transform: Transform::from_xyz(random_x, random_y, 900.),
+                        id: EnemyId::new(enemy_id.get_plus(), EnemyKind::skeleton()),
+                        enemy: Enemy::new(
+                            String::from(SK_NAME),
+                            String::from(SK_PATH),
+                            SK_SPRITE_H,
+                            SK_SPRITE_W,
+                            SK_MAX_SPEED,
+                            SK_SPOT_DIST,
+                            SK_HEALTH,
+                            SK_SIZE,
+                        ),
+                        motion: EnemyMovement::new(
+                            Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                            1,
+                            Vec3::new(99999., 0., 0.),
+                        ),
+                        timer: EnemyTimer {
+                            time: Timer::from_seconds(3.0, TimerMode::Repeating),
+                        },
+                        health: Health::new(&SK_HEALTH),
+                    },
+                ));
+                println!("spawned enemy - skelly");
+            }
+            _ => panic!("Invalid enemy index!"),
+        }
+
+        
     }
-    commands.spawn((
-        ServerEnemyBundle {
-            transform: Transform::from_xyz(320., 320., 900.),
-            id: EnemyId::new(enemy_id.get_plus(), EnemyKind::boss()),
-            enemy: Enemy::new(
-                String::from(B_NAME),
-                String::from(B_PATH),
-                B_SPRITE_H,
-                B_SPRITE_W,
-                B_MAX_SPEED,
-                B_SPOT_DIST,
-                Health{max: 5000., current: 5000.},
-                B_SIZE
-            ),
-            motion: EnemyMovement::new(
-                Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
-                1,
-                Vec3::new(99999., 0., 0.),
-            ),
-            timer: EnemyTimer {
-                time: Timer::from_seconds(3.0, TimerMode::Repeating),
-            },
-            health: Health {max: 5000., current: 5000.},
-        },
-    ));
-
-
+    // commands.spawn((
+    //     ServerEnemyBundle {
+    //         transform: Transform::from_xyz(320., 320., 900.),
+    //         id: EnemyId::new(enemy_id.get_plus(), EnemyKind::boss()),
+    //         enemy: Enemy::new(
+    //             String::from(B_NAME),
+    //             String::from(B_PATH),
+    //             B_SPRITE_H,
+    //             B_SPRITE_W,
+    //             B_MAX_SPEED,
+    //             B_SPOT_DIST,
+    //             Health{max: 2., current: 2.},
+    //             B_SIZE
+    //         ),
+    //         motion: EnemyMovement::new(
+    //             Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+    //             1,
+    //             Vec3::new(99999., 0., 0.),
+    //         ),
+    //         timer: EnemyTimer {
+    //             time: Timer::from_seconds(3.0, TimerMode::Repeating),
+    //         },
+    //         health: Health {max: 2., current: 2.},
+    //     },
+    // ));
 }

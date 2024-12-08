@@ -8,7 +8,7 @@ use crate::client::*;
 use crate::cuscuta_resources::*;
 use crate::player::{Attack, Crouch, NetworkId, Player, Roll, Sprint};
 use crate::ui::CarnageBar;
-use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, EnemiesToKill, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind}, markov_chains::*, network::*, room_gen::{self, *}, ui::client_spawn_ui
+use crate::{camera::spawn_camera, cuscuta_resources::{self, AddressList, ClientId, EnemiesToKill, PlayerCount, TICKS_PER_SECOND}, enemies::{EnemyId, EnemyKind, *}, markov_chains::*, network::*, room_gen::{self, *}, ui::client_spawn_ui
 
 };
 
@@ -70,7 +70,6 @@ pub fn server_setup(
 
     let room_config = RoomConfig::new();
     
-    commands.insert_resource(room_config.clone());
     /* who we connected to again?*/
     commands.insert_resource(AddressList::new());
     /* lilk ordering action. 0 is server's Sequence index/id */
@@ -87,15 +86,22 @@ pub fn server_setup(
     commands.insert_resource(EnemyId::new(0, EnemyKind::skeleton()));
 
     commands.spawn((CarnageBar::new()));
-    
+
     let mut room_manager = RoomManager::new();
     let mut last_attribute_array = LastAttributeArray::new();
+    let room_config = RoomConfig::new();
+    let mut first_enemy = EnemyId::new(0, EnemyKind::skeleton());
 
 
-    spawn_start_room(&mut commands, &mut room_manager, 0., &mut last_attribute_array, &room_config);
+
+    spawn_start_room(&mut commands, &mut room_manager, &mut last_attribute_array, 0.);
+ 
+
+    server_spawn_enemies(&mut commands, &mut first_enemy, &mut last_attribute_array, &room_config);
+    commands.insert_resource(room_config);
+    commands.insert_resource(first_enemy);
     commands.insert_resource(room_manager);
     commands.insert_resource(last_attribute_array);
-
     
 
     info!("done setup");
