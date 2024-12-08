@@ -11,7 +11,7 @@ const SK_SPRITE_H: u32 = 1;
 const SK_SPRITE_W: u32 = 1;
 const SK_MAX_SPEED: f32 = 160.;
 const SK_SPOT_DIST: f32 = 192.;
-const SK_HEALTH: Health = Health { max: 2., current: 2. };
+const SK_HEALTH: Health = Health { max: 25., current: 25. };
 const SK_SIZE: u32 = 32;
 
 /* Set for berry rat */
@@ -21,7 +21,7 @@ const BR_SPRITE_H: u32 = 1;
 const BR_SPRITE_W: u32 = 2;
 const BR_MAX_SPEED: f32 = 160.;
 const BR_SPOT_DIST: f32 = 256.;
-const BR_HEALTH: Health = Health { max: 1., current: 1. };
+const BR_HEALTH: Health = Health { max: 15., current: 15. };
 const BR_SIZE: u32 = 32;
 
 /* Set for ninja */
@@ -31,7 +31,7 @@ const N_SPRITE_H: u32 = 1;
 const N_SPRITE_W: u32 = 1;
 const N_MAX_SPEED: f32 = 160.;
 const N_SPOT_DIST: f32 = 320.;
-const N_HEALTH: Health = Health { max: 1., current: 1. };
+const N_HEALTH: Health = Health { max: 25., current: 25. };
 const N_SIZE: u32 = 32;
 
 /* Set for splat monkey */
@@ -51,7 +51,7 @@ const B_SPRITE_H: u32 = 1;
 const B_SPRITE_W: u32 = 1;
 const B_MAX_SPEED: f32 = 130.;
 const B_SPOT_DIST: f32 = 1000.;
-const B_HEALTH: Health = Health { max: 10., current: 10.};
+const B_HEALTH: Health = Health { max: 300., current: 300.};
 const B_SIZE: u32 = 64;
 
 /* Cute lil enum that allows us ezpz enemy match */
@@ -369,7 +369,7 @@ pub fn enemy_movement(
                     let packet: &[u8] = serializer.view();
                     for address in addresses.list.iter(){
                         udp.socket.send_to(&packet, address).unwrap();
-                        println!("sending despawn packet");
+                       // println!("sending despawn packet");
                     }
                 }
             }
@@ -505,9 +505,9 @@ pub fn enemy_movement(
         //     normalized_direction.y * ENEMY_SPEED * time.delta_seconds() * ymul;
         
             transform.translation.x +=
-            normalized_direction.x * ENEMY_SPEED * 0.5 * xmul; // arbitrary constant?
+            normalized_direction.x * ENEMY_SPEED * 0.25 * xmul; // arbitrary constant?
         transform.translation.y +=
-            normalized_direction.y * ENEMY_SPEED * 0.5 * ymul; // arbitrary constant?
+            normalized_direction.y * ENEMY_SPEED * 0.25 * ymul; // arbitrary constant?
     }
 }
 
@@ -543,25 +543,11 @@ pub fn handle_enemy_collision(
 
                 let direction_to_player = player_transform.translation - enemy_transform.translation;
                 let normalized_direction = direction_to_player.normalize();
-                player_transform.translation.x += normalized_direction.x * 64.;
-                player_transform.translation.y += normalized_direction.y * 64.;
+                player_transform.translation.x += normalized_direction.x * 256.;
+                player_transform.translation.y += normalized_direction.y * 256.;
             }
         }
     }
-    // handling if enemy has hit player
-    // let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
-    // let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
-    // if enemy_aabb.intersects(&player_aabb) {
-    //     ph.current -= 5.;
-
-    //     // knockback applied to player
-    //     let direction_to_player = player_transform.translation - transform.translation;
-    //     let normalized_direction = direction_to_player.normalize();
-    //     //let opp_direction = Vec3::new(normalized_direction.x * -1., normalized_direction.y * -1., normalized_direction.z);
-    //     pt.translation.x += normalized_direction.x * 64.;
-    //     pt.translation.y += normalized_direction.y * 64.;
-    //     player_transform.translation = pt.translation;
-    // }
     
 }
 
@@ -577,12 +563,12 @@ pub fn server_spawn_enemies(
     
     let enemy_count_range = room_config.get_enemy_count(last_attribute_array.get_attribute(2).unwrap_or(1));
     //println!("Enemy range min: {}, max: {}",enemy_count_range.0,enemy_count_range.1);
-    println!("State: {}",last_attribute_array.get_attribute(3).unwrap_or(1));
+   // println!("State: {}",last_attribute_array.get_attribute(3).unwrap_or(1));
     
     let mut enemy_count = rng.gen_range(enemy_count_range.0..=enemy_count_range.1);
     // println!("BEFORE MULTIPLYING: {}",enemy_count);
     // println!("NUM PLAYERS: {}",n_p.count);
-    enemy_count = enemy_count * n_p.count as usize;
+    enemy_count = enemy_count * n_p.count as usize * 3;
     // println!("AFTER: {}",enemy_count);
     //println!("Min count {} - Max count {}",enemy_count_range.0,enemy_count_range.1);
 
@@ -591,11 +577,12 @@ pub fn server_spawn_enemies(
     let (x,y) = roomman.current_room_max();
 
     for _ in 0..enemy_count {
+
         let random_x = rng.gen_range((-x + 128.)..(x - 128.));
         let random_y = rng.gen_range((-y + 128.)..(y - 128.));
         //info!("random x: {}, random y: {}", random_x, random_y);
         let enemy_type_index = rng.gen_range(enemy_types.0..=enemy_types.1);
-        println!("Min type {} - Max type {}",enemy_types.0,enemy_types.1);
+       // println!("Min type {} - Max type {}",enemy_types.0,enemy_types.1);
         // 0 ninja
         // 1 berry rat
         // 2 splat monkey
@@ -628,7 +615,7 @@ pub fn server_spawn_enemies(
                         health: Health::new(&N_HEALTH),
                     },
                 ));
-                println!("spawned enemy - ninya @({},{})", random_x, random_y);
+               // println!("spawned enemy - ninya @({},{})", random_x, random_y);
             }
             2 => {
                 commands.spawn((
@@ -656,7 +643,7 @@ pub fn server_spawn_enemies(
                         health: Health::new(&BR_HEALTH),
                     },
                 ));
-                println!("spawned enemy - berry wat@({},{})", random_x, random_y);
+                //println!("spawned enemy - berry wat@({},{})", random_x, random_y);
             }
             3 => {
                 commands.spawn((
@@ -684,7 +671,7 @@ pub fn server_spawn_enemies(
                         health: Health::new(&SP_HEALTH),
                     },
                 ));
-                println!("spawned enemy - monke @({},{})", random_x, random_y);
+               // println!("spawned enemy - monke @({},{})", random_x, random_y);
             }
             4 => {
                 commands.spawn((
@@ -712,7 +699,35 @@ pub fn server_spawn_enemies(
                         health: Health::new(&SK_HEALTH),
                     },
                 ));
-                println!("spawned enemy - skelly@({},{})", random_x, random_y);
+               // println!("spawned enemy - skelly@({},{})", random_x, random_y);
+            }
+            5 => {
+                commands.spawn((
+                    ServerEnemyBundle {
+                        transform: Transform::from_xyz(0., 0., 900.),
+                        id: EnemyId::new(enemy_id.get_plus(), EnemyKind::boss()),
+                        enemy: Enemy::new(
+                            String::from(B_NAME),
+                            String::from(B_PATH),
+                            B_SPRITE_H,
+                            B_SPRITE_W,
+                            B_MAX_SPEED,
+                            B_SPOT_DIST,
+                            B_HEALTH,
+                            B_SIZE,
+                        ),
+                        motion: EnemyMovement::new(
+                            Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                            1,
+                            Vec3::new(99999., 0., 0.),
+                        ),
+                        timer: EnemyTimer {
+                            time: Timer::from_seconds(3.0, TimerMode::Repeating),
+                        },
+                        health: Health::new(&B_HEALTH),
+                    },
+                ));
+                println!("spawned enemy - boss");
             }
             _ => panic!("Invalid enemy index!"),
         }
