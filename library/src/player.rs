@@ -465,158 +465,6 @@ pub fn tick_timer(
     }
 }
 
-// /* Spawns in user player, uses PlayerBundle for some consistency*/
-// pub fn client_spawn_user_player(
-//     commands: &mut Commands,
-//     asset_server: &Res<AssetServer>,
-//     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-//     _id: u8,
-// ) {
-//     let player_sheet_handle = asset_server.load("player/4x12_player.png");
-//     let player_layout = TextureAtlasLayout::from_grid(
-//         UVec2::splat(TILE_SIZE),
-//         PLAYER_SPRITE_COL,
-//         PLAYER_SPRITE_ROW,
-//         None,
-//         None,
-//     );
-//     let player_layout_len = player_layout.textures.len();
-//     let player_layout_handle = texture_atlases.add(player_layout);
-
-//     // spawn player at origin
-//     commands.spawn(ClientPlayerBundle {
-//         sprite: SpriteBundle {
-//             texture: player_sheet_handle,
-//             transform: Transform::from_xyz(0., 0., 900.),
-//             ..default()
-//         },
-//         atlas: TextureAtlas {
-//             layout: player_layout_handle,
-//             index: 0,
-//         },
-//         animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
-//         animation_frames: AnimationFrameCount(player_layout_len),
-//         velo: Velocity::new(),
-//         id:NetworkId::new(),
-//         player: Player,
-//         health: Health::new(),
-//         crouching: Crouch{crouching:false},
-//         rolling: Roll{rolling:false},
-//         sprinting: Sprint{sprinting:false},
-//         attacking: Attack{attacking:false}
-//     });
-// }
-
-/* deprecated */
-pub fn client_spawn_other_player_new(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    player: PlayerSendable,
-    source_ip: SocketAddr,
-) {
-    let player_sheet_handle = asset_server.load("player/4x8_player.png");
-    let player_layout = TextureAtlasLayout::from_grid(
-        UVec2::splat(TILE_SIZE),
-        PLAYER_SPRITE_COL,
-        PLAYER_SPRITE_ROW,
-        None,
-        None,
-    );
-    let player_layout_len = player_layout.textures.len();
-    let player_layout_handle = texture_atlases.add(player_layout);
-    // spawn player at origin
-    commands.spawn(ClientPlayerBundle {
-        sprite: SpriteBundle {
-            texture: player_sheet_handle,
-            transform: player.transform,
-            ..default()
-        },
-        rolling: Roll {
-            rolling: player.roll,
-        },
-        atlas: TextureAtlas {
-            layout: player_layout_handle,
-            index: 0,
-        },
-        animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
-        animation_frames: AnimationFrameCount(player_layout_len),
-        velo: Velocity {
-            velocity: player.velocity,
-        },
-        id: NetworkId {
-            id: player.head.network_id,
-            addr: source_ip,
-        },
-        player: Player,
-        health: player.health,
-        crouching: Crouch {
-            crouching: player.crouch,
-        },
-        sprinting: Sprint {
-            sprinting: player.sprint,
-        },
-        attacking: Attack {
-            attacking: player.attack,
-        },
-        inputs: InputQueue::new(),
-        states: PastStateQueue::new(),
-        potion_status: ItemStatus::new(),
-    });
-}
-
-/*deprecated */
-pub fn client_spawn_other_player(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
-    player: PlayerSendable,
-    source_ip: SocketAddr,
-) {
-    let player_sheet_handle = asset_server.load("player/4x8_player.png");
-    let player_layout = TextureAtlasLayout::from_grid(
-        UVec2::splat(TILE_SIZE),
-        PLAYER_SPRITE_COL,
-        PLAYER_SPRITE_ROW,
-        None,
-        None,
-    );
-    let player_layout_len = player_layout.textures.len();
-    let player_layout_handle = texture_atlases.add(player_layout);
-
-    // spawn player at origin
-    commands.spawn(ClientPlayerBundle {
-        sprite: SpriteBundle {
-            texture: player_sheet_handle,
-            transform: Transform::from_xyz(
-                player.transform.translation.x,
-                player.transform.translation.y,
-                900.,
-            ),
-            ..default()
-        },
-        rolling: Roll::new(),
-        atlas: TextureAtlas {
-            layout: player_layout_handle,
-            index: 0,
-        },
-        animation_timer: AnimationTimer(Timer::from_seconds(ANIM_TIME, TimerMode::Repeating)),
-        animation_frames: AnimationFrameCount(player_layout_len),
-        velo: Velocity::new(),
-        id: NetworkId {
-            id: player.head.network_id,
-            addr: source_ip,
-        },
-        player: Player,
-        health: Health::new_init(),
-        crouching: Crouch { crouching: false },
-        sprinting: Sprint { sprinting: false },
-        attacking: Attack { attacking: false },
-        inputs: InputQueue::new(),
-        states: PastStateQueue::new(),
-        potion_status: ItemStatus::new(),
-    });
-}
 
 /* Checks for player interacting with game world.
  * E for interact? Assumed menu etc. could also
@@ -678,6 +526,7 @@ pub fn player_interact(
 
                     if pot.touch == 1 {
                         pot_atlas.index = pot_atlas.index + 1;
+                        potion_status.has_monkey = true;
                     }
                 
                 }
@@ -687,7 +536,7 @@ pub fn player_interact(
 }
 
 pub fn spawn_monkey(
-    player_q: Query<(&Transform, &NetworkId), (With<Player>)>,
+    mut player_q: Query<(&Transform, &NetworkId, &mut ItemStatus), (With<Player>)>,
     mut command: Commands,
     us: Res<ClientId>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -697,7 +546,7 @@ pub fn spawn_monkey(
     udp: Res<UDP>,
 ) {
     /* for all players, we match to find us */
-    for (t, id) in player_q.iter() {
+    for (t, id, mut item_status) in player_q.iter_mut() {
         if us.id != id.id {
             continue;
         }
@@ -724,7 +573,7 @@ pub fn spawn_monkey(
         //      ///\     /\\\
         //      '''       '''               Michel Boisset -- grabbed from some ascii art site
         /* MAKE DA MONKE */
-        if keys.just_pressed(KeyCode::Tab) {
+        if keys.just_pressed(KeyCode::Tab) && item_status.has_monkey {
             /* lots of spawning in stuffs. textures are a lot */
             let monkey_handle: Handle<Image> = asset_server.load(MONKEY_HANDLE);
             let monkey_layout = TextureAtlasLayout::from_grid(
@@ -760,6 +609,9 @@ pub fn spawn_monkey(
                 animation_frames: AnimationFrameCount(monkey_len),
                 lifetime: Lifetime::new(),
             });
+
+            /* no more monkey */
+            item_status.has_monkey = false;
 
             /* once we have spawned in, then we swtich off to send it to the server, so
              * the enemies can pathfind to it, and os that the other clients can also have a lil peek */

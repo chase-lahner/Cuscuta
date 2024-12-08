@@ -136,7 +136,7 @@ pub fn listen(
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
-            receive_map_packet(&mut commands, &asset_server, &map_packet, &mut room_query, &mut room_manager);
+            receive_map_packet(&mut commands, &asset_server, &map_packet, &mut room_query, &mut room_manager, &mut texture_atlases);
             sequence.assign(&map_packet.head.sequence);
         }
         ServerPacket::EnemyPacket(enemy_packet) => {
@@ -184,7 +184,7 @@ fn receive_player_packet(
     >,
     asset_server: &AssetServer,
     saranpack: &PlayerSendable,
-    texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    texture_atlases: &mut Assets<TextureAtlasLayout>,
     source_ip: SocketAddr,
 ) {
     /* need to know if we were sent a player we don't currently have */
@@ -426,6 +426,7 @@ fn receive_map_packet (
     mut map_packet: &MapS2C,
     mut room_query: &mut Query<Entity, With<Room>>,
     mut room_manager: &mut ClientRoomManager,
+    texture_atlases: &mut Assets<TextureAtlasLayout>,
 ) {
     /* setters for clientside room stats
      * Is there a one liner? probabaly. idk im lazy */
@@ -450,7 +451,15 @@ fn receive_map_packet (
     {
         commands.entity(tile).despawn();
     }
-
+    let pot_layout = TextureAtlasLayout::from_grid(
+        UVec2::splat(TILE_SIZE),
+        POT_SPRITE_COL,
+        POT_SPRITE_ROW,
+        None,
+        None,
+    );
+    let pot_layout_len: usize = pot_layout.textures.len();
+    let pot_layout_handle = texture_atlases.add(pot_layout);
    // info!("starting ({}, {})",horizontal, vertical);
     for a in 0..map_array.len() {
         for b in 0..map_array[0].len() {
@@ -505,10 +514,25 @@ fn receive_map_packet (
                     texture: asset_server.load("tiles/walls/bottom_wall.png").clone(),
                     transform: Transform::from_xyz(horizontal, vertical, z_index),
                     ..default() },Wall,Room,)),
-                10 => commands.spawn(( SpriteBundle {
-                    texture: asset_server.load("tiles/1x2_pot.png").clone(),
-                    transform: Transform::from_xyz(horizontal, vertical, z_index+0.5),
-                    ..default() },Pot::new(),Room,)),
+                10 => {commands.spawn(( 
+                    SpriteBundle {
+                        texture: asset_server.load("tiles/1x2_pot.png").clone(),
+                        transform: Transform::from_xyz(horizontal, vertical, z_index + 0.5),
+                        ..default()
+                    },
+                    TextureAtlas {
+                        layout: pot_layout_handle.clone(),
+                        index:0,
+                    },
+                    Pot::new(),
+                    Room,));
+                    commands.spawn((SpriteBundle {
+                        texture: asset_server
+                            .load("tiles/cobblestone_floor/cobblestone_floor.png")
+                            .clone(),
+                        transform: Transform::from_xyz(horizontal, vertical, z_index-0.5),
+                        ..default() },Background,Room,))
+                },
                 /* inner walls */
                 11 => commands.spawn((SpriteBundle {
                     texture: asset_server.load("tiles/walls/north_wall.png").clone(),
@@ -670,7 +694,7 @@ can do same with enemy but a paststatequeue needs creted for their stuff yk yk y
         }
         ServerPacket::MapPacket(map_packet) => {
             info!("Matching Map Struct");
-            receive_map_packet(&mut commands, &asset_server, &map_packet, &mut room_query, &mut room_manager);
+            receive_map_packet(&mut commands, &asset_server, &map_packet, &mut room_query, &mut room_manager, &mut texture_atlases);
             sequence.assign(&map_packet.head.sequence);
             return;
         }

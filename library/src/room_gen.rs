@@ -568,27 +568,19 @@ pub fn spawn_items_in_room(
     }
 
 
-    // for _ in 0..coin_pot_count {
-    //     // Randomize position within room boundaries
-    //     let x_position = rng.gen_range(-max_x + TILE_SIZE as f32..max_x - TILE_SIZE as f32);
-    //     let y_position = rng.gen_range(-max_y + TILE_SIZE as f32..max_y - TILE_SIZE as f32);
+    for _ in 0..coin_pot_count {
+        // Randomize position within room boundaries
+        let x_position = rng.gen_range(-max_x + TILE_SIZE as f32..max_x - TILE_SIZE as f32);
+        let y_position = rng.gen_range(-max_y + TILE_SIZE as f32..max_y - TILE_SIZE as f32);
 
-    //     // Spawn the coin pot
-    //     commands.spawn((
-    //         SpriteBundle {
-    //             texture: pot_handle.clone(),
-    //             transform: Transform::from_xyz(x_position, y_position, z_index + 0.1),
-    //             ..default()
-    //         },
-    //         TextureAtlas {
-    //             layout: pot_layout_handle.clone(),
-    //             index:0,
-    //         },
-    //         Pot{
-    //             touch: 0
-    //         }
-    //     ));
-    // }
+        // Spawn the coin pot
+        commands.spawn((
+            Transform::from_xyz(x_position, y_position, z_index + 0.1),
+            Pot{
+                touch: 0
+            }
+        ));
+    }
 }
 
 
@@ -738,9 +730,6 @@ pub fn spawn_start_room(
         y_offset = -max_y + ((TILE_SIZE / 2) as f32);
         x_offset += TILE_SIZE as f32;
     }
-
-    let current_z_index = room_manager.current_room_z_index();
-
     // GET WALL COUNT FROM MARKOV CHAIN
 
     let wall_count_attribute_value = last_attribute_array.get_attribute(1).unwrap_or(1);
@@ -777,8 +766,8 @@ fn create_inner_walls(
 ){
     let z_abs = z_index.abs() as usize;
     let mut rng = rand::thread_rng();
-    let start_pos_x = rng.gen_range(2..=room_width - 5 );
-    let start_pos_y = rng.gen_range(2..=room_height - 5);
+    let start_pos_x = rng.gen_range(5 ..=room_width - 5 );
+    let start_pos_y = rng.gen_range(5..=room_height - 5);
 
     // horizontal or vertical wall
     let horizon_or_vert = rng.gen_range(0..=1);
