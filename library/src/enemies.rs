@@ -41,7 +41,7 @@ const SP_SPRITE_H: u32 = 1;
 const SP_SPRITE_W: u32 = 2;
 const SP_MAX_SPEED: f32 = 100.;
 const SP_SPOT_DIST: f32 = 120.;
-const SP_HEALTH: Health = Health {max: 3., current: 3.};
+const SP_HEALTH: Health = Health {max: 70., current: 70.};
 const SP_SIZE: u32 = 32;
 
 /* Set for boss */
@@ -422,6 +422,7 @@ pub fn enemy_movement(
                 //}
             }
             //if collide == true{continue;}
+            
 
             transform.translation.x +=
                 normalized_direction.x * ENEMY_SPEED / 2. * time.delta_seconds() * xmul;
@@ -478,10 +479,15 @@ pub fn enemy_movement(
         //if collide == true{continue;}
 
         //transform.translation += normalized_direction * ENEMY_SPEED * time.delta_seconds();
-        transform.translation.x +=
-            normalized_direction.x * ENEMY_SPEED * time.delta_seconds() * xmul;
+        // transform.translation.x +=
+        //     normalized_direction.x * ENEMY_SPEED * time.delta_seconds() * xmul;
+        // transform.translation.y +=
+        //     normalized_direction.y * ENEMY_SPEED * time.delta_seconds() * ymul;
+        
+            transform.translation.x +=
+            normalized_direction.x * ENEMY_SPEED * 0.5 * xmul; // arbitrary constant?
         transform.translation.y +=
-            normalized_direction.y * ENEMY_SPEED * time.delta_seconds() * ymul;
+            normalized_direction.y * ENEMY_SPEED * 0.5 * ymul; // arbitrary constant?
     }
 }
 
@@ -544,14 +550,19 @@ pub fn server_spawn_enemies(
     mut enemy_id: &mut EnemyId,
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
+    n_p: &PlayerCount,
 ) {
     let mut rng = rand::thread_rng();
     
     let enemy_count_range = room_config.get_enemy_count(last_attribute_array.get_attribute(2).unwrap_or(1));
     //println!("Enemy range min: {}, max: {}",enemy_count_range.0,enemy_count_range.1);
     println!("State: {}",last_attribute_array.get_attribute(3).unwrap_or(1));
-
-    let enemy_count = rng.gen_range(enemy_count_range.0..=enemy_count_range.1);
+    
+    let mut enemy_count = rng.gen_range(enemy_count_range.0..=enemy_count_range.1);
+    println!("BEFORE MULTIPLYING: {}",enemy_count);
+    println!("NUM PLAYERS: {}",n_p.count);
+    enemy_count = enemy_count * n_p.count as usize;
+    println!("AFTER: {}",enemy_count);
     //println!("Min count {} - Max count {}",enemy_count_range.0,enemy_count_range.1);
 
     let enemy_types = room_config.get_enemy_type(last_attribute_array.get_attribute(3).unwrap_or(1));
