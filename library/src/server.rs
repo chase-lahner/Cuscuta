@@ -455,6 +455,7 @@ pub fn check_door(
     addresses: Res<AddressList>,
     udp: Res<UDP>,
     mut carnage_event: EventWriter<CarnageChangeEvent>,
+    mut num_players: Res<PlayerCount>,
 ){
     /* are allthe players standing on a door? */
     let mut all_hit = true;
@@ -515,7 +516,7 @@ pub fn check_door(
                     &room_config,
                     &mut player
                 );
-                  server_spawn_enemies(&mut commands, &mut enemy_id, &mut last_attribute_array, &room_config);
+                  server_spawn_enemies(&mut commands, &mut enemy_id, &mut last_attribute_array, &room_config, &num_players );
                   room_change.send(RoomChangeEvent(all_hit));
                   carnage.single_mut().up_stealth(5.);
                   carnage_event.send(CarnageChangeEvent(true));
