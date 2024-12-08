@@ -264,6 +264,7 @@ impl RoomManager {
             let old_y = top_y;
 
             let start_x = old_x - (new_width / 2);
+            println!("Old_x:{} Old_y:{} width:{} height:{}", old_x, old_y, new_width, new_height);
             let start_y = old_y - new_height;
     
             // Loop through the dimensions of the room and place the z_index in the grid
@@ -349,7 +350,7 @@ impl RoomManager {
             let old_y = (top_y + bottom_y) / 2;
             let old_x = right_x + 1;
             let start_y = old_y - (new_height / 2);
-            let start_x = old_x;
+            let start_x = old_x ;
 
             // Loop through the dimensions of the room and place the z_index in the grid
             for x in start_x..(start_x + new_width) {
@@ -1255,7 +1256,7 @@ pub fn generate_random_room_with_bounds(
     carnage_query: &mut Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
-) -> (usize, usize, f32, f32, f32) {
+) -> (f32, f32, f32, f32, f32) {
     let mut rng = rand::thread_rng();
 
     let mut next_attribute_array = NextAttributeArray::new();
@@ -1360,8 +1361,8 @@ pub fn generate_random_room_with_bounds(
         create_inner_walls(commands, room_manager, random_width, random_height, global_z_index as isize);
     }
 
-
    return (random_width, random_height, max_x as f32, max_y as f32, current_z_index);
+
 }
 
 
@@ -1417,12 +1418,11 @@ pub fn transition_map(
     commands: &mut Commands,
     room_manager: &mut RoomManager,
     room_query: &mut Query<Entity, With<Room>>, 
-    _door_query: &Query<(&Transform, &Door), (Without<Player>, Without<Enemy>)>,  
-    pt: &mut Transform,
     door_type: DoorType, 
     mut carnage_query: &mut Query<&mut CarnageBar>, 
     last_attribute_array: &mut LastAttributeArray, 
     room_config: &RoomConfig,
+    player : &mut Query<(&mut Transform), With<Player>>,
 ) {
     let mut right_x_out = 0;
     let mut left_x_out = 0;
@@ -1473,8 +1473,8 @@ pub fn transition_map(
                 room_manager.add_room_to_map_from_right_door(
                     current_z as i32,
                     new_z_index as i32,
-                    room_width,
-                    room_height,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize/ TILE_SIZE as usize,
                 );
 
                 println!("z index looking for current room: {} z index for room to add: {}", current_z, new_z_index);
@@ -1498,9 +1498,12 @@ pub fn transition_map(
                 println!("room_manager.current_z_index: {}", room_manager.get_current_z_index());
                println!("room_manager.global: {}", room_manager.get_global_z_index());
                 // Spawn at left door
-                pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
 
                 info!("player successfully moved to new room... but maybe not.");
+
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1520,7 +1523,10 @@ pub fn transition_map(
                         );
 
                         // spawn at left door
-                        pt.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
+                        for mut transform in player.iter_mut(){
+
+                            transform.translation = Vec3::new(-max_x + TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_val_unwrapped as f32);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1555,8 +1561,8 @@ pub fn transition_map(
                 room_manager.add_room_to_map_from_left_door(
                     current_z as i32,
                     new_z_index as i32,
-                    room_width,
-                    room_height,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
                 );
 
                 println!("before generate doors");
@@ -1577,8 +1583,9 @@ pub fn transition_map(
                println!("room_manager.current_z_index: {}", room_manager.get_current_z_index());
                println!("room_manager.global: {}", room_manager.get_global_z_index());
                 // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
-                info!("player successfully moved to new room... but maybe not.");
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1598,7 +1605,9 @@ pub fn transition_map(
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                        for mut transform in player.iter_mut(){
+                            transform.translation = Vec3::new(max_x - TILE_SIZE as f32 * 2.0, TILE_SIZE as f32 / 2.0, room_manager.current_z_index);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1637,8 +1646,8 @@ pub fn transition_map(
                 room_manager.add_room_to_map_from_top_door(
                     current_z as i32,
                     new_z_index as i32,
-                    room_width,
-                    room_height,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
                 );
 
                 println!("before generate doors");
@@ -1658,8 +1667,9 @@ pub fn transition_map(
 
                 println!("room_manager.current_z_index: {}", room_manager.current_z_index);
                 // Spawn the player a little away from the bottom door
-                pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
-                info!("player successfully moved to new room... but maybe not.");
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1678,7 +1688,9 @@ pub fn transition_map(
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        for mut transform in player.iter_mut(){
+                            transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, -max_y + TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
@@ -1718,8 +1730,8 @@ pub fn transition_map(
                 room_manager.add_room_to_map_from_bottom_door(
                     current_z as i32,
                     new_z_index as i32,
-                    room_width,
-                    room_height,
+                    room_width as usize / TILE_SIZE as usize,
+                    room_height as usize / TILE_SIZE as usize,
                 );
 
                 
@@ -1739,8 +1751,9 @@ pub fn transition_map(
                println!("room_manager.current_z_index: {}", room_manager.get_current_z_index());
                println!("room_manager.global: {}", room_manager.get_global_z_index());
                 // Spawn the player a little away from the right door
-                pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
-                info!("player successfully moved to new room... but maybe not.");
+                for mut transform in player.iter_mut(){
+                    transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                }
             }else{
                 if let Some(room_val_unwrapped) = room_val {
                     // room_manager.room_array.get_room_from_storage(room_val_unwrapped as f32);
@@ -1757,7 +1770,9 @@ pub fn transition_map(
                             height as usize,
                             room_val_unwrapped as f32,
                         );
-                        pt.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        for mut transform in player.iter_mut(){
+                            transform.translation = Vec3::new(TILE_SIZE as f32 / 2.0, max_y - TILE_SIZE as f32 * 2.0, room_manager.current_z_index);
+                        }
                     } else {
                         println!("Error: Room not found in storage.");
                     }
