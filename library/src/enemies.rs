@@ -374,6 +374,9 @@ pub fn enemy_movement(
                 }
             }
             if enemy_aabb.intersects(&player_aabb) && ph.current != 69.69 {
+                
+                if health.max == SK_HEALTH.max || health.max == SP_HEALTH.max {ph.current -= 10.;}
+                else if health.max == B_HEALTH.max {ph.current -= 20.;}
                 ph.current -= 5.;
 
                 // knockback applied to player
