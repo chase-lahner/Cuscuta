@@ -296,7 +296,7 @@ impl EnemyId {
 // }
 
 pub fn enemy_movement(
-    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement), With<Enemy>>,
+    mut enemy_query: Query<(&mut Transform, &mut EnemyTimer, &mut EnemyMovement, &mut Health), With<Enemy>>,
     mut player_query: Query<
         (&mut Transform, &mut Health),
         (With<Trackable>, Without<Enemy>)>,
@@ -305,7 +305,7 @@ pub fn enemy_movement(
 ) {
    // info!("running enemy mvmt");
     // for every enemy
-    for (mut transform, mut timer, mut movement, ) in enemy_query.iter_mut() {
+    for (mut transform, mut timer, mut movement, mut health) in enemy_query.iter_mut() {
       //  info!("Sanity CHECK");
         // checking which player each enemy should follow (if any are in range)
         let mut player_transform: Transform = Transform::from_xyz(0., 0., 0.); //to appease the all-knowing compiler
@@ -356,6 +356,9 @@ pub fn enemy_movement(
             // handling if enemy has hit player
             let enemy_aabb = Aabb::new(transform.translation, Vec2::splat(TILE_SIZE as f32));
             let player_aabb = Aabb::new(pt.translation, Vec2::splat(TILE_SIZE as f32));
+            if enemy_aabb.intersects(&player_aabb) && ph.current == 69.69 {
+                health.current = health.current - 0.05;
+            }
             if enemy_aabb.intersects(&player_aabb) && ph.current != 69.69 {
                 ph.current -= 5.;
 
