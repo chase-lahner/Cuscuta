@@ -9,7 +9,7 @@ use crate::player::{NetworkId, Player, ItemStatus};
 /* stupud to do math like this but basically window is  */
 const CARNAGE_BAR_LEFT: f32 = 3.0;
 const CARNAGE_BAR_MIDDLE: f32 = CARNAGE_BAR_LEFT + 12.; 
-const _CARNAGE_BAR_RIGHT: f32 = CARNAGE_BAR_MIDDLE + 12.;
+const CARNAGE_BAR_RIGHT: f32 = CARNAGE_BAR_MIDDLE + 12.;
 
 #[derive(Event)]
 pub struct CarnageChangeEvent(pub bool);
@@ -98,7 +98,7 @@ pub fn client_spawn_ui(
                 width: Val::Px(1.),
                 height: Val::Px(32.),
                 margin: UiRect {
-                    top: Val::VMin(83.), left: Val::VMax(CARNAGE_BAR_MIDDLE),
+                    top: Val::VMin(83.), left: Val::Px(198.),
                     .. default()
                 },
                 ..default()
@@ -118,7 +118,7 @@ pub fn client_spawn_ui(
                 width: Val::Px(1.),
                 height: Val::Px(32.),
                 margin: UiRect {
-                    top: Val::VMin(83.), left: Val::VMax(CARNAGE_BAR_LEFT), // 2.5, left
+                    top: Val::VMin(83.), left: Val::Px(48.), // 2.5, left
                     .. default()
                 },
                 ..default()
@@ -205,8 +205,9 @@ pub fn update_ui_elements(
     let mut red = red_q.single_mut();
     let mut healthy = health_bar.single_mut();
 
-    red.width = Val::Px(carnage.carnage * 2. );
-    green.width = Val::Px(carnage.stealth * 2. );
+    red.width = Val::Px(carnage.carnage * 3. );
+    green.width = Val::Px(carnage.stealth * 3. );
+    red.margin.left=Val::Px(48.+carnage.stealth * 3.);
 
     let full_health_width = 150.0;
 
