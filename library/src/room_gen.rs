@@ -458,7 +458,7 @@ impl RoomConfig {
                     height_range: (40, 59),
                     inner_wall_count: (1, 3),
                     enemy_count: (1, 2),
-                    enemy_type: (1, 1),
+                    enemy_type: (1, 2),
                     item_count: (1, 2),
                 },
                 StateConfig {
@@ -466,7 +466,7 @@ impl RoomConfig {
                     height_range: (60, 69),
                     inner_wall_count: (2, 4),
                     enemy_count: (2, 3),
-                    enemy_type: (2, 2),
+                    enemy_type: (2, 3),
                     item_count: (2, 3),
                 },
                 StateConfig {
@@ -474,7 +474,7 @@ impl RoomConfig {
                     height_range: (70, 80),
                     inner_wall_count: (3, 5),
                     enemy_count: (3, 5),
-                    enemy_type: (3, 3),
+                    enemy_type: (3, 4),
                     item_count: (3, 4),
                 },
             ],

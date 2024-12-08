@@ -18,7 +18,6 @@ fn main() {
             Startup,
             (
                 init::server_setup,
-                enemies::server_spawn_enemies.after(init::server_setup),
             ),
         )
         /* main logic, running at 60hz */
