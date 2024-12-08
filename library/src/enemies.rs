@@ -577,6 +577,7 @@ pub fn server_spawn_enemies(
     let (x,y) = roomman.current_room_max();
 
     for _ in 0..enemy_count {
+
         let random_x = rng.gen_range((-x + 128.)..(x - 128.));
         let random_y = rng.gen_range((-y + 128.)..(y - 128.));
         //info!("random x: {}, random y: {}", random_x, random_y);
@@ -699,6 +700,34 @@ pub fn server_spawn_enemies(
                     },
                 ));
                // println!("spawned enemy - skelly@({},{})", random_x, random_y);
+            }
+            5 => {
+                commands.spawn((
+                    ServerEnemyBundle {
+                        transform: Transform::from_xyz(0., 0., 900.),
+                        id: EnemyId::new(enemy_id.get_plus(), EnemyKind::boss()),
+                        enemy: Enemy::new(
+                            String::from(B_NAME),
+                            String::from(B_PATH),
+                            B_SPRITE_H,
+                            B_SPRITE_W,
+                            B_MAX_SPEED,
+                            B_SPOT_DIST,
+                            B_HEALTH,
+                            B_SIZE,
+                        ),
+                        motion: EnemyMovement::new(
+                            Vec2::new(rng.gen::<f32>(), rng.gen::<f32>()).normalize(),
+                            1,
+                            Vec3::new(99999., 0., 0.),
+                        ),
+                        timer: EnemyTimer {
+                            time: Timer::from_seconds(3.0, TimerMode::Repeating),
+                        },
+                        health: Health::new(&B_HEALTH),
+                    },
+                ));
+                println!("spawned enemy - boss");
             }
             _ => panic!("Invalid enemy index!"),
         }
