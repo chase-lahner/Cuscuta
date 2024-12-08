@@ -310,6 +310,7 @@ pub fn send_player_to_self(
         info!("Sending {}", i.id);
         let mut transform_to_send = *t;
         transform_to_send.translation.z = 100.;
+        println!("translation:{}", transform_to_send.translation);
         let outgoing_state  = ServerPacket::PlayerPacket(PlayerSendable{
             transform: transform_to_send,
             head: Header::new(i.id,server_seq.clone()),
