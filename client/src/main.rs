@@ -1,6 +1,7 @@
 use bevy::{prelude::*, time::common_conditions::on_timer, window::PresentMode};
 use client::id_request;
 use cuscuta_resources::TICKS_PER_SECOND;
+use enemies::BossKillEvent;
 use library::*;
 use std::{env, time::Duration};
 use markov_chains::*;
@@ -13,6 +14,7 @@ fn main() {
         /* room manager necessary? */
         .insert_resource(CollisionState::new())
         .insert_resource(RoomConfig::new())
+        .add_event::<BossKillEvent>()
         .insert_resource(Time::<Fixed>::from_hz(TICKS_PER_SECOND))
         .add_systems(PreStartup, init::ip_setup) // should run before we spawn / send data to server
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -40,6 +42,7 @@ fn main() {
             player::player_roll.after(player::animate_player),
             camera::move_camera.after(player::animate_player),
             player::player_attack_enemy.after(player::animate_player),
+            client::boss_kill_event.after(player::player_attack_enemy),
             ui::update_ui_elements,
             player::player_interact,
             player::restore_health,

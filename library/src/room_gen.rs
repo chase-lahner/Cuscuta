@@ -1381,8 +1381,11 @@ pub fn generate_random_room_with_bounds(
     let mut next_attribute_array = NextAttributeArray::new();
 
     // GET CARNAGE PERCENT FROM UI VALUE
-    let carnage_percent: f32 = carnage_query.single_mut().get_overall_percentage();
-
+    
+    let carnage_percent: f32 = 0.;
+    for carnage in carnage_query.iter(){
+        carnage.get_overall_percentage();
+    }
     // Determine the next state for each attribute
     let mut next_state: u8 = 0;
 

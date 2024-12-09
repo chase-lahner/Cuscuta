@@ -8,7 +8,7 @@ pub fn move_camera(
     player: Query<(&Transform,&NetworkId), With<Player>>,
     mut camera: Query<&mut Transform, (Without<Player>, With<Camera>)>,
     room_manager: Res<ClientRoomManager>, // Access the RoomManager to get the room-specific max_x and max_y
-    client_id: Res<ClientId>
+    client_id: Res<ClientId>,
 ) {
     /* iterate players, find us */
     for (transform, id) in player.iter()

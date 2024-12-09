@@ -112,7 +112,9 @@ pub fn listen(
             }  
             ClientPacket::KillEnemyPacket(kill_enemy) => {
                 update_despawn(kill_enemy, &mut enemies_to_kill, &mut commands, &mut enemies); 
-                carnage.single_mut().up_carnage(2.5);
+                for mut carnage in carnage.iter_mut(){
+                    carnage.up_carnage(2.5);
+                }
                 carnage_event.send(CarnageChangeEvent(true));
             }
 
@@ -583,7 +585,10 @@ pub fn check_door(
                   server_spawn_enemies(&mut commands, &mut enemy_id, &mut last_attribute_array, &room_config, &room_manager, &num_players);
 
                   room_change.send(RoomChangeEvent(all_hit));
-                  carnage.single_mut().up_stealth(5.);
+                  for mut carnage in carnage.iter_mut(){
+                      carnage.up_stealth(5.);
+                  }
+                 // carnage.single_mut().up_stealth(5.);
                   carnage_event.send(CarnageChangeEvent(true));
             } else {
                 eprintln!("Error: Player transform was not set!");
@@ -648,7 +653,11 @@ pub fn carnage_update(
 ){
     for event in carnage_event.read(){
         if !event.0{continue};
-        let carnage_bar = carnage.single();
+        let mut carnage_bar: &CarnageBar = &CarnageBar::new();
+        for carnage in carnage.iter(){
+            carnage_bar = carnage;
+        }
+       // let carnage_bar = carnage.single();
         //println!("c.s:{} c.fight:{}", carnage_bar.stealth, carnage_bar.carnage);
         let pack= ServerPacket::CarnagePacket(CarnagePacket{
             carnage: (*carnage_bar).clone(),

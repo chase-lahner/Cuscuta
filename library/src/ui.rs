@@ -58,7 +58,7 @@ impl CarnageBar{
         return self.stealth;
     }
 
-    pub fn get_overall_percentage(&mut self) -> f32 {
+    pub fn get_overall_percentage(& self) -> f32 {
         return self.stealth / 100.;
     }
 }
@@ -200,6 +200,7 @@ pub fn update_ui_elements(
     asset_server: Res<AssetServer>,
     client_id : Res<ClientId>,
 ){
+
     let carnage = carnage_q.single_mut();
     let mut green = green_q.single_mut();
     let mut red = red_q.single_mut();

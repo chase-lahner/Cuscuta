@@ -35,7 +35,8 @@ pub fn client_setup(
     /* initialize to 0. works for single player!
      * will be assigned when given one from server */
     commands.insert_resource(ClientId::new());
-    
+    commands.insert_resource(BossKill{dead:false});
+
     
     /* sequence number! gives us a lil ordering... we put 0
      * for now, which is the server's id but we will reassign
@@ -84,7 +85,6 @@ pub fn server_setup(
     commands.insert_resource(EnemiesToKill::new());
 
     commands.insert_resource(EnemyId::new(0, EnemyKind::skeleton()));
-
     commands.spawn((CarnageBar::new()));
 
     let mut room_manager = RoomManager::new();
