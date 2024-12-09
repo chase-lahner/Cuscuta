@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{collision::*, cuscuta_resources::*, network::{KillEnemyPacket, ServerPacket, UDP}, player::{self, *}, markov_chains::*, room_gen::*};
 
+#[derive(Event)]
+pub struct BossKillEvent(pub Vec2);
+
+#[derive(Resource)]
+pub struct BossKill{pub dead:bool}
+
 /* Set for skeleton enemy */
 const SK_NAME: &str = "Skelebob";
 const SK_PATH: &str = "enemies/skelly.png";
@@ -533,10 +539,6 @@ pub fn enemy_movement(
 pub fn handle_enemy_collision(
     mut enemy_query: Query<(&mut Transform, &mut EnemyMovement), Without<Player>>,
     mut player_query: Query<(&mut Transform, &mut Health, &mut NetworkId), With<Player>>,
-    client_id: ResMut<ClientId>,
-
-
-
 )
 {
     // info!("handle called");
@@ -545,9 +547,6 @@ pub fn handle_enemy_collision(
         for (mut player_transform, mut health, network_id) in player_query.iter_mut()
         {
             // info!("running enemy collision");
-            if network_id.id != client_id.id {
-                continue;
-            }
             if health.current <= 0. {
                 continue;
             }

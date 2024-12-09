@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::network::KillEnemyPacket;
 
+#[derive(Component, Deref, DerefMut)]
+pub struct PopupTimer(pub Timer);
 
 pub const CLIENT_ID_DEFAULT: u8 = 0;
 
@@ -45,6 +47,11 @@ pub const ENEMY_SPOT_DISTANCE: f32 = 192.;
 pub const MONKEY_HANDLE: &str = "monkey/cymbal_monkey1x2.png";
 pub const MONKEY_SPRITE_COL: u32 = 1;
 pub const MONKEY_SPRITE_ROW: u32 = 2;
+
+pub const CHALICE_PATH: &str = "items/chalice.png";
+
+#[derive(Component)]
+pub struct Chalice;
 
 pub const TILE_SIZE: u32 = 32; 
 
