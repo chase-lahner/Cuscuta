@@ -780,14 +780,14 @@ fn create_inner_walls(
 
     // Generate start positions that avoid the midpoint
     let start_pos_x = loop {
-        let pos_x = rng.gen_range(5..=room_width - 5);
+        let pos_x = rng.gen_range(7..=room_width - 7);
         if pos_x != mid_point_x {
             break pos_x;
         }
     };
 
     let start_pos_y = loop {
-        let pos_y = rng.gen_range(5..=room_height - 5);
+        let pos_y = rng.gen_range(7..=room_height - 7);
         if pos_y != mid_point_y {
             break pos_y;
         }
