@@ -14,7 +14,7 @@ pub const CLIENT_ID_DEFAULT: u8 = 0;
 
 pub const TICKS_PER_SECOND: f64 = 60.;
 
-pub const SERVER_ADR: &str = "127.0.0.1:5001"; //136.142.159.86:5001
+pub const SERVER_ADR: &str = "10.0.0.60:5001"; //136.142.159.86:5001
 
 pub const POT_SPRITE_COL: u32 = 1;
 pub const POT_SPRITE_ROW:u32 = 2;
@@ -29,7 +29,7 @@ pub const TITLE: &str = "Cuscuta Demo";// window title
 pub const WIN_W: f32 = 1280.;// window width
 pub const WIN_H: f32 = 720.;// window height
 
-pub const PLAYER_SPEED: f32 = 360.; 
+pub const PLAYER_SPEED: f32 = 240.; 
 pub const ACCELERATION_RATE: f32 = 4800.; 
 pub const SPRINT_MULTIPLIER: f32 = 2.0;
 pub const CROUCH_MULTIPLIER: f32 = 0.25;
