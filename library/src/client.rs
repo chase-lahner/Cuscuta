@@ -3,8 +3,9 @@ use std::net::SocketAddr;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::collision::Aabb;
 use crate::{cuscuta_resources::*, player};
-use crate::enemies::{ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
+use crate::enemies::{BossKill, BossKillEvent, ClientEnemy, Enemy, EnemyId, EnemyKind, EnemyMovement};
 use crate::network::{
     CarnagePacket, ClientPacket, ClientPacketQueue, EnemyS2C, Header, IdPacket, KillEnemyPacket, MapS2C, PlayerSendable, Sequence, ServerPacket, UDP
 };
@@ -98,6 +99,7 @@ pub fn listen(
     mut room_manager: ResMut<ClientRoomManager>,
     mut idstore: ResMut<'_, EnemyIdChecker>,
     mut carnage: Query<&mut CarnageBar>,
+    mut event_writer: EventWriter<BossKillEvent>,
 
 ) {
     //info!("Listening!!!");
@@ -141,9 +143,9 @@ pub fn listen(
             sequence.assign(&enemy_packet.head.sequence);
         }
         ServerPacket::DespawnPacket(despawn_packet) => {
-            despawn_enemy(&mut commands, &mut enemy_q, &despawn_packet.enemy_id);
+            despawn_enemy(&mut commands, &mut enemy_q, &despawn_packet.enemy_id, &mut event_writer);
         }
-        ServerPacket::DespawnAllPacket(despawn_packet) => {
+        ServerPacket::DespawnAllPacket(_) => {
             kill_everyone(&mut commands, &mut enemy_q);
         }
 
@@ -388,14 +390,21 @@ fn recv_enemy(
 }
 
 fn despawn_enemy(
-    mut commands: &mut Commands,
-    mut enemy_q: &mut Query<(Entity, &mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue, &mut Health),(With<Enemy>, Without<Player>)>,
-    id: &EnemyId
+    commands: &mut Commands,
+    enemy_q: &mut Query<(Entity, &mut Transform, &mut EnemyMovement, &mut EnemyId, &mut EnemyPastStateQueue, &mut Health),(With<Enemy>, Without<Player>)>,
+    id: &EnemyId,
+    boss_event: &mut EventWriter<BossKillEvent>,
 ){
-    for (entity, _, _, enemy_id, _, _) in enemy_q.iter_mut(){
+    for (entity, t, _, enemy_id, _, _) in enemy_q.iter_mut(){
         if enemy_id.id == id.id{
             commands.entity(entity).despawn();
-           // info!("killed dat");
+
+            match enemy_id.kind {
+                EnemyKind::Boss(_) => {
+                    boss_event.send(BossKillEvent(Vec2::new(t.translation.x, t.translation.y)));
+                }
+                _ => {}
+            }
         }
     }
 }
@@ -723,3 +732,91 @@ pub fn update_carnage(
     }
 }
 
+pub fn boss_kill_event(
+    mut boss_event: EventReader<BossKillEvent>,
+    mut commands: Commands,
+    asset_server: ResMut<AssetServer>,
+    player: Query<&Transform, (With<Player>, Without<Chalice>, Without<PopupTimer>,Without<Camera>)>,
+    chalice: Query<&Transform, (With<Chalice>, Without<PopupTimer>, Without<Camera>)>,
+    time: Res<Time>, 
+    entities: Query<(Entity), (Without<Camera>,Without<Window>, Without<CarnageBar>, Without<Style>)>,
+    mut camera: Query<&mut Transform, (Without<Player>, With<Camera>, Without<PopupTimer>)>,
+    mut popup: Query<(&mut PopupTimer, &mut Transform)>,
+    mut boss_bool: ResMut<BossKill>,
+
+){
+    for event in boss_event.read(){
+        println!("spaning chalice you kill boss");
+        commands.spawn((
+            SpriteBundle{
+                texture: asset_server.load(CHALICE_PATH),
+                transform: Transform::from_xyz(event.0.x, event.0.y, 50.),
+                ..default()
+            },
+            Chalice,
+        ));
+        boss_bool.dead = true;
+    }
+
+    if !boss_bool.dead{return;}
+    
+    for (player_transform) in player.iter(){
+        let player_collider = Aabb::new(player_transform.translation, Vec2::splat(TILE_SIZE as f32));
+        for chalice_transform in chalice.iter(){
+            let chalice_collider = Aabb::new(chalice_transform.translation, Vec2::splat(TILE_SIZE as f32));
+            if player_collider.intersects(&chalice_collider){
+                //something
+                for entity in entities.iter(){
+                    commands.entity(entity).despawn();
+                }
+                commands.spawn(SpriteBundle {// first image to show
+                    texture: asset_server.load("credits/game_end_credit_screen_rory.png"),
+                    ..default()
+                });
+                commands
+                    .spawn(SpriteBundle {// second image
+                        texture: asset_server.load("credits/game_end_credit_screen_chase.png"),
+                        transform: Transform::from_xyz(0.,0.,-1.),
+                        ..default()
+                    })
+                    .insert(PopupTimer(Timer::from_seconds(3.,TimerMode::Once)));
+                commands
+                    .spawn(SpriteBundle {// third image
+                        texture: asset_server.load("credits/game_end_credits_lukas.png"),
+                        transform: Transform::from_xyz(0.,0.,-2.),
+                        ..default()
+                    })
+                    .insert(PopupTimer(Timer::from_seconds(6.,TimerMode::Once)));
+                commands
+                    .spawn(SpriteBundle {// fourth image
+                        texture: asset_server.load("credits/game_end_credit_screen_nico.png"),
+                        transform: Transform::from_xyz(0.,0.,-3.),
+                        ..default()
+                    })
+                    .insert(PopupTimer(Timer::from_seconds(9.,TimerMode::Once)));
+                commands
+                    .spawn(SpriteBundle { // fifth Image
+                        texture: asset_server.load("credits/game_end_credit_screen_tyler.png"),
+                        transform: Transform::from_xyz(0.,0.,-4.),
+                        ..default()
+                    })
+                    .insert(PopupTimer(Timer::from_seconds(12.,TimerMode::Once)));
+                let mut cam = camera.single_mut();
+                cam.translation.x = 0.;
+                cam.translation.y = 0.;
+                
+
+            }
+        }
+    }
+
+    for (mut timer, mut transform) in popup.iter_mut() {
+        timer.tick(time.delta());
+        if timer.just_finished(){
+            transform.translation *= -2.;// stacked increasingly in -z, this pulls em back!
+            info!("Swapped pics!");
+        }
+
+    }
+
+}

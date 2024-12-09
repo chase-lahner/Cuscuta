@@ -4,7 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::enemies::{EnemyId, EnemyToKill};
+use crate::enemies::{BossKillEvent, EnemyId, EnemyKind, EnemyToKill};
 use crate::network::{ClientPacket, DecreaseEnemyHealthPacket, Header, KillEnemyPacket, MonkeyPacket, Sequence, ServerPacket, UDP};
 
 use crate::{
@@ -368,7 +368,7 @@ pub fn player_attack_enemy(
     mut enemies: Query<(Entity, &mut Transform, &mut EnemyId, &mut Health), (With<Enemy>, Without<Player>)>,
     client_id: Res<ClientId>,
     udp: Res<UDP>,
-    sequence: ResMut<Sequence>
+    mut boss_event: EventWriter<BossKillEvent>,
 ) {
    // info!("checking for player attack");
     for (ptransform, pattack, id) in player.iter_mut() {
@@ -406,6 +406,13 @@ pub fn player_attack_enemy(
                         info!("Sending packet to kill enemy");
                         udp.socket.send_to(&packet, SERVER_ADR).unwrap();
                         commands.entity(ent).despawn();
+
+                        match id.kind {
+                            EnemyKind::Boss(_) => {
+                                boss_event.send(BossKillEvent(Vec2{x:enemy_transform.translation.x, y:enemy_transform.translation.y}));
+                            }
+                            _ => {}
+                        }
                     }    
                 }
             }
