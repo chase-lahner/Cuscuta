@@ -1180,73 +1180,72 @@ pub fn player_roll(
      * 40 - 43 = left
      * ratlas. heh. get it.*/
     for (v, mut ratlas, mut timer, _frame_count, attack, mut roll, id) in player.iter_mut() {
-        if id.id == client_id.id {
-            let abx = v.velocity.x.abs();
-            let aby = v.velocity.y.abs();
+        let abx = v.velocity.x.abs();
+        let aby = v.velocity.y.abs();
 
-            if attack.attacking == true {
-                return;
-            } //do not roll if swinging
+        if attack.attacking == true {
+            return;
+        } //do not roll if swinging
 
-            if input.pressed(KeyCode::KeyR) {
-                roll.rolling = true;
-                if abx > aby {
-                    if v.velocity.x >= 0. {
-                        ratlas.index = 44;
-                    } else if v.velocity.x < 0. {
-                        ratlas.index = 40;
-                    }
-                } else {
-                    if v.velocity.y >= 0. {
-                        ratlas.index = 36;
-                    } else if v.velocity.y < 0. {
-                        ratlas.index = 32;
-                    }
+        if input.pressed(KeyCode::KeyR) {
+            roll.rolling = true;
+            if abx > aby {
+                if v.velocity.x >= 0. {
+                    ratlas.index = 44;
+                } else if v.velocity.x < 0. {
+                    ratlas.index = 40;
                 }
-                timer.reset();
+            } else {
+                if v.velocity.y >= 0. {
+                    ratlas.index = 36;
+                } else if v.velocity.y < 0. {
+                    ratlas.index = 32;
+                }
             }
+            timer.reset();
+        }
 
-            if roll.rolling == true {
-                timer.tick(time.delta());
+        if roll.rolling == true {
+            timer.tick(time.delta());
 
-                if abx > aby {
-                    if v.velocity.x >= 0. {
-                        if timer.finished() {
-                            ratlas.index = ((ratlas.index + 1) % 4) + 44;
-                        }
-                        if ratlas.index == 47 {
-                            roll.rolling = false;
-                            ratlas.index = 24
-                        } //allow for movement anims after last swing frame
-                    } else if v.velocity.x < 0. {
-                        if timer.finished() {
-                            ratlas.index = ((ratlas.index + 1) % 4) + 40;
-                        }
-                        if ratlas.index == 43 {
-                            roll.rolling = false;
-                            ratlas.index = 28
-                        } //allow for movement anims after last swing frame
+            if abx > aby {
+                if v.velocity.x >= 0. {
+                    if timer.finished() {
+                        ratlas.index = ((ratlas.index + 1) % 4) + 44;
                     }
-                } else {
-                    if v.velocity.y >= 0. {
-                        if timer.finished() {
-                            ratlas.index = ((ratlas.index + 1) % 4) + 36;
-                        }
-                        if ratlas.index == 39 {
-                            roll.rolling = false;
-                            ratlas.index = 16
-                        } //allow for movement anims after last swing frame
-                    } else if v.velocity.y < 0. {
-                        if timer.finished() {
-                            ratlas.index = ((ratlas.index + 1) % 4) + 32;
-                        }
-                        if ratlas.index == 35 {
-                            roll.rolling = false;
-                            ratlas.index = 20
-                        } //allow for movement anims after last swing frame
+                    if ratlas.index == 47 {
+                        roll.rolling = false;
+                        ratlas.index = 24
+                    } //allow for movement anims after last swing frame
+                } else if v.velocity.x < 0. {
+                    if timer.finished() {
+                        ratlas.index = ((ratlas.index + 1) % 4) + 40;
                     }
+                    if ratlas.index == 43 {
+                        roll.rolling = false;
+                        ratlas.index = 28
+                    } //allow for movement anims after last swing frame
+                }
+            } else {
+                if v.velocity.y >= 0. {
+                    if timer.finished() {
+                        ratlas.index = ((ratlas.index + 1) % 4) + 36;
+                    }
+                    if ratlas.index == 39 {
+                        roll.rolling = false;
+                        ratlas.index = 16
+                    } //allow for movement anims after last swing frame
+                } else if v.velocity.y < 0. {
+                    if timer.finished() {
+                        ratlas.index = ((ratlas.index + 1) % 4) + 32;
+                    }
+                    if ratlas.index == 35 {
+                        roll.rolling = false;
+                        ratlas.index = 20
+                    } //allow for movement anims after last swing frame
                 }
             }
         }
     }
 }
+
